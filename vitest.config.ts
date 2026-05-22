@@ -4,6 +4,10 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: {
+      '@effjobhunt/shared/search_profile': path.resolve(
+        __dirname,
+        'packages/shared/src/search_profile.ts'
+      ),
       '@effjobhunt/shared': path.resolve(__dirname, 'packages/shared/src/resume.ts'),
     },
   },

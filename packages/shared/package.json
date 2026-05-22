@@ -7,6 +7,10 @@
     ".": {
       "import": "./src/resume.ts",
       "types": "./src/resume.ts"
+    },
+    "./search_profile": {
+      "import": "./src/search_profile.ts",
+      "types": "./src/search_profile.ts"
     }
   },
   "dependencies": {

@@ -74,10 +74,25 @@ export function ContactSection({ contact, onChange, errors }: Props) {
           <input
             id="contact-linkedin"
             type="url"
-            className={`${INPUT} sm:col-span-2`}
+            className={INPUT}
             value={contact.linkedin ?? ''}
             onChange={(e) => field('linkedin')(e.target.value)}
             placeholder="https://linkedin.com/in/yourprofile"
+          />
+        </FormField>
+
+        <FormField
+          id="contact-website"
+          label="Portfolio / Website"
+          error={errors?.['website']?.[0]}
+        >
+          <input
+            id="contact-website"
+            type="url"
+            className={INPUT}
+            value={contact.website ?? ''}
+            onChange={(e) => field('website')(e.target.value)}
+            placeholder="https://yoursite.com"
           />
         </FormField>
       </div>

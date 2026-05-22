@@ -10,6 +10,7 @@ export const ContactInfoSchema = z.object({
   location: z.string().max(120).optional(),
   // Allow empty string (cleared field) OR a valid URL
   linkedin: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  website: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 });
 
 export const WorkExperienceSchema = z.object({
@@ -59,6 +60,7 @@ export function resumeToRawText(resume: Resume): string {
   if (c.phone) lines.push(c.phone);
   if (c.location) lines.push(c.location);
   if (c.linkedin) lines.push(c.linkedin);
+  if (c.website) lines.push(c.website);
 
   if (resume.summary) lines.push(resume.summary);
 
