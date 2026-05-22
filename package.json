@@ -1,0 +1,11 @@
+{
+  "name": "effjobhunt",
+  "private": true,
+  "scripts": {
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

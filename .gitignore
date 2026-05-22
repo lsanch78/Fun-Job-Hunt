@@ -1,0 +1,22 @@
+# Environment files — never commit real keys
+.env
+apps/worker/.env
+apps/web/.env
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Supabase local dev
+.supabase/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
