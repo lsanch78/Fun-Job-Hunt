@@ -4,7 +4,18 @@
       "Bash(head:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(pnpm install:*)",
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(pnpm test:*)"
     ]
   }
 }
