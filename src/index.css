@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Theme tokens ───────────────────────────────────────────────────────────
+   All components use these vars. Swapped by data-theme on <html>.
+   bg       — page background
+   surface  — card / widget background
+   border   — borders, dividers
+   primary  — main accent (text, buttons, highlights)
+   secondary— secondary accent
+   muted    — dim text, placeholders
+──────────────────────────────────────────────────────────────────────────── */
+
+[data-theme='terminal'] {
+  --color-bg:        #0a0a0a;
+  --color-surface:   #141414;
+  --color-border:    #1f1f1f;
+  --color-primary:   #39ff14;
+  --color-secondary: #ffb000;
+  --color-muted:     #3a3a3a;
+  --color-dim:       #23a80d;
+  --color-warning:   #ff4444;
+}
+
+[data-theme='nes'] {
+  --color-bg:        #0d0d2b;
+  --color-surface:   #12123a;
+  --color-border:    #1e1e50;
+  --color-primary:   #00e5ff;
+  --color-secondary: #ff00ff;
+  --color-muted:     #2a2a5a;
+  --color-dim:       #009eb5;
+  --color-warning:   #ff6b35;
+}
+
+[data-theme='gameboy'] {
+  --color-bg:        #0f380f;
+  --color-surface:   #1a4a1a;
+  --color-border:    #306230;
+  --color-primary:   #9bbc0f;
+  --color-secondary: #8bac0f;
+  --color-muted:     #306230;
+  --color-dim:       #6b8209;
+  --color-warning:   #6b4c0f;
+}
+
+[data-theme='arcade'] {
+  --color-bg:        #050505;
+  --color-surface:   #0f0f0f;
+  --color-border:    #1a1a1a;
+  --color-primary:   #ff007f;
+  --color-secondary: #00bfff;
+  --color-muted:     #2a2a2a;
+  --color-dim:       #b3005a;
+  --color-warning:   #ff6600;
+}
+
+/* ─── Base styles ─────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-primary);
+  font-family: 'Press Start 2P', monospace;
+  image-rendering: pixelated;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+}
+
+/* ─── Scanline overlay ────────────────────────────────────────────────────── */
+
+.scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}

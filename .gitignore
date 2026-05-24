@@ -1,7 +1,6 @@
 # Environment files — never commit real keys
 .env
-apps/worker/.env
-apps/web/.env
+.env.local
 
 # Dependencies
 node_modules/
