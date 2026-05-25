@@ -183,27 +183,38 @@ function XpTracker({ xp }: { xp: number }) {
 function playThud(mega = false) {
   try {
     const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    if (mega) {
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(220, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08)
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18)
-      gain.gain.setValueAtTime(0.18, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + 0.5)
-    } else {
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(180, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.12)
-      gain.gain.setValueAtTime(0.12, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + 0.15)
+    const keyCount = mega ? 14 : 7
+    const spacing = mega ? 0.045 : 0.055
+
+    for (let i = 0; i < keyCount; i++) {
+      const t = ctx.currentTime + i * spacing + Math.random() * 0.015
+
+      // Noise burst (the "click" body)
+      const bufLen = ctx.sampleRate * 0.025
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+      const data = buf.getChannelData(0)
+      for (let s = 0; s < bufLen; s++) data[s] = Math.random() * 2 - 1
+
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+
+      // Bandpass centred around the click sweet-spot (~3.5 kHz)
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.value = 1000 + Math.random() * 5200
+      bp.Q.value = 1.2
+
+      // Short sharp envelope
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(mega ? 0.28 : 0.22, t + 0.002)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.022)
+
+      src.connect(bp)
+      bp.connect(gain)
+      gain.connect(ctx.destination)
+      src.start(t)
+      src.stop(t + 0.03)
     }
   } catch { /* AudioContext blocked */ }
 }
