@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [aiSaving,           setAiSaving]           = useState(false)
   const [coverLetterPrompt,  setCoverLetterPrompt]  = useState<string>(DEFAULT_PROMPTS.cover_letter)
   const [whyGoodFitPrompt,   setWhyGoodFitPrompt]   = useState<string>(DEFAULT_PROMPTS.why_good_fit)
+  const [customPrompt,       setCustomPrompt]       = useState<string>(DEFAULT_PROMPTS.custom)
   const [userId,             setUserId]             = useState<string | null>(null)
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function SettingsPage() {
         if (settings) {
           if (settings.cover_letter_prompt) setCoverLetterPrompt(settings.cover_letter_prompt)
           if (settings.why_good_fit_prompt) setWhyGoodFitPrompt(settings.why_good_fit_prompt)
+          if (settings.custom_prompt) setCustomPrompt(settings.custom_prompt)
         }
         setAiLoading(false)
       })
@@ -72,7 +74,7 @@ export default function SettingsPage() {
   async function handleSaveAiSettings() {
     if (!userId) return
     setAiSaving(true)
-    await upsertAiSettings({ user_id: userId, cover_letter_prompt: coverLetterPrompt, why_good_fit_prompt: whyGoodFitPrompt })
+    await upsertAiSettings({ user_id: userId, cover_letter_prompt: coverLetterPrompt, why_good_fit_prompt: whyGoodFitPrompt, custom_prompt: customPrompt })
     setAiSaving(false)
   }
 
