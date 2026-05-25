@@ -1,6 +1,95 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
+
+// ── Terminal hum (same as AppDetailCard) ─────────────────────────────────────
+function startTerminalHum(): () => void {
+  try {
+    const ctx = new AudioContext()
+    const master = ctx.createGain()
+    master.gain.setValueAtTime(0, ctx.currentTime)
+    master.gain.linearRampToValueAtTime(0.022, ctx.currentTime + 2.5)
+    master.connect(ctx.destination)
+
+    const globalHpf = ctx.createBiquadFilter()
+    globalHpf.type = 'highpass'
+    globalHpf.frequency.value = 100
+    globalHpf.Q.value = 0.7
+    globalHpf.connect(master)
+
+    const rumble = ctx.createOscillator()
+    rumble.type = 'sine'
+    rumble.frequency.setValueAtTime(120, ctx.currentTime)
+    rumble.frequency.setValueAtTime(118.5, ctx.currentTime + 1.7)
+    rumble.frequency.setValueAtTime(121.2, ctx.currentTime + 3.4)
+    rumble.frequency.setValueAtTime(119.4, ctx.currentTime + 5.1)
+    const rumbleGain = ctx.createGain()
+    rumbleGain.gain.setValueAtTime(0, ctx.currentTime)
+    rumbleGain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 2.5)
+    rumble.connect(rumbleGain)
+    rumbleGain.connect(globalHpf)
+    rumble.start()
+
+    const chopBufLen = ctx.sampleRate * 3
+    const chopBuf = ctx.createBuffer(1, chopBufLen, ctx.sampleRate)
+    const chopData = chopBuf.getChannelData(0)
+    for (let i = 0; i < chopBufLen; i++) chopData[i] = Math.random() * 2 - 1
+    const chopSrc = ctx.createBufferSource()
+    chopSrc.buffer = chopBuf
+    chopSrc.loop = true
+    const chopBp = ctx.createBiquadFilter()
+    chopBp.type = 'bandpass'
+    chopBp.frequency.value = 210
+    chopBp.Q.value = 3.5
+    const chopGain = ctx.createGain()
+    chopGain.gain.setValueAtTime(0, ctx.currentTime)
+    chopGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 2.5)
+    chopSrc.connect(chopBp)
+    chopBp.connect(chopGain)
+    chopGain.connect(globalHpf)
+    chopSrc.start()
+
+    const hissBufLen = ctx.sampleRate * 5
+    const hissBuf = ctx.createBuffer(1, hissBufLen, ctx.sampleRate)
+    const hissData = hissBuf.getChannelData(0)
+    for (let i = 0; i < hissBufLen; i++) hissData[i] = Math.random() * 2 - 1
+    const hissSrc = ctx.createBufferSource()
+    hissSrc.buffer = hissBuf
+    hissSrc.loop = true
+    const hissHpf = ctx.createBiquadFilter()
+    hissHpf.type = 'highpass'
+    hissHpf.frequency.value = 3800
+    const hissGain = ctx.createGain()
+    hissGain.gain.setValueAtTime(0, ctx.currentTime)
+    hissGain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 2.5)
+    hissSrc.connect(hissHpf)
+    hissHpf.connect(hissGain)
+    hissGain.connect(globalHpf)
+    hissSrc.start()
+
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    lfo.frequency.value = 0.18
+    const lfoDepth = ctx.createGain()
+    lfoDepth.gain.value = 0.018
+    lfo.connect(lfoDepth)
+    lfoDepth.connect(master.gain)
+    lfo.start()
+
+    return () => {
+      try {
+        const t = ctx.currentTime
+        master.gain.cancelScheduledValues(t)
+        master.gain.setValueAtTime(master.gain.value, t)
+        master.gain.linearRampToValueAtTime(0, t + 0.3)
+        setTimeout(() => ctx.close(), 400)
+      } catch { /* ignore */ }
+    }
+  } catch {
+    return () => {}
+  }
+}
 
 type Screen = 'title' | 'email' | 'otp'
 type AuthError = string | null
@@ -32,6 +121,9 @@ export default function AuthPage() {
   const [otp,           setOtp]           = useState('')
   const [error,         setError]         = useState<AuthError>(null)
   const [loading,       setLoading]       = useState(false)
+  const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
+  const [soundOn,       setSoundOn]       = useState(() => localStorage.getItem('fjobhunt:auth_sound') === '1')
+  const stopHumRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -44,6 +136,31 @@ export default function AuthPage() {
       }
     })
   }, [])
+
+  // Start stats polling — refreshes every 5 min, serves cache in between
+  useEffect(() => {
+    const stop = startStatsPoll(setGlobalStats)
+    return stop
+  }, [])
+
+  // Start hum immediately if sound preference is already on
+  useEffect(() => {
+    if (soundOn) stopHumRef.current = startTerminalHum()
+    return () => { stopHumRef.current?.() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleSound() {
+    if (soundOn) {
+      stopHumRef.current?.()
+      stopHumRef.current = null
+      setSoundOn(false)
+      localStorage.setItem('fjobhunt:auth_sound', '0')
+    } else {
+      stopHumRef.current = startTerminalHum()
+      setSoundOn(true)
+      localStorage.setItem('fjobhunt:auth_sound', '1')
+    }
+  }
 
   function proceedFromTitle() {
     playBlip()
@@ -101,9 +218,37 @@ export default function AuthPage() {
 
   // ── Title screen ─────────────────────────────────────────────────────────────
   if (screen === 'title') {
+    const fmt = (n: number | null | undefined, fallback = '—') =>
+      n == null ? fallback : n.toLocaleString()
+
+    const marqueeItems = globalStats
+      ? [
+          `HUNTERS ONLINE: ${fmt(globalStats.hunters)}`,
+          `TOTAL JOBS FOUND: ${fmt(globalStats.employed)}`,
+          `TOTAL INTERVIEWS: ${fmt(globalStats.interviews)}`,
+          `AVG INTERVIEW RATE: ${globalStats.avg_interview_rate == null ? '—' : `${globalStats.avg_interview_rate}%`}`,
+          `AVG DAYS TO OFFER: ${fmt(globalStats.avg_days_to_offer)}`,
+          `TOTAL APPLICATIONS SUBMITTED: ${fmt(globalStats.total_apps)}`,
+        ]
+      : ['LOADING STATS...']
+
+    // Duplicate items so the scroll feels seamless
+    const ticker = [...marqueeItems, ...marqueeItems].join('   ·   ')
+
     return (
-      <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines select-none">
+      <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines select-none relative">
+
+        {/* Main content */}
         <div className="mb-12 text-center">
+          <button
+            onClick={toggleSound}
+            className="mb-6 flex items-center gap-2 mx-auto text-muted hover:opacity-70"
+            style={{ fontSize: '8px', letterSpacing: '0.15em' }}
+          >
+            <span>♪</span>
+            <span>[{soundOn ? 'SOUND ON' : 'BEST EXPERIENCED WITH SOUND ON'}]</span>
+            <span>♪</span>
+          </button>
           <p className="text-primary text-2xl tracking-widest mb-3">FJOBHUNT</p>
           <p className="text-muted text-xs tracking-widest">GAMIFIED JOB SEARCH TRACKER</p>
         </div>
@@ -121,6 +266,30 @@ export default function AuthPage() {
             PRESS ENTER TO START
           </button>
         )}
+
+        {/* Stats ticker — absolutely positioned at top third */}
+        <div
+          className="absolute left-0 right-0 overflow-hidden py-2 bg-bg"
+          style={{
+            top: '20vh',
+            boxShadow: '0 0 8px 1px rgba(57,255,20,0.35), 0 0 28px 4px rgba(57,255,20,0.15)',
+          }}
+        >
+          <div
+            className="flex whitespace-nowrap"
+            style={{ animation: 'marquee-scroll 40s linear infinite' }}
+          >
+            <span className="text-primary text-xs tracking-widest pr-16 shrink-0">{ticker}</span>
+            <span className="text-primary text-xs tracking-widest pr-16 shrink-0" aria-hidden>{ticker}</span>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes marquee-scroll {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+        `}</style>
       </div>
     )
   }

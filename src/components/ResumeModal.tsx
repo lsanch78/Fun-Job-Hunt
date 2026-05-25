@@ -38,12 +38,13 @@ function playBookThud() {
 interface ResumeModalProps {
   url: string
   fileName: string
+  slotColor?: string
   onClose: () => void
   onReplace: (file: File) => void
   replacing?: boolean
 }
 
-export default function ResumeModal({ url, fileName, onClose, onReplace, replacing }: ResumeModalProps) {
+export default function ResumeModal({ url, fileName, slotColor, onClose, onReplace, replacing }: ResumeModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -64,8 +65,14 @@ export default function ResumeModal({ url, fileName, onClose, onReplace, replaci
     <div className="fixed inset-0 z-[100] flex flex-col bg-bg">
 
       {/* Header bar */}
-      <div className="bg-surface border-b border-border px-4 h-10 flex items-center justify-between shrink-0">
-        <span className="font-pixel text-[9px] text-primary tracking-widest">
+      <div
+        className="bg-surface border-b border-border px-4 h-10 flex items-center justify-between shrink-0"
+        style={slotColor ? { borderBottomColor: slotColor } : undefined}
+      >
+        <span
+          className="font-pixel text-[9px] tracking-widest"
+          style={{ color: slotColor ?? 'var(--color-primary)' }}
+        >
           RESUME PREVIEW
         </span>
         <div className="flex items-center gap-3">

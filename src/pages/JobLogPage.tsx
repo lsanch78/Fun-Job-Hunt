@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { Terminal } from 'pixelarticons/react'
 import { useNavigate } from 'react-router-dom'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import type { Job, JobStatus } from '@/types'
@@ -6,6 +7,7 @@ import { readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs, run
 import { supabase } from '@/lib/supabase'
 import WorkdayBar from '@/components/WorkdayBar'
 import QuickCast from '@/components/QuickCast'
+import AppDetailCard from '@/components/AppDetailCard'
 
 interface JobRowHandle {
   focusCompanyInput(): void
@@ -138,8 +140,16 @@ function XpTracker({ xp }: { xp: number }) {
   const { rank, title, progress, nextFloor, isMax } = getRankInfo(xp)
   const barPct = Math.round(progress * 100)
   const prevRankRef = useRef(rank)
+  // Skip the very first effect run so that loading jobs from cache/DB (which
+  // jumps xp from 0 → real value on mount) never triggers the level-up sound.
+  const initializedRef = useRef(false)
 
   useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      prevRankRef.current = rank
+      return
+    }
     if (rank > prevRankRef.current) playLevelUp()
     prevRankRef.current = rank
   }, [rank])
@@ -456,7 +466,8 @@ const JobRow = forwardRef<JobRowHandle, {
   deleteMode?: boolean
   checked?: boolean
   onToggle?: (id: string, e: React.MouseEvent<HTMLInputElement>) => void
-}>(function JobRow({ job, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle }, ref) {
+  onOpenDetail?: () => void
+}>(function JobRow({ job, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
@@ -530,14 +541,24 @@ const JobRow = forwardRef<JobRowHandle, {
       )}
       {/* Company */}
       <td className="px-2 py-1 min-w-[120px]">
-        <input
-          ref={companyInputRef}
-          className={cellInput}
-          placeholder="Company"
-          value={draft.company}
-          onChange={(e) => update('company', e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            tabIndex={-1}
+            onClick={committed ? onOpenDetail : undefined}
+            className={`flex-shrink-0 transition-colors ${committed ? 'text-muted hover:text-secondary cursor-pointer' : 'text-muted/30 cursor-default'}`}
+            title={committed ? 'View application details' : undefined}
+          >
+            <Terminal width={22} height={22} />
+          </button>
+          <input
+            ref={companyInputRef}
+            className={cellInput}
+            placeholder="Company"
+            value={draft.company}
+            onChange={(e) => update('company', e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
+          />
+        </div>
       </td>
 
       {/* Title */}
@@ -671,6 +692,7 @@ export default function JobLogPage() {
   const [sort, setSort] = useState<SortState | null>(null)
   const [page, setPage] = useState(1)
   const [deleteMode, setDeleteMode] = useState(false)
+  const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
@@ -1015,6 +1037,7 @@ export default function JobLogPage() {
                   onTabOut={handleTabOut}
                   deleteMode={deleteMode}
                   checked={selected.has(job.id)}
+                  onOpenDetail={job.committed ? () => setDetailJobId(job.id) : undefined}
                   onToggle={(id, e) => {
                     const committedVisible = visibleJobs.filter((j) => j.committed)
                     const clickedIdx = committedVisible.findIndex((j) => j.id === id)
@@ -1042,6 +1065,16 @@ export default function JobLogPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Application detail card */}
+      {detailJobId && (
+        <AppDetailCard
+          jobs={jobs.filter((j) => j.committed)}
+          jobId={detailJobId}
+          onClose={() => setDetailJobId(null)}
+          onChange={handleDraftChange}
+        />
+      )}
 
       {/* Quick Cast hotbar */}
       <QuickCast />

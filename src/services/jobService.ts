@@ -19,6 +19,7 @@ function dbJobToJob(row: DbJob): Job {
     salary:          row.salary ?? '',
     committed:       true,
     saving:          false,
+    // Detail fields are intentionally omitted here — they're lazy-loaded
   }
 }
 
@@ -33,6 +34,9 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     date_applied: job.applicationDate,
     rating:       job.rating,
     salary:       job.salary || null,
+    description:  job.description ?? null,
+    contacts:     job.contacts ?? null,
+    notes:        job.notes ?? null,
   }
 }
 
@@ -153,6 +157,34 @@ export async function updateJob(job: Job): Promise<void> {
     .eq('id', job.id)
 
   if (error) console.error('[jobService] updateJob:', error.message, job.id)
+}
+
+// ── Detail-card lazy load / save ──────────────────────────────────────────────
+
+/** Fetches only the detail columns for a single job. Returns null on error. */
+export async function fetchJobDetails(jobId: string): Promise<{ description: string | null; contacts: string | null; notes: string | null } | null> {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('description,contacts,notes')
+    .eq('id', jobId)
+    .single()
+
+  if (error) {
+    console.error('[jobService] fetchJobDetails:', error.message, jobId)
+    return null
+  }
+  return data as { description: string | null; contacts: string | null; notes: string | null }
+}
+
+/** Persists only the detail columns for a single job. */
+export async function updateJobDetails(jobId: string, details: { description: string | null; contacts: string | null; notes: string | null }): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('jobs')
+    .update(details)
+    .eq('id', jobId)
+
+  if (error) console.error('[jobService] updateJobDetails:', error.message, jobId)
+  return { error: error?.message ?? null }
 }
 
 export async function deleteJobs(ids: string[]): Promise<void> {

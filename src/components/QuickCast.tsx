@@ -24,38 +24,42 @@ import {
   updateLink as dbUpdateLink,
   deleteLink as dbDeleteLink,
 } from '@/services/quickCastService'
+import {
+  fetchResumeSlots,
+  upsertResumeSlot,
+  deleteResumeSlot,
+  getResumeSignedUrl,
+  uploadResumePdf,
+  deleteResumePdf,
+  type ResumeSlot,
+  type ResumeSlotRecord,
+} from '@/services/resumeService'
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
 function playPageFlip() {
   try {
     const ctx = new AudioContext()
-    // Three "kshh" hits spaced 0.18s apart
-    const hitDuration = 0.65   // each burst lasts this long
-    const spacing     = 0.10   // offset between hits
+    const hitDuration = 0.65
+    const spacing     = 0.10
     const hitCount    = 3
-    // Pre-bake one shared noise buffer (reused by all three sources)
     const bufSize = Math.ceil(ctx.sampleRate * hitDuration)
     const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
     const nd = noiseBuf.getChannelData(0)
     for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1
 
-    const volumes = [0.1, 0.07, 0.05]  // each echo quieter than the last
+    const volumes = [0.1, 0.07, 0.05]
     for (let h = 0; h < hitCount; h++) {
       const t0 = ctx.currentTime + h * spacing
-
       const src = ctx.createBufferSource()
       src.buffer = noiseBuf
       src.playbackRate.value = 0.50 + h * 0.06
-
       const hpf = ctx.createBiquadFilter()
       hpf.type = 'highpass'
       hpf.frequency.value = 300
-
       const gain = ctx.createGain()
-      gain.gain.setValueAtTime(volumes[h], t0)               // instant on
+      gain.gain.setValueAtTime(volumes[h], t0)
       gain.gain.exponentialRampToValueAtTime(0.001, t0 + hitDuration)
-
       src.connect(hpf)
       hpf.connect(gain)
       gain.connect(ctx.destination)
@@ -68,7 +72,6 @@ function playPageFlip() {
 function playSpellCast() {
   try {
     const ctx = new AudioContext()
-    // Ascending arpeggio sweep: classic 8-bit "item get" shape
     const notes = [220, 277.18, 329.63, 440, 554.37, 659.25]
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator()
@@ -89,8 +92,19 @@ function playSpellCast() {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const LINKS_KEY  = 'fjobhunt:quickcast:links'
-const RESUME_KEY = 'fjobhunt:quickcast:resume'
 const MAX_SLOTS  = 8
+
+// Resume slot color palette — works across all themes
+// slot a = theme secondary (primary accent)
+// slot b = success green
+// slot c = caution amber
+const SLOT_COLORS: Record<ResumeSlot, { border: string; text: string; label: string }> = {
+  a: { border: 'var(--color-secondary)', text: 'var(--color-secondary)', label: 'A' },
+  b: { border: '#22c55e',               text: '#22c55e',               label: 'B' },
+  c: { border: '#f59e0b',               text: '#f59e0b',               label: 'C' },
+}
+
+const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -167,17 +181,6 @@ function saveLinks(links: QuickCastSlot[]): void {
   try { localStorage.setItem(LINKS_KEY, JSON.stringify(links)) } catch { /* ignore */ }
 }
 
-function loadResumeFileName(): string | null {
-  try { return localStorage.getItem(RESUME_KEY) } catch { return null }
-}
-
-function saveResumeFileName(name: string | null): void {
-  try {
-    if (name) localStorage.setItem(RESUME_KEY, name)
-    else localStorage.removeItem(RESUME_KEY)
-  } catch { /* ignore */ }
-}
-
 // ── Icon picker sub-component ─────────────────────────────────────────────────
 
 function IconPicker({ value, onChange }: { value: string; onChange: (key: string) => void }) {
@@ -207,6 +210,85 @@ function IconPicker({ value, onChange }: { value: string; onChange: (key: string
   )
 }
 
+// ── Resume name edit popover ──────────────────────────────────────────────────
+
+interface ResumeNamePopoverProps {
+  slot: ResumeSlot
+  currentName: string
+  onSave: (name: string) => void
+  onDelete: () => void
+  onClose: () => void
+}
+
+function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: ResumeNamePopoverProps) {
+  const [draft, setDraft] = useState(currentName)
+  const colors = SLOT_COLORS[slot]
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [])
+
+  return (
+    <div
+      className="absolute bottom-full mb-2 right-0 z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-56"
+      style={{ borderColor: colors.border }}
+    >
+      <div
+        className="flex items-center justify-between px-3 py-2 border-b border-border"
+        style={{ borderColor: colors.border }}
+      >
+        <span className="text-[9px] tracking-widest" style={{ color: colors.text }}>
+          RESUME {slot.toUpperCase()}
+        </span>
+        <button
+          onClick={onClose}
+          className="text-muted hover:text-primary text-[9px] transition-none"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="px-3 py-2 flex flex-col gap-2">
+        <input
+          ref={inputRef}
+          className="bg-bg border border-border text-primary text-[9px] px-2 py-1 outline-none focus:border-primary font-pixel placeholder-muted w-full"
+          style={{ '--tw-ring-color': colors.border } as React.CSSProperties}
+          placeholder="Resume name…"
+          value={draft}
+          maxLength={10}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave(draft.trim() || 'Resume')
+            if (e.key === 'Escape') onClose()
+          }}
+        />
+        <div className="flex gap-1">
+          <button
+            onClick={() => onSave(draft.trim() || 'Resume')}
+            className="text-bg text-[9px] px-3 py-1 font-pixel hover:opacity-80 transition-none"
+            style={{ background: colors.border }}
+          >
+            SAVE
+          </button>
+          <button
+            onClick={onClose}
+            className="text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-secondary hover:text-secondary transition-none"
+          >
+            CANCEL
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-warning hover:text-warning transition-none ml-auto"
+            title="Delete this resume"
+          >
+            DEL
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── QuickCast ─────────────────────────────────────────────────────────────────
 
 export default function QuickCast() {
@@ -220,18 +302,21 @@ export default function QuickCast() {
   const [draftIcon,    setDraftIcon]    = useState(ICON_OPTIONS[0].key)
   const [copiedId,     setCopiedId]     = useState<string | null>(null)
 
-  // Resume
-  const [resumeFileName,  setResumeFileName]  = useState<string | null>(loadResumeFileName)
-  const [resumeUploading, setResumeUploading] = useState(false)
-  const [showResume,      setShowResume]      = useState(false)
+  // Resume slots — keyed by slot letter
+  const [resumeSlots,    setResumeSlots]    = useState<Partial<Record<ResumeSlot, ResumeSlotRecord>>>({})
+  const [uploadingSlot,  setUploadingSlot]  = useState<ResumeSlot | null>(null)
+  const [loadingSlot,    setLoadingSlot]    = useState<ResumeSlot | null>(null)
+  const [editingSlot,    setEditingSlot]    = useState<ResumeSlot | null>(null)
+  const [showResume,     setShowResume]     = useState(false)
   const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
-  const [resumeLoading,   setResumeLoading]   = useState(false)
+  const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
+  // One file input per slot
+  const fileInputRefs = useRef<Partial<Record<ResumeSlot, HTMLInputElement | null>>>({})
 
-  // On mount: resolve user, load from DB if signed in
+  // On mount: resolve user, load from DB
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
@@ -241,10 +326,15 @@ export default function QuickCast() {
           setLinks(rows.map((r) => ({ id: r.id, label: r.label, url: r.url, icon: r.icon })))
         }
       })
+      fetchResumeSlots(user.id).then((rows) => {
+        const map: Partial<Record<ResumeSlot, ResumeSlotRecord>> = {}
+        rows.forEach((r) => { map[r.slot as ResumeSlot] = r })
+        setResumeSlots(map)
+      })
     })
   }, [])
 
-  // Persist to localStorage whenever links change (fallback for signed-out users)
+  // Persist links to localStorage whenever they change
   useEffect(() => { saveLinks(links) }, [links])
 
   // Focus label input when add form opens
@@ -253,6 +343,17 @@ export default function QuickCast() {
       setTimeout(() => labelInputRef.current?.focus(), 0)
     }
   }, [addFormOpen, editingId])
+
+  // Close resume name popover when clicking outside
+  useEffect(() => {
+    if (!editingSlot) return
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node
+      if (!containerRef.current?.contains(target)) setEditingSlot(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [editingSlot])
 
   // ── Link handlers ─────────────────────────────────────────────────────────
 
@@ -330,45 +431,79 @@ export default function QuickCast() {
 
   // ── Resume handlers ───────────────────────────────────────────────────────
 
-  async function uploadResume(file: File) {
-    if (file.type !== 'application/pdf') return
-    setResumeUploading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setResumeUploading(false); return }
-    const { error } = await supabase.storage
-      .from('resumes')
-      .upload(`${user.id}/resume.pdf`, file, { upsert: true, contentType: 'application/pdf' })
-    if (error) {
-      console.error('[QuickCast] resume upload:', error.message)
-    } else {
-      setResumeFileName(file.name)
-      saveResumeFileName(file.name)
-    }
-    setResumeUploading(false)
-  }
-
-  function handleResumeFileInput(e: ChangeEvent<HTMLInputElement>) {
+  async function handleResumeFileInput(slot: ResumeSlot, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (file) uploadResume(file)
+    if (!file || file.type !== 'application/pdf') return
+    if (!userId) return
+    setUploadingSlot(slot)
+    const { error } = await uploadResumePdf(userId, slot, file)
+    if (!error) {
+      const name = resumeSlots[slot]?.name ?? 'Resume'
+      await upsertResumeSlot(userId, slot, name)
+      setResumeSlots((prev) => ({
+        ...prev,
+        [slot]: {
+          id: prev[slot]?.id ?? crypto.randomUUID(),
+          user_id: userId,
+          slot,
+          name,
+          uploaded_at: new Date().toISOString(),
+        },
+      }))
+    }
+    setUploadingSlot(null)
   }
 
-  async function handleOpenResume() {
-    if (resumeLoading) return
-    setResumeLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setResumeLoading(false); return }
-    const { data, error } = await supabase.storage
-      .from('resumes')
-      .createSignedUrl(`${user.id}/resume.pdf`, 3600)
-    if (error || !data) {
-      console.error('[QuickCast] signed URL:', error?.message)
-      setResumeLoading(false)
-      return
-    }
-    setResumeSignedUrl(data.signedUrl)
+  async function handleOpenResume(slot: ResumeSlot) {
+    if (loadingSlot || !userId) return
+    setLoadingSlot(slot)
+    const signedUrl = await getResumeSignedUrl(userId, slot)
+    setLoadingSlot(null)
+    if (!signedUrl) return
+    setActiveSlot(slot)
+    setResumeSignedUrl(signedUrl)
     setShowResume(true)
-    setResumeLoading(false)
+  }
+
+  async function handleReplace(slot: ResumeSlot, file: File) {
+    if (!userId) return
+    setUploadingSlot(slot)
+    const { error } = await uploadResumePdf(userId, slot, file)
+    if (!error) {
+      const name = resumeSlots[slot]?.name ?? 'Resume'
+      await upsertResumeSlot(userId, slot, name)
+    }
+    setUploadingSlot(null)
+  }
+
+  async function handleSaveName(slot: ResumeSlot, name: string) {
+    setEditingSlot(null)
+    if (!userId) return
+    await upsertResumeSlot(userId, slot, name)
+    setResumeSlots((prev) => ({
+      ...prev,
+      [slot]: {
+        ...prev[slot]!,
+        name,
+      },
+    }))
+  }
+
+  async function handleDeleteResume(slot: ResumeSlot) {
+    setEditingSlot(null)
+    if (!userId) return
+    await deleteResumePdf(userId, slot)
+    await deleteResumeSlot(userId, slot)
+    setResumeSlots((prev) => {
+      const next = { ...prev }
+      delete next[slot]
+      return next
+    })
+  }
+
+  function triggerUpload(slot: ResumeSlot) {
+    fileInputRefs.current[slot]?.click()
   }
 
   // ── Shared classnames ─────────────────────────────────────────────────────
@@ -402,7 +537,7 @@ export default function QuickCast() {
           QUICK CAST
         </span>
 
-        {/* Main hotbar row — three zones: links | resume | + */}
+        {/* Main hotbar row — three zones: links | resumes | + */}
         <div className="flex items-end gap-6 w-full justify-center">
 
           {/* ── Left zone: link slots ── */}
@@ -495,56 +630,102 @@ export default function QuickCast() {
             )}
           </div>
 
-          {/* ── Center zone: resume button ── */}
-          <div className="flex flex-col items-center gap-1 relative">
-            <div className="relative group">
-              <button
-                onClick={resumeFileName ? () => { playPageFlip(); handleOpenResume() } : () => { playPageFlip(); fileInputRef.current?.click() }}
-                disabled={resumeLoading || resumeUploading}
-                className={[
-                  'w-20 h-20 flex items-center justify-center leading-none',
-                  'border transition-none select-none',
-                  resumeFileName
-                    ? 'border-secondary text-secondary hover:border-primary hover:text-primary cursor-pointer'
-                    : 'border-border text-muted hover:border-primary hover:text-primary cursor-pointer',
-                  (resumeLoading || resumeUploading) ? 'opacity-50 cursor-not-allowed' : '',
-                ].join(' ')}
-                title={resumeFileName ? 'Preview Resume' : 'Upload Resume'}
-              >
-                <FileText width={44} height={44} />
-              </button>
-              {/* Tooltip */}
-              <div className={[
-                'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-                'bg-surface border border-border font-pixel text-[8px] text-primary',
-                'px-2 py-1 whitespace-nowrap pointer-events-none z-50',
-                'opacity-0 group-hover:opacity-100 transition-none',
-              ].join(' ')}>
-                {resumeLoading ? 'LOADING...' : resumeUploading ? 'UPLOADING...' : 'RESUME'}
-              </div>
-            </div>
+          {/* ── Center zone: resume slots (A, B, C) ── */}
+          <div className="flex items-end gap-1.5">
+            {RESUME_SLOTS.map((slot) => {
+              const record   = resumeSlots[slot]
+              const colors   = SLOT_COLORS[slot]
+              const hasFile  = Boolean(record)
+              const isUploading = uploadingSlot === slot
+              const isLoading   = loadingSlot === slot
+              const isEditOpen  = editingSlot === slot
 
-            {/* Hidden file input for initial upload */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              className="hidden"
-              onChange={handleResumeFileInput}
-            />
+              return (
+                <div key={slot} className="relative flex flex-col items-center gap-0.5">
+                  {/* Name popover */}
+                  {isEditOpen && hasFile && (
+                    <ResumeNamePopover
+                      slot={slot}
+                      currentName={record!.name}
+                      onSave={(name) => handleSaveName(slot, name)}
+                      onDelete={() => handleDeleteResume(slot)}
+                      onClose={() => setEditingSlot(null)}
+                    />
+                  )}
+
+                  {/* Slot button */}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        if (isUploading || isLoading) return
+                        if (hasFile) {
+                          playPageFlip()
+                          handleOpenResume(slot)
+                        } else {
+                          playPageFlip()
+                          triggerUpload(slot)
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        if (hasFile) setEditingSlot(isEditOpen ? null : slot)
+                      }}
+                      disabled={isUploading || isLoading}
+                      className={[
+                        'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
+                        'border transition-none select-none cursor-pointer',
+                        (isUploading || isLoading) ? 'opacity-50 cursor-not-allowed' : '',
+                      ].join(' ')}
+                      style={{
+                        borderColor: hasFile ? colors.border : 'var(--color-border)',
+                        color:       hasFile ? colors.text   : 'var(--color-muted)',
+                      }}
+                      title={hasFile
+                        ? `${record!.name} — click to preview, right-click to rename`
+                        : `Upload Resume ${slot.toUpperCase()}`}
+                    >
+                      <FileText width={32} height={32} />
+                      <span className="font-pixel text-[7px] tracking-widest leading-none">
+                        {isUploading || isLoading ? '...' : hasFile ? record!.name.slice(0, 10) : slot.toUpperCase()}
+                      </span>
+                    </button>
+
+                    {/* Tooltip */}
+                    <div className={[
+                      'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
+                      'bg-surface border border-border font-pixel text-[8px] text-primary',
+                      'px-2 py-1 whitespace-nowrap pointer-events-none z-50',
+                      'opacity-0 group-hover:opacity-100 transition-none',
+                    ].join(' ')}>
+                      {isUploading ? 'UPLOADING...' : isLoading ? 'LOADING...' : hasFile ? record!.name : `RESUME ${slot.toUpperCase()}`}
+                    </div>
+                  </div>
+
+                  {/* Hidden file input */}
+                  <input
+                    ref={(el) => { fileInputRefs.current[slot] = el }}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                    onChange={(e) => handleResumeFileInput(slot, e)}
+                  />
+                </div>
+              )
+            })}
           </div>
 
         </div>
       </div>
 
       {/* Resume modal */}
-      {showResume && resumeSignedUrl && resumeFileName && (
+      {showResume && resumeSignedUrl && activeSlot && resumeSlots[activeSlot] && (
         <ResumeModal
           url={resumeSignedUrl}
-          fileName={resumeFileName}
-          replacing={resumeUploading}
-          onClose={() => { setShowResume(false); setResumeSignedUrl(null) }}
-          onReplace={(file) => uploadResume(file)}
+          fileName={resumeSlots[activeSlot]!.name}
+          slotColor={SLOT_COLORS[activeSlot].border}
+          replacing={uploadingSlot === activeSlot}
+          onClose={() => { setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }}
+          onReplace={(file) => handleReplace(activeSlot, file)}
         />
       )}
     </>

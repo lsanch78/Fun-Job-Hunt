@@ -4,7 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        pixel: ['"Press Start 2P"', 'monospace'],
+        pixel:    ['"Press Start 2P"', 'monospace'],
+        terminal: ['"VT323"', 'monospace'],
       },
       colors: {
         // All theme colors via CSS custom properties.
@@ -24,8 +25,13 @@ export default {
         'xp-pop': 'xp-pop 0.9s ease-out forwards',
         'xp-pop-mega': 'xp-pop-mega 1.2s ease-out forwards',
         'pixel-spin': 'pixel-spin 0.8s steps(8, end) infinite',
+        marquee: 'marquee 40s linear infinite',
       },
       keyframes: {
+        marquee: {
+          '0%':   { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
         blink: {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0' },

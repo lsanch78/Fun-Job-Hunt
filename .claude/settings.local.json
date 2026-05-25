@@ -18,7 +18,8 @@
       "Bash(pnpm test:*)",
       "Bash(npx create-vite@latest:*)",
       "Bash(cat:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(supabase db push:*)"
     ]
   }
 }

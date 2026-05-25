@@ -141,7 +141,7 @@ function AppsPerDayChart({ data }: { data: { date: string; count: number }[] }) 
 
   if (data.length === 0) {
     return (
-      <p className="text-muted text-xs">NO APPLICATIONS YET.</p>
+      <p className="font-terminal text-muted text-xl">NO APPLICATIONS YET.</p>
     )
   }
 
@@ -161,7 +161,7 @@ function AppsPerDayChart({ data }: { data: { date: string; count: number }[] }) 
             />
             {/* Tooltip */}
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-              <div className="bg-surface border border-border px-2 py-1 text-[8px] whitespace-nowrap text-primary">
+              <div className="font-terminal bg-surface border border-border px-2 py-1 text-base whitespace-nowrap text-primary">
                 {date.slice(5)}<br />{count} APP{count !== 1 ? 'S' : ''}
               </div>
             </div>
@@ -185,9 +185,9 @@ function StatCard({
 }) {
   return (
     <div className="border border-border px-4 py-3 bg-surface flex flex-col gap-1 min-w-[120px]">
-      <span className="text-muted text-[8px] tracking-widest">{label}</span>
-      <span className="text-secondary text-xs leading-tight">{value}</span>
-      {sub && <span className="text-muted text-[8px] leading-tight">{sub}</span>}
+      <span className="font-pixel text-muted text-[8px] tracking-widest">{label}</span>
+      <span className="font-terminal text-secondary text-2xl leading-tight">{value}</span>
+      {sub && <span className="font-terminal text-muted text-base leading-tight">{sub}</span>}
     </div>
   )
 }
@@ -351,12 +351,12 @@ export default function StatsPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-bg font-pixel text-primary scanlines pb-20">
+    <div className="min-h-screen bg-bg text-primary scanlines pb-20">
 
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-sm tracking-widest">STATS</h1>
+          <h1 className="font-pixel text-sm tracking-widest">STATS</h1>
           <p className="text-muted text-xs mt-1">
             {loading ? '...' : `${totalApps} applications · ${workdays.length} sessions`}
           </p>
@@ -391,9 +391,9 @@ export default function StatsPage() {
 
       {/* ── Row 1: Hunt overview ─────────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="text-[10px] tracking-widest text-muted">OVERVIEW</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">OVERVIEW</h2>
       </div>
-      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard
           label="HUNT START"
           value={huntStartDate ?? (loading ? '...' : '—')}
@@ -438,9 +438,9 @@ export default function StatsPage() {
 
       {/* ── Row 2: Outcomes ───────────────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="text-[10px] tracking-widest text-muted">OUTCOMES</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">OUTCOMES</h2>
       </div>
-      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard
           label="GHOST RATE"
           value={loading ? '...' : ghostRate === null ? '—' : `${ghostRate}%`}
@@ -460,9 +460,9 @@ export default function StatsPage() {
 
       {/* ── Row 3: Time stats ────────────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="text-[10px] tracking-widest text-muted">TIME</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">TIME</h2>
       </div>
-      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard
           label="STREAK"
           value={loading ? '...' : streak === 0 ? '0 DAYS' : `${streak} DAY${streak !== 1 ? 'S' : ''}`}
@@ -491,9 +491,9 @@ export default function StatsPage() {
 
       {/* ── Row 4: Activity insights ─────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="text-[10px] tracking-widest text-muted">ACTIVITY</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">ACTIVITY</h2>
       </div>
-      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard
           label="APPS / WORK HOUR"
           value={loading ? '...' : appsPerWorkHour === null ? '—' : appsPerWorkHour}
@@ -513,9 +513,9 @@ export default function StatsPage() {
 
       {/* ── Row 5: Job quality ───────────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="text-[10px] tracking-widest text-muted">JOB QUALITY</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">JOB QUALITY</h2>
       </div>
-      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard
           label="AVG RATING"
           value={loading ? '...' : avgRating === null ? '—' : `${avgRating} / 5`}
@@ -530,12 +530,12 @@ export default function StatsPage() {
 
       {/* ── Applications per day chart ───────────────────────────────────────── */}
       <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xs tracking-widest text-muted mb-3">
+        <h2 className="font-pixel text-xs tracking-widest text-muted mb-3">
           APPLICATIONS / DAY
           <span className="ml-3 text-[8px]">(last 30 days)</span>
         </h2>
         {loading
-          ? <p className="text-muted text-xs">LOADING...</p>
+          ? <p className="font-terminal text-muted text-xl">LOADING...</p>
           : <AppsPerDayChart data={chartData} />
         }
         {/* X-axis: first and last date labels */}
@@ -549,23 +549,23 @@ export default function StatsPage() {
 
       {/* ── Workday log ──────────────────────────────────────────────────────── */}
       <div className="px-6 py-4">
-        <h2 className="text-xs tracking-widest text-muted mb-3">WORKDAY LOG</h2>
+        <h2 className="font-pixel text-xs tracking-widest text-muted mb-3">WORKDAY LOG</h2>
 
         {loading && (
           <p className="text-muted text-xs">LOADING...</p>
         )}
 
         {!loading && workdays.length === 0 && (
-          <p className="text-muted text-xs">NO SESSIONS YET. PUNCH IN TO START TRACKING.</p>
+          <p className="font-terminal text-muted text-xl">NO SESSIONS YET. PUNCH IN TO START TRACKING.</p>
         )}
 
         {!loading && workdays.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-xs">
+            <table className="w-full border-collapse font-terminal text-xl">
               <thead>
                 <tr className="border-b border-border text-left select-none">
                   {['DATE', 'PUNCH IN', 'PUNCH OUT', 'DURATION'].map((h) => (
-                    <th key={h} className="px-2 py-2 font-normal text-muted whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-2 py-2 font-normal text-muted whitespace-nowrap tracking-widest">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -574,17 +574,17 @@ export default function StatsPage() {
                   const hrs = sessionHours(row)
                   return (
                     <tr key={row.id} className="border-b border-border hover:bg-surface/50 transition-colors">
-                      <td className="px-2 py-1.5 text-primary whitespace-nowrap">{row.date}</td>
-                      <td className="px-2 py-1.5 text-secondary tabular-nums whitespace-nowrap">
+                      <td className="px-2 py-1 text-primary whitespace-nowrap">{row.date}</td>
+                      <td className="px-2 py-1 text-secondary tabular-nums whitespace-nowrap">
                         {formatTime(row.punch_in)}
                       </td>
-                      <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">
+                      <td className="px-2 py-1 tabular-nums whitespace-nowrap">
                         {row.punch_out
                           ? <span className="text-primary">{formatTime(row.punch_out)}</span>
                           : <span className="text-secondary animate-blink">ACTIVE</span>
                         }
                       </td>
-                      <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">
+                      <td className="px-2 py-1 tabular-nums whitespace-nowrap">
                         {row.punch_out
                           ? <span className="text-muted">{formatHours(hrs)}</span>
                           : <span className="text-secondary animate-blink">—</span>

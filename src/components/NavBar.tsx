@@ -18,6 +18,88 @@ const NAV_LINKS = [
   { label: 'STORY', to: '/story' },
 ]
 
+// ── Sound: logo — descending terminal close blip ─────────────────────────────
+function playExitBlip() {
+  try {
+    const ctx = new AudioContext()
+    const notes = [
+      { freq: 880, t: 0,    dur: 0.06, vol: 0.030 },
+      { freq: 440, t: 0.07, dur: 0.05, vol: 0.028 },
+      { freq: 220, t: 0.13, dur: 0.12, vol: 0.026 },
+    ]
+    notes.forEach(({ freq, t, dur, vol }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
+      gain.gain.setValueAtTime(0, ctx.currentTime + t)
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.005)
+      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + t)
+      osc.stop(ctx.currentTime + t + dur + 0.01)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: jobs page — sharp terminal boot crack ──────────────────────────────
+function playJobsBoot() {
+  try {
+    const ctx = new AudioContext()
+    // Short noise burst through a high-pass filter: crisp terminal "snap"
+    const bufLen = ctx.sampleRate * 0.04
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let s = 0; s < bufLen; s++) data[s] = Math.random() * 2 - 1
+
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 2800
+    hp.Q.value = 0.8
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.038)
+
+    src.connect(hp)
+    hp.connect(gain)
+    gain.connect(ctx.destination)
+    src.start()
+    src.stop(ctx.currentTime + 0.04)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: stats page — quick ascending data blips ────────────────────────────
+function playStatsBlip() {
+  try {
+    const ctx = new AudioContext()
+    // Three rapid ascending square-wave blips: D5 → F#5 → A5
+    const notes = [587.33, 739.99, 880.00]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      const t = ctx.currentTime + i * 0.07
+      osc.frequency.setValueAtTime(freq, t)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.035, t + 0.008)
+      gain.gain.setValueAtTime(0.035, t + 0.045)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14)
+      osc.start(t)
+      osc.stop(t + 0.15)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
+
 export default function NavBar() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
@@ -58,7 +140,7 @@ export default function NavBar() {
 
       {/* ── Left: App name + nav links ── */}
       <div className="flex items-center gap-6">
-        <NavLink to="/auth" className="text-primary tracking-widest whitespace-nowrap hover:text-secondary">
+        <NavLink to="/auth" onClick={playExitBlip} className="text-primary tracking-widest whitespace-nowrap hover:text-secondary">
           FJOBHUNT
         </NavLink>
 
@@ -67,6 +149,7 @@ export default function NavBar() {
             <NavLink
               key={to}
               to={to}
+              onClick={to === '/jobs' ? playJobsBoot : to === '/stats' ? playStatsBlip : undefined}
               className={({ isActive }) =>
                 `whitespace-nowrap transition-none ${
                   isActive

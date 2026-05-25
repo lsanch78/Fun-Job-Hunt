@@ -24,6 +24,10 @@ export interface DbJob {
   date_applied: string
   rating: number
   salary: string | null
+  // Detail-card columns — nullable, lazy-loaded when the card opens
+  description: string | null
+  contacts: string | null
+  notes: string | null
 }
 
 // Frontend-only shape. `committed` and `saving` are never persisted.
@@ -38,6 +42,10 @@ export interface Job {
   salary: string            // numeric string e.g. "120" = $120K
   committed: boolean        // frontend-only: has the row been committed
   saving?: boolean          // true while the DB insert is in-flight
+  // Detail-card fields — lazy-loaded from DB when the card opens
+  description?: string
+  contacts?: string
+  notes?: string
 }
 
 export interface Profile {

@@ -3,6 +3,29 @@ import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 
+// ── Sound: story page entry chime ─────────────────────────────────────────────
+function playStoryChime() {
+  try {
+    const ctx = new AudioContext()
+    const notes = [440.00, 329.63]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      const t = ctx.currentTime + i * 0.22
+      osc.frequency.setValueAtTime(freq, t)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.07, t + 0.04)
+      gain.gain.setValueAtTime(0.07, t + 0.18)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65)
+      osc.start(t)
+      osc.stop(t + 0.65)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── Fanfare sound (Web Audio API — no file needed) ────────────────────────────
 function playFanfare() {
   try {
@@ -145,6 +168,8 @@ export default function StoryPage() {
   const [loading, setLoading] = useState(true)
   const [togglingEmployed, setTogglingEmployed] = useState(false)
   const [fanfare, setFanfare] = useState(false)
+
+  useEffect(() => { playStoryChime() }, [])
 
   useEffect(() => {
     let cancelled = false
