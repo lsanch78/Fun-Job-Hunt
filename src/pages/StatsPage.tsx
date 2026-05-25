@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
 import { fetchJobs, readCache } from '@/services/jobService'
 import type { Job } from '@/types'
-import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
+import { XP } from '@/config/game'
+import XpTracker from '@/components/XpTracker'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -194,6 +196,7 @@ function StatCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage({ userId }: { userId: string | null }) {
+  const navigate = useNavigate()
   const [workdays, setWorkdays] = useState<WorkdayRow[]>(() =>
     userId ? readWorkdayCache(userId) : []
   )
@@ -335,22 +338,6 @@ export default function StatsPage({ userId }: { userId: string | null }) {
 
   // ── Rank ────────────────────────────────────────────────────────────────────
   const xp = totalApps * XP.ADD_JOB
-  const rankInfo = useMemo(() => {
-    let rank = 1
-    for (let i = 1; i < RANK_THRESHOLDS.length; i++) {
-      if (xp >= RANK_THRESHOLDS[i]) rank = i
-      else break
-    }
-    const isMax = rank >= RANK_THRESHOLDS.length - 1
-    const currentFloor = RANK_THRESHOLDS[rank]
-    const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
-    const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
-    return { rank, title: RANK_TITLES[rank] ?? '', progress, nextFloor, isMax }
-  }, [xp])
-
-  const statsAvatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
-  const statsAvatarChar = statsAvatarChars[(rankInfo.rank - 1) % statsAvatarChars.length]
-  const statsBarPct = Math.round(rankInfo.progress * 100)
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -366,31 +353,9 @@ export default function StatsPage({ userId }: { userId: string | null }) {
           </p>
         </div>
 
-        {/* XpTracker card — same layout as Jobs and Story pages */}
-        <div className="flex items-center gap-3 border border-border px-4 py-2.5 bg-surface">
-          <div className="text-2xl leading-none text-secondary select-none" title={`Rank ${rankInfo.rank}`}>
-            {statsAvatarChar}
-          </div>
-          <div className="flex flex-col gap-1 w-[200px]">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-secondary text-[11px] tracking-widest uppercase leading-none">
-                LVL {rankInfo.rank}
-              </span>
-              <span className="text-muted text-[9px] leading-none">
-                {rankInfo.isMax ? 'MAX' : `${xp} / ${rankInfo.nextFloor} XP`}
-              </span>
-            </div>
-            <div className="text-primary text-[9px] leading-tight">
-              {rankInfo.title}
-            </div>
-            <div className="w-full h-1.5 bg-border">
-              <div
-                className="h-full bg-secondary transition-all duration-500"
-                style={{ width: `${statsBarPct}%` }}
-              />
-            </div>
-          </div>
-        </div>
+        <button onClick={() => navigate('/story')} className="cursor-pointer hover:opacity-80 transition-opacity">
+          <XpTracker xp={xp} />
+        </button>
       </div>
 
       {/* ── Row 1: Hunt overview ─────────────────────────────────────────────── */}

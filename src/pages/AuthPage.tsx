@@ -91,7 +91,7 @@ function startTerminalHum(): () => void {
   }
 }
 
-type Screen = 'title' | 'email' | 'otp'
+type Screen = 'title' | 'email' | 'sent'
 type AuthError = string | null
 
 // ── Success blip ──────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ export default function AuthPage() {
   const [screen,        setScreen]        = useState<Screen>('title')
   const [returningName, setReturningName] = useState<string | null>(null)
   const [email,         setEmail]         = useState('')
-  const [otp,           setOtp]           = useState('')
+  const [stayLoggedIn,  setStayLoggedIn]  = useState(true)
   const [error,         setError]         = useState<AuthError>(null)
   const [loading,       setLoading]       = useState(false)
   const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
@@ -186,37 +186,60 @@ export default function AuthPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  async function handleSendOtp(e: React.FormEvent) {
+  async function handleSendMagicLink(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin + '/',
+        data: { stayLoggedIn },
+      },
     })
     setLoading(false)
     if (error) { setError(error.message); return }
-    setScreen('otp')
+    setScreen('sent')
   }
 
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleOAuth(provider: 'google') {
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type: 'email',
-    })
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    navigate('/')
-  }
 
-  async function handleOAuth(provider: 'github' | 'google') {
-    setError(null)
-    const { error } = await supabase.auth.signInWithOAuth({ provider })
-    if (error) setError(error.message)
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin + '/auth/callback',
+        skipBrowserRedirect: true,
+      },
+    })
+
+    if (error || !data.url) {
+      setError(error?.message ?? 'OAuth failed')
+      setLoading(false)
+      return
+    }
+
+    const popup = window.open(data.url, 'oauth_popup', 'width=500,height=600,left=400,top=200')
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+        listener.subscription.unsubscribe()
+        popup?.close()
+        setLoading(false)
+        navigate('/')
+      }
+    })
+
+    // Fallback: if user closes popup manually
+    const pollClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(pollClosed)
+        listener.subscription.unsubscribe()
+        setLoading(false)
+      }
+    }, 500)
   }
 
   // ── Title screen ─────────────────────────────────────────────────────────────
@@ -297,54 +320,28 @@ export default function AuthPage() {
     )
   }
 
-  // ── OTP verify screen ────────────────────────────────────────────────────────
-  if (screen === 'otp') {
+  // ── Sent confirmation screen ──────────────────────────────────────────────────
+  if (screen === 'sent') {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines px-4">
         <div className="w-full max-w-sm">
-          <button
-            onClick={() => { playBlip(); setScreen('email'); setOtp(''); setError(null) }}
-            className="text-muted text-xs mb-8 hover:text-primary"
-          >
-            &lt; BACK
-          </button>
-
           <h1 className="text-primary text-lg mb-2 tracking-widest">CHECK YOUR EMAIL</h1>
           <div className="border-b border-border mb-6" />
 
-          <p className="text-muted text-xs mb-8 leading-5">
-            CODE SENT TO <span className="text-primary">{email.toUpperCase()}</span>
+          <p className="text-muted text-xs mb-4 leading-5">
+            MAGIC LINK SENT TO
+          </p>
+          <p className="text-primary text-xs mb-8 leading-5">{email.toUpperCase()}</p>
+          <p className="text-muted text-xs leading-5">
+            CLICK THE LINK IN YOUR EMAIL TO SIGN IN. YOU CAN CLOSE THIS TAB.
           </p>
 
-          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-            <Field
-              label="ENTER CODE"
-              type="text"
-              value={otp}
-              onChange={setOtp}
-              autoFocus
-            />
-
-            {error && <p className="text-red-500 text-xs leading-5">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
-            >
-              {loading ? 'VERIFYING...' : 'VERIFY CODE'}
-            </button>
-          </form>
-
-          <p className="text-muted text-xs mt-6 text-center">
-            DIDN&apos;T GET IT?{' '}
-            <button
-              className="text-secondary hover:text-primary"
-              onClick={() => { setOtp(''); setError(null); setScreen('email') }}
-            >
-              RESEND
-            </button>
-          </p>
+          <button
+            className="text-secondary text-xs mt-8 hover:text-primary"
+            onClick={() => { setError(null); setScreen('email') }}
+          >
+            &lt; SEND TO A DIFFERENT ADDRESS
+          </button>
         </div>
       </div>
     )
@@ -369,15 +366,10 @@ export default function AuthPage() {
         <div className="flex flex-col gap-3 mb-8">
           <button
             onClick={() => handleOAuth('google')}
-            className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors"
+            disabled={loading}
+            className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
           >
-            &gt; SIGN IN WITH GOOGLE
-          </button>
-          <button
-            onClick={() => handleOAuth('github')}
-            className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors"
-          >
-            &gt; SIGN IN WITH GITHUB
+            {loading ? '> WAITING FOR GOOGLE...' : '> SIGN IN WITH GOOGLE'}
           </button>
         </div>
 
@@ -387,8 +379,8 @@ export default function AuthPage() {
           <div className="flex-1 border-t border-border" />
         </div>
 
-        {/* OTP email */}
-        <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+        {/* Magic link email */}
+        <form onSubmit={handleSendMagicLink} className="flex flex-col gap-4">
           <Field
             label="EMAIL"
             type="email"
@@ -397,6 +389,16 @@ export default function AuthPage() {
             autoFocus
           />
 
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={stayLoggedIn}
+              onChange={(e) => setStayLoggedIn(e.target.checked)}
+              className="accent-primary cursor-pointer"
+            />
+            <span className="text-muted text-xs">STAY LOGGED IN</span>
+          </label>
+
           {error && <p className="text-red-500 text-xs leading-5">{error}</p>}
 
           <button
@@ -404,7 +406,7 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
           >
-            {loading ? 'SENDING...' : 'SEND CODE'}
+            {loading ? 'SENDING...' : 'SEND MAGIC LINK'}
           </button>
         </form>
 

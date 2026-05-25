@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import { supabase } from '@/lib/supabase'
 import AuthPage from '@/pages/AuthPage'
+import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import JobLogPage from '@/pages/JobLogPage'
 import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -52,6 +53,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<Navigate to="/jobs" replace />} />
           <Route
             path="/jobs"

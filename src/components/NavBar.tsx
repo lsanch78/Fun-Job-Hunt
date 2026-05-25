@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
-import { fireTutorial } from '@/lib/tutorialBus'
+import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal: 'TERMINAL',
@@ -76,6 +76,51 @@ function playJobsBoot() {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── Sound: profile dropdown open — soft single blip ──────────────────────────
+function playProfileBlip() {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(660, ctx.currentTime)
+    osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.04)
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.028, ctx.currentTime + 0.006)
+    gain.gain.setValueAtTime(0.028, ctx.currentTime + 0.04)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.11)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: sign out — descending two-note blip ────────────────────────────────
+function playSignOutBlip() {
+  try {
+    const ctx = new AudioContext()
+    const notes = [
+      { freq: 440, t: 0,    dur: 0.06, vol: 0.030 },
+      { freq: 220, t: 0.07, dur: 0.10, vol: 0.025 },
+    ]
+    notes.forEach(({ freq, t, dur, vol }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
+      gain.gain.setValueAtTime(0, ctx.currentTime + t)
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.005)
+      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + t)
+      osc.stop(ctx.currentTime + t + dur + 0.01)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── Sound: stats page — quick ascending data blips ────────────────────────────
 function playStatsBlip() {
   try {
@@ -106,7 +151,13 @@ export default function NavBar() {
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [tutorialActive, setTutorialActive] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    registerTutorialActiveListener(setTutorialActive)
+    return () => unregisterTutorialActiveListener()
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -126,6 +177,7 @@ export default function NavBar() {
   }, [])
 
   async function handleSignOut() {
+    playSignOutBlip()
     await supabase.auth.signOut()
     setDropdownOpen(false)
     navigate('/auth')
@@ -170,8 +222,8 @@ export default function NavBar() {
 
         {/* Tutorial help button */}
         <button
-          onClick={fireTutorial}
-          className="font-pixel text-[9px] text-muted hover:text-primary border border-border hover:border-primary w-5 h-5 flex items-center justify-center leading-none transition-none"
+          onClick={() => { playProfileBlip(); if (hasTutorialTrigger()) { fireTutorial() } else { navigate('/jobs?tutorial=1') } }}
+          className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 font-pixel text-xs ${tutorialActive ? 'bg-primary text-bg border-primary' : 'bg-surface text-muted border-border hover:text-primary hover:border-primary'}`}
           title="Help / Tutorial"
         >
           ?
@@ -183,7 +235,7 @@ export default function NavBar() {
         {/* Profile avatar + dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setDropdownOpen((o) => !o)}
+            onClick={() => { playProfileBlip(); setDropdownOpen((o) => !o) }}
             className="w-6 h-6 bg-primary text-bg flex items-center justify-center leading-none hover:opacity-80"
             title={userEmail ?? 'Account'}
           >

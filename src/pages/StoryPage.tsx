@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
+import XpTracker, { getRankInfo } from '@/components/XpTracker'
 
 // ── Sound: story page entry chime ─────────────────────────────────────────────
 function playStoryChime() {
@@ -54,20 +55,6 @@ function playFanfare() {
   } catch {
     // AudioContext unavailable — silent fail
   }
-}
-
-// ── Rank helpers ──────────────────────────────────────────────────────────────
-function getRankInfo(xp: number) {
-  let rank = 1
-  for (let i = 1; i < RANK_THRESHOLDS.length; i++) {
-    if (xp >= RANK_THRESHOLDS[i]) rank = i
-    else break
-  }
-  const isMax = rank >= RANK_THRESHOLDS.length - 1
-  const currentFloor = RANK_THRESHOLDS[rank]
-  const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
-  const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
-  return { rank, title: RANK_TITLES[rank] ?? '', progress, xp, nextFloor, isMax }
 }
 
 // ── S-path node positions ─────────────────────────────────────────────────────
@@ -214,9 +201,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     setTogglingEmployed(false)
   }
 
-  const { rank: currentRank, progress, nextFloor, isMax } = getRankInfo(xp)
-  const headerAvatarChar = STORY_AVATAR_CHARS[(currentRank - 1) % STORY_AVATAR_CHARS.length]
-  const headerBarPct = Math.round(progress * 100)
+  const { rank: currentRank, progress, isMax } = getRankInfo(xp)
 
   // When employed, treat every node as fully unlocked
   const effectiveRank = employed ? 12 : currentRank
@@ -232,30 +217,9 @@ export default function StoryPage({ userId }: { userId: string | null }) {
           <p className="text-muted text-xs mt-1">your hunt, chapter by chapter</p>
         </div>
 
-        <div className="flex items-center gap-3 border border-border px-4 py-2.5 bg-surface">
-          <div className="text-2xl leading-none text-secondary select-none" title={`Rank ${currentRank}`}>
-            {headerAvatarChar}
-          </div>
-          <div className="flex flex-col gap-1 w-[200px]">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-secondary text-[11px] tracking-widest uppercase leading-none">
-                LVL {currentRank}
-              </span>
-              <span className="text-muted text-[9px] leading-none">
-                {isMax ? 'MAX' : `${xp} / ${nextFloor} XP`}
-              </span>
-            </div>
-            <div className="text-primary text-[9px] leading-tight">
-              {RANK_TITLES[currentRank]}
-            </div>
-            <div className="w-full h-1.5 bg-border">
-              <div
-                className="h-full bg-secondary transition-all duration-500"
-                style={{ width: `${headerBarPct}%` }}
-              />
-            </div>
-          </div>
-        </div>
+        <button className="cursor-default">
+          <XpTracker xp={xp} />
+        </button>
       </div>
 
       {/* Map */}

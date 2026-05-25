@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Music } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import {
   fetchTracks as dbFetchTracks,
@@ -17,6 +18,7 @@ interface Track {
 const STORAGE_TRACKS = 'fjobhunt:music:tracks'
 const STORAGE_VOLUME = 'fjobhunt:music:volume'
 const STORAGE_RESUME = 'fjobhunt:music:resume'
+const STORAGE_SHUFFLE = 'fjobhunt:music:shuffle'
 
 interface ResumeState {
   idx: number
@@ -37,12 +39,11 @@ function loadResume(): ResumeState | null {
 }
 
 const DEFAULT_TRACKS: Track[] = [
-  {
-    id: crypto.randomUUID(),
-    url: 'https://www.youtube.com/watch?v=s6oZ6LJeDws',
-    videoId: 's6oZ6LJeDws',
-    title: 'lo-fi chill',
-  },
+  { id: crypto.randomUUID(), url: 'https://www.youtube.com/watch?v=B42X2-pHjvg', videoId: 'B42X2-pHjvg', title: 'Zelda — Zeryu Soul' },
+  { id: crypto.randomUUID(), url: 'https://www.youtube.com/watch?v=2nM8kZuifeo', videoId: '2nM8kZuifeo', title: 'Fancy Fox Nintendo Mix' },
+  { id: crypto.randomUUID(), url: 'https://www.youtube.com/watch?v=k4Q7LOSE88E', videoId: 'k4Q7LOSE88E', title: 'Donkey Kong Mix — Visual Escape' },
+  { id: crypto.randomUUID(), url: 'https://www.youtube.com/watch?v=unhA-n8z9cQ', videoId: 'unhA-n8z9cQ', title: 'Low Poly DnB — jungle wizard' },
+  { id: crypto.randomUUID(), url: 'https://www.youtube.com/watch?v=KBZnLqeYhgc', videoId: 'KBZnLqeYhgc', title: 'Runescape — Enzo OSRS' },
 ]
 
 function loadTracks(): Track[] {
@@ -65,6 +66,14 @@ function loadVolume(): number {
     }
   } catch { /* ignore */ }
   return 80
+}
+
+function loadShuffle(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_SHUFFLE)
+    if (raw !== null) return raw === 'true'
+  } catch { /* ignore */ }
+  return true // on by default
 }
 
 function extractVideoId(url: string): string | null {
@@ -106,6 +115,23 @@ function loadYTApi(onReady: () => void) {
   document.head.appendChild(tag)
 }
 
+function playMusicBlip() {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(440, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.12)
+  } catch { /* AudioContext blocked */ }
+}
+
 const inputCls = 'bg-bg border border-border text-primary text-xs px-2 py-1 outline-none focus:border-primary font-pixel placeholder-muted'
 
 export default function MusicPlayer() {
@@ -119,6 +145,7 @@ export default function MusicPlayer() {
   })
   const [playing, setPlaying] = useState(false)
   const [volume, setVolume] = useState(loadVolume)
+  const [shuffle, setShuffle] = useState(loadShuffle)
   const [urlInput, setUrlInput] = useState('')
   const [nameInput, setNameInput] = useState('')
   const [inputError, setInputError] = useState<string | null>(null)
@@ -129,25 +156,15 @@ export default function MusicPlayer() {
   const playerRef = useRef<YT.Player | null>(null)
   const iframeContainerRef = useRef<HTMLDivElement>(null)
   const ytReadyRef = useRef(false)
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Mirrors for use in unload handler (avoids stale closure over state)
+  // Mirrors for use in unload handler / event callbacks (avoids stale closures)
   const playingRef = useRef(false)
   const currentIdxRef = useRef(currentIdx)
+  const shuffleRef = useRef(shuffle)
+  const tracksRef = useRef(tracks)
   // Initialised once from storage; createPlayer consumes and clears it
   const resume = loadResume()
   const resumeSeekRef = useRef<number | null>(resume?.playing ? (resume.seconds ?? 0) : null)
   const shouldAutoStartRef = useRef<boolean>(resume?.playing ?? false)
-
-  function scheduleClose() {
-    closeTimer.current = setTimeout(() => setOpen(false), 100)
-  }
-
-  function cancelClose() {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current)
-      closeTimer.current = null
-    }
-  }
 
   // On mount: resolve user, load tracks from DB if signed in
   useEffect(() => {
@@ -172,6 +189,11 @@ export default function MusicPlayer() {
     localStorage.setItem(STORAGE_VOLUME, String(volume))
   }, [volume])
 
+  // Persist shuffle
+  useEffect(() => {
+    localStorage.setItem(STORAGE_SHUFFLE, String(shuffle))
+  }, [shuffle])
+
   // Close on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -183,9 +205,11 @@ export default function MusicPlayer() {
     return () => document.removeEventListener('mousedown', onOutside)
   }, [])
 
-  // Keep refs in sync with state so unload handler never sees stale values
+  // Keep refs in sync with state so callbacks never see stale values
   useEffect(() => { playingRef.current = playing }, [playing])
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
+  useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
+  useEffect(() => { tracksRef.current = tracks }, [tracks])
 
   const createPlayer = useCallback((videoId: string) => {
     if (!iframeContainerRef.current) return
@@ -217,7 +241,16 @@ export default function MusicPlayer() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onStateChange(e: any) {
           if (e.data === window.YT.PlayerState.ENDED) {
-            setCurrentIdx((idx) => (idx + 1) % tracks.length)
+            const len = tracksRef.current.length
+            if (len === 0) return
+            setCurrentIdx((idx) => {
+              if (shuffleRef.current && len > 1) {
+                let next: number
+                do { next = Math.floor(Math.random() * len) } while (next === idx)
+                return next
+              }
+              return (idx + 1) % len
+            })
           }
           if (e.data === window.YT.PlayerState.PLAYING) { setPlaying(true); playingRef.current = true }
           if (e.data === window.YT.PlayerState.PAUSED)  { setPlaying(false); playingRef.current = false }
@@ -324,7 +357,13 @@ export default function MusicPlayer() {
 
   function next() {
     if (tracks.length === 0) return
-    playTrack((currentIdx + 1) % tracks.length)
+    if (shuffle && tracks.length > 1) {
+      let idx: number
+      do { idx = Math.floor(Math.random() * tracks.length) } while (idx === currentIdx)
+      playTrack(idx)
+    } else {
+      playTrack((currentIdx + 1) % tracks.length)
+    }
   }
 
   function removeTrack(id: string) {
@@ -360,8 +399,6 @@ export default function MusicPlayer() {
       className="relative"
       ref={panelRef}
       data-tutorial="music-player"
-      onMouseEnter={() => { cancelClose(); setOpen(true) }}
-      onMouseLeave={scheduleClose}
     >
       {/* YT iframe — always mounted so playback continues in background */}
       <div
@@ -370,45 +407,43 @@ export default function MusicPlayer() {
         aria-hidden
       />
 
-      {/* Inline transport controls */}
-      <div className="flex items-center gap-1 leading-none">
-        <button
-          onClick={prev}
-          disabled={tracks.length === 0}
-          className="text-muted hover:text-primary disabled:opacity-30 text-[10px] px-0.5"
-          title="Previous"
-        >
-          ◀
-        </button>
-        <button
-          onClick={togglePlay}
-          disabled={tracks.length === 0}
-          className={`text-sm px-0.5 disabled:opacity-30 transform -translate-y-0.5 ${playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
-          title={playing ? 'Pause' : 'Play'}
-        >
-          {playing ? '⏸' : '▶'}
-        </button>
-        <button
-          onClick={next}
-          disabled={tracks.length === 0}
-          className="text-muted hover:text-primary disabled:opacity-30 text-[10px] px-0.5"
-          title="Next"
-        >
-          ▶
-        </button>
-      </div>
+      {/* Music icon button — same style as avatar */}
+      <button
+        onClick={() => { playMusicBlip(); setOpen((o) => !o) }}
+        className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 ${
+          playing
+            ? 'bg-primary text-bg border-primary'
+            : 'bg-surface text-muted border-border hover:text-primary hover:border-primary'
+        }`}
+        title={playing ? `Playing: ${currentTrack?.title ?? ''}` : 'Music'}
+      >
+        <Music className="w-4 h-4" />
+      </button>
 
       {/* Panel — opens on hover */}
       {open && (
         <div className="absolute right-0 top-7 bg-surface border border-border w-72 flex flex-col z-50 font-pixel text-xs">
 
-          {/* Now playing */}
-          <div className="px-3 py-2 border-b border-border">
-            <p className="text-muted mb-1">NOW PLAYING</p>
-            <p className="text-primary truncate">{currentTrack ? currentTrack.title : '—'}</p>
+          {/* Now playing + transport */}
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-muted mb-1">NOW PLAYING</p>
+              <p className="text-primary truncate">{currentTrack ? currentTrack.title : '—'}</p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={prev} disabled={tracks.length === 0}
+                className="text-muted hover:text-primary disabled:opacity-30 px-0.5" title="Previous">◀</button>
+              <button onClick={togglePlay} disabled={tracks.length === 0}
+                className={`px-0.5 disabled:opacity-30 ${playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
+                title={playing ? 'Pause' : 'Play'}>
+                {playing ? '⏸' : '▶'}
+              </button>
+              <button onClick={next} disabled={tracks.length === 0}
+                className="text-muted hover:text-primary disabled:opacity-30 px-0.5" title="Next">▶</button>
+            </div>
           </div>
 
-          {/* Volume */}
+          {/* Volume + Shuffle */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
             <span className="text-muted shrink-0">VOL</span>
             <input type="range" min={0} max={100} value={volume}
@@ -417,6 +452,13 @@ export default function MusicPlayer() {
               title={`Volume: ${volume}%`}
             />
             <span className="text-muted w-6 text-right shrink-0">{volume}</span>
+            <button
+              onClick={() => setShuffle((s) => !s)}
+              className={`shrink-0 px-1 border ${shuffle ? 'text-primary border-primary' : 'text-muted border-border hover:text-primary hover:border-primary'}`}
+              title={shuffle ? 'Shuffle: ON' : 'Shuffle: OFF'}
+            >
+              ⇄
+            </button>
           </div>
 
           {/* Queue */}
@@ -459,7 +501,16 @@ export default function MusicPlayer() {
 
           {/* Add track */}
           <div className="px-3 py-2 flex flex-col gap-1">
-            <p className="text-muted">ADD TRACK</p>
+            <div className="flex items-center justify-between">
+              <p className="text-muted">ADD TRACK</p>
+              <button
+                onClick={() => setTracks(DEFAULT_TRACKS.map((t) => ({ ...t, id: crypto.randomUUID() })))}
+                className="text-muted hover:text-primary text-[10px]"
+                title="Reset to default tracks"
+              >
+                RESET
+              </button>
+            </div>
             <input
               className={`${inputCls} w-full`}
               placeholder="Track name (optional)"

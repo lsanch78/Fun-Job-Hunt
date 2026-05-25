@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { Terminal, Trash } from 'pixelarticons/react'
-import { useNavigate } from 'react-router-dom'
-import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { XP } from '@/config/game'
+import XpTracker from '@/components/XpTracker'
 import type { Job, JobStatus } from '@/types'
 import { readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs, runAutoGhost } from '@/services/jobService'
 import WorkdayBar from '@/components/WorkdayBar'
 import QuickCast from '@/components/QuickCast'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
-import { registerTutorialTrigger, unregisterTutorialTrigger } from '@/lib/tutorialBus'
+import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 
 interface JobRowHandle {
   focusCompanyInput(): void
@@ -48,20 +49,6 @@ const cellInput =
 
 function isDraftReady(draft: Job): boolean {
   return draft.company.trim() !== '' && draft.title.trim() !== ''
-}
-
-// ── XP helpers ───────────────────────────────────────────────────────────────
-function getRankInfo(xp: number) {
-  let rank = 1
-  for (let i = 1; i < RANK_THRESHOLDS.length; i++) {
-    if (xp >= RANK_THRESHOLDS[i]) rank = i
-    else break
-  }
-  const isMax = rank >= RANK_THRESHOLDS.length - 1
-  const currentFloor = RANK_THRESHOLDS[rank]
-  const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
-  const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
-  return { rank, title: RANK_TITLES[rank] ?? '', progress, xp, nextFloor, isMax }
 }
 
 // ── Sound: status upgrade chime (Phone Screen / Interview) ───────────────────
@@ -112,83 +99,6 @@ function playCelebrationFanfare() {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── Sound: level-up chime ─────────────────────────────────────────────────────
-function playLevelUp() {
-  try {
-    const ctx = new AudioContext()
-    // C5 → E5 → G5 → C6
-    const notes = [523.25, 659.25, 783.99, 1046.5]
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.18
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t)
-      gain.gain.linearRampToValueAtTime(0.09, t + 0.04)   // soft attack
-      gain.gain.setValueAtTime(0.09, t + 0.18)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55) // long tail
-      osc.start(t)
-      osc.stop(t + 0.55)
-    })
-  } catch { /* AudioContext blocked */ }
-}
-
-// ── XpTracker ─────────────────────────────────────────────────────────────────
-function XpTracker({ xp }: { xp: number }) {
-  const { rank, title, progress, nextFloor, isMax } = getRankInfo(xp)
-  const barPct = Math.round(progress * 100)
-  const prevRankRef = useRef(rank)
-  // Skip the very first effect run so that loading jobs from cache/DB (which
-  // jumps xp from 0 → real value on mount) never triggers the level-up sound.
-  const initializedRef = useRef(false)
-
-  useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true
-      prevRankRef.current = rank
-      return
-    }
-    if (rank > prevRankRef.current) playLevelUp()
-    prevRankRef.current = rank
-  }, [rank])
-
-  const avatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
-  const avatarChar = avatarChars[(rank - 1) % avatarChars.length]
-
-  return (
-    <div className="flex items-center gap-3 border border-border px-4 py-2.5 bg-surface">
-      {/* Avatar */}
-      <div className="text-2xl leading-none text-secondary select-none" title={`Rank ${rank}`}>
-        {avatarChar}
-      </div>
-
-      {/* Info */}
-      <div className="flex flex-col gap-1 w-[200px]">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-secondary text-[11px] tracking-widest uppercase leading-none">
-            LVL {rank}
-          </span>
-          <span className="text-muted text-[9px] leading-none">
-            {isMax ? 'MAX' : `${xp} / ${nextFloor} XP`}
-          </span>
-        </div>
-        <div className="text-primary text-[9px] leading-tight">
-          {title}
-        </div>
-        {/* XP bar */}
-        <div className="w-full h-1.5 bg-border">
-          <div
-            className="h-full bg-secondary transition-all duration-500"
-            style={{ width: `${barPct}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Sound ───────────────────────────────────────────────────────────────────
 function playThud(mega = false) {
@@ -828,6 +738,7 @@ function getDailyMessage(name: string): string {
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function JobLogPage({ userId, userName }: { userId: string | null; userName: string | null }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [jobs, setJobs] = useState<Job[]>(() => {
     const cached = userId ? readCache(userId) : []
     return [emptyJob(), ...cached]
@@ -979,6 +890,17 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   // Reset to page 1 whenever filters/sort/search change
   const filterKey = `${search}|${[...hidden].sort().join(',')}|${sort?.field ?? ''}|${sort?.dir ?? ''}|${timeRange}`
   useEffect(() => { setPage(1) }, [filterKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Broadcast tutorial open/close to NavBar button
+  useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
+
+  // Open tutorial immediately if navigated here with ?tutorial=1
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setShowTutorial(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tutorial: register re-trigger bus + auto-show for first-time visitors
   useEffect(() => {
