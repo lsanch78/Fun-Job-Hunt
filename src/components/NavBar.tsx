@@ -15,12 +15,12 @@ const THEME_LABELS: Record<Theme, string> = {
 const NAV_LINKS = [
   { label: 'JOBS',  to: '/jobs' },
   { label: 'STATS', to: '/stats' },
+  { label: 'STORY', to: '/story' },
 ]
 
 export default function NavBar() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
-  const [muted, setMuted] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -58,7 +58,7 @@ export default function NavBar() {
 
       {/* ── Left: App name + nav links ── */}
       <div className="flex items-center gap-6">
-        <NavLink to="/jobs" className="text-primary tracking-widest whitespace-nowrap hover:text-secondary">
+        <NavLink to="/auth" className="text-primary tracking-widest whitespace-nowrap hover:text-secondary">
           FJOBHUNT
         </NavLink>
 
@@ -85,28 +85,7 @@ export default function NavBar() {
       <div className="flex items-center gap-3">
 
         {/* Music player */}
-        <MusicPlayer muted={muted} />
-
-        {/* Mute toggle */}
-        <button
-          onClick={() => setMuted((m) => !m)}
-          className="text-muted hover:text-primary leading-none"
-          title={muted ? 'Unmute' : 'Mute'}
-        >
-          {muted ? '🔇' : '🔊'}
-        </button>
-
-        {/* Theme cycle (sun = light-ish → moon = dark) */}
-        <button
-          onClick={() => {
-            const idx = THEMES.indexOf(theme)
-            setTheme(THEMES[(idx + 1) % THEMES.length])
-          }}
-          className="text-muted hover:text-primary leading-none"
-          title={`Theme: ${THEME_LABELS[theme]}`}
-        >
-          {theme === 'gameboy' ? '☀️' : '🌙'}
-        </button>
+        <MusicPlayer />
 
         {/* Profile avatar + dropdown */}
         <div className="relative" ref={dropdownRef}>

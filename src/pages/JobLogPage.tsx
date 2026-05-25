@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import type { Job, JobStatus } from '@/types'
-import { readCache, writeCache, fetchJobs, insertJob, updateJob, runAutoGhost } from '@/services/jobService'
+import { readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs, runAutoGhost } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
+import WorkdayBar from '@/components/WorkdayBar'
+import QuickCast from '@/components/QuickCast'
 
 interface JobRowHandle {
   focusCompanyInput(): void
@@ -15,7 +18,7 @@ function emptyJob(): Job {
     title: '',
     status: 'APPLIED',
     postingUrl: '',
-    applicationDate: new Date().toISOString().slice(0, 10),
+    applicationDate: (() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })(),
     rating: 0,
     salary: '',
     committed: false,
@@ -56,6 +59,54 @@ function getRankInfo(xp: number) {
   const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
   const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
   return { rank, title: RANK_TITLES[rank] ?? '', progress, xp, nextFloor, isMax }
+}
+
+// ── Sound: status upgrade chime (Phone Screen / Interview) ───────────────────
+function playProgressChime() {
+  try {
+    const ctx = new AudioContext()
+    // Two ascending notes: G4 → B4
+    const notes = [392.00, 493.88]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      const t = ctx.currentTime + i * 0.14
+      osc.frequency.setValueAtTime(freq, t)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.09, t + 0.03)
+      gain.gain.setValueAtTime(0.09, t + 0.14)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45)
+      osc.start(t)
+      osc.stop(t + 0.45)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: offer celebration fanfare ─────────────────────────────────────────
+function playCelebrationFanfare() {
+  try {
+    const ctx = new AudioContext()
+    // C5 → E5 → G5 → E5 → C6
+    const notes = [523.25, 659.25, 783.99, 659.25, 1046.5]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      const t = ctx.currentTime + i * 0.13
+      osc.frequency.setValueAtTime(freq, t)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.04, t + 0.02)
+      gain.gain.setValueAtTime(0.04, t + 0.11)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55)
+      osc.start(t)
+      osc.stop(t + 0.55)
+    })
+  } catch { /* AudioContext blocked */ }
 }
 
 // ── Sound: level-up chime ─────────────────────────────────────────────────────
@@ -391,7 +442,10 @@ const JobRow = forwardRef<JobRowHandle, {
   onCommit: (committed: Job, rowEl: HTMLTableRowElement | null) => void
   onDraftChange: (draft: Job) => void
   onTabOut?: () => void
-}>(function JobRow({ job, onCommit, onDraftChange, onTabOut }, ref) {
+  deleteMode?: boolean
+  checked?: boolean
+  onToggle?: (id: string, e: React.MouseEvent<HTMLInputElement>) => void
+}>(function JobRow({ job, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
@@ -411,6 +465,15 @@ const JobRow = forwardRef<JobRowHandle, {
     const next = { ...draft, [key]: val }
     setDraft(next)
     onDraftChange(next)
+  }
+
+  function handleStatusChange(next: JobStatus) {
+    if (next === 'OFFER') {
+      playCelebrationFanfare()
+    } else if (next === 'PHONE_SCREEN' || next === 'INTERVIEW') {
+      playProgressChime()
+    }
+    update('status', next)
   }
 
   function tryCommit() {
@@ -439,6 +502,21 @@ const JobRow = forwardRef<JobRowHandle, {
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={() => setFocused(false)}
     >
+      {/* Delete checkbox */}
+      {deleteMode && (
+        <td className="px-2 py-1 w-6">
+          {job.committed && (
+            <input
+              type="checkbox"
+              tabIndex={-1}
+              checked={checked ?? false}
+              onClick={(e) => onToggle?.(job.id, e)}
+              onChange={() => {}}
+              className="cursor-pointer accent-warning"
+            />
+          )}
+        </td>
+      )}
       {/* Company */}
       <td className="px-2 py-1 min-w-[120px]">
         <input
@@ -483,7 +561,7 @@ const JobRow = forwardRef<JobRowHandle, {
       {/* Status — mouse-only */}
       <StatusCell
         status={draft.status}
-        onStatusChange={(s) => update('status', s)}
+        onStatusChange={handleStatusChange}
       />
 
       {/* Commit hint */}
@@ -554,21 +632,42 @@ function applyFilters(
   return visible
 }
 
+// ── First-app-of-the-day messages ────────────────────────────────────────────
+const MORNING_MESSAGES = [
+  (name: string) => `you've got this, ${name}.`,
+  (name: string) => `ready when you are, ${name}.`,
+  (name: string) => `your next offer starts here, ${name}.`,
+  (name: string) => `let's land something great, ${name}.`,
+  (name: string) => `rooting for you today, ${name}.`,
+  (name: string) => `one application at a time, ${name}.`,
+]
+
+function getDailyMessage(name: string): string {
+  const day = new Date().getDate()
+  const fn = MORNING_MESSAGES[day % MORNING_MESSAGES.length]
+  return fn(name)
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function JobLogPage() {
+  const navigate = useNavigate()
   const [jobs, setJobs] = useState<Job[]>([emptyJob()])
   const [popups, setPopups] = useState<XpPopup[]>([])
   const [userId, setUserId] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
   const [sort, setSort] = useState<SortState | null>(null)
   const [page, setPage] = useState(1)
-  const PAGE_SIZE = 100
+  const [deleteMode, setDeleteMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const PAGE_SIZE = 30
   const popupCounter = useRef(0)
   const committedCountRef = useRef(0)
   const rowHandlesRef = useRef<Map<string, JobRowHandle>>(new Map())
   const pendingFocusIdRef = useRef<string | null>(null)
   const updateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const lastCheckedIdxRef = useRef<number | null>(null)
 
   // Auto-focus newly created draft rows
   useEffect(() => {
@@ -588,13 +687,18 @@ export default function JobLogPage() {
 
       const uid = user.id
       setUserId(uid)
+      setUserName(
+        (user.user_metadata?.['username'] as string | undefined) ??
+        user.email?.split('@')[0] ??
+        null
+      )
 
-      // 1. Render from cache immediately
+      // 1. Render from cache immediately (draft pinned at top)
       const cached = readCache(uid)
       if (cached.length > 0) {
         setJobs((prev) => {
           const draft = prev.find((j) => !j.committed) ?? emptyJob()
-          return [...cached, draft]
+          return [draft, ...cached]
         })
         committedCountRef.current = cached.length
       }
@@ -608,10 +712,9 @@ export default function JobLogPage() {
       if (cancelled) return
 
       setJobs((prev) => {
-        const drafts = prev.filter((j) => !j.committed)
-        const merged = dbJobs.length > 0 ? [...dbJobs, ...drafts] : prev
-        const hasDraft = merged.some((j) => !j.committed)
-        return hasDraft ? merged : [...merged, emptyJob()]
+        const draft = prev.find((j) => !j.committed) ?? emptyJob()
+        const merged = dbJobs.length > 0 ? [draft, ...dbJobs] : prev
+        return merged
       })
       writeCache(uid, dbJobs)
       committedCountRef.current = dbJobs.length
@@ -672,18 +775,10 @@ export default function JobLogPage() {
     const savingRow: Job = { ...committed, committed: true, saving: true }
 
     setJobs((prev) => {
-      const idx = prev.findIndex((j) => j.id === committed.id)
-      if (idx === -1) return prev
-      const next = [...prev]
-      next[idx] = savingRow
-      const needsNewRow = idx === prev.length - 1 || !prev.slice(idx + 1).some((j) => !j.committed)
-      if (needsNewRow) {
-        next.push(newJob)
-        pendingFocusIdRef.current = newJob.id
-      } else {
-        const nextUncommitted = next.slice(idx + 1).find((j) => !j.committed)
-        if (nextUncommitted) pendingFocusIdRef.current = nextUncommitted.id
-      }
+      // Remove the committed draft, put a fresh draft at index 0, insert committed job at index 1
+      const without = prev.filter((j) => j.id !== committed.id)
+      const next = [newJob, savingRow, ...without.filter((j) => j.committed)]
+      pendingFocusIdRef.current = newJob.id
       if (userId) writeCache(userId, next)
       return next
     })
@@ -697,7 +792,10 @@ export default function JobLogPage() {
   }
 
   const committedCount = jobs.filter((j) => j.committed).length
-  const filteredJobs = applyFilters(jobs, search, hidden, sort)
+  const todayStr = (() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })()
+  const todayCount = jobs.filter((j) => j.committed && j.applicationDate === todayStr).length
+  const todayJobs = jobs.filter((j) => !j.committed || j.applicationDate === todayStr)
+  const filteredJobs = applyFilters(todayJobs, search, hidden, sort)
 
   // Reset to page 1 whenever filters/sort/search change
   const filterKey = `${search}|${[...hidden].sort().join(',')}|${sort?.field ?? ''}|${sort?.dir ?? ''}`
@@ -708,8 +806,8 @@ export default function JobLogPage() {
   const totalPages        = Math.max(1, Math.ceil(committedFiltered.length / PAGE_SIZE))
   const safePage          = Math.min(page, totalPages)
   const pagedCommitted    = committedFiltered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-  // Drafts always appear on the last page
-  const visibleJobs       = safePage === totalPages ? [...pagedCommitted, ...drafts] : pagedCommitted
+  // Draft pinned at top of page 1 only
+  const visibleJobs       = safePage === 1 ? [...drafts, ...pagedCommitted] : pagedCommitted
 
   function toggleHide(status: JobStatus) {
     setHidden((prev) => {
@@ -717,6 +815,23 @@ export default function JobLogPage() {
       next.has(status) ? next.delete(status) : next.add(status)
       return next
     })
+  }
+
+  function toggleDeleteMode() {
+    setDeleteMode((prev) => !prev)
+    setSelected(new Set())
+  }
+
+  async function handleDelete() {
+    const ids = [...selected]
+    await deleteJobs(ids)
+    setJobs((prev) => {
+      const next = prev.filter((j) => !selected.has(j.id))
+      if (userId) writeCache(userId, next.filter((j) => j.committed))
+      return next
+    })
+    setSelected(new Set())
+    setDeleteMode(false)
   }
 
   function cycleSort(field: SortField) {
@@ -733,7 +848,7 @@ export default function JobLogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg font-pixel text-primary scanlines">
+    <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
       {/* XP popups */}
       {popups.map((p) => (
         <div
@@ -755,10 +870,23 @@ export default function JobLogPage() {
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4">
         <div>
           <h1 className="text-sm tracking-widest">JOBS</h1>
-          <p className="text-muted text-xs mt-1">{committedCount} applications tracked</p>
+          <p className="text-muted text-xs mt-1">
+            {todayCount === 0 && userName
+              ? getDailyMessage(userName)
+              : `${todayCount} application${todayCount !== 1 ? 's' : ''} tracked today`}
+          </p>
         </div>
-        <XpTracker xp={committedCount * XP.ADD_JOB} />
+        <button
+          onClick={() => navigate('/story')}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          title="View Story Map"
+        >
+          <XpTracker xp={committedCount * XP.ADD_JOB} />
+        </button>
       </div>
+
+      {/* Workday bar */}
+      <WorkdayBar inline />
 
       {/* Filter / sort toolbar */}
       <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -811,13 +939,36 @@ export default function JobLogPage() {
             </button>
           ))}
         </div>
+
+        {/* Delete mode */}
+        <div className="flex items-center gap-1 ml-auto">
+          {deleteMode && selected.size > 0 && (
+            <button
+              onClick={handleDelete}
+              className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:opacity-80 transition-none"
+            >
+              DELETE {selected.size} JOB{selected.size !== 1 ? 'S' : ''}
+            </button>
+          )}
+          <button
+            onClick={toggleDeleteMode}
+            className={`text-[10px] px-2 py-0.5 border transition-none ${
+              deleteMode
+                ? 'border-warning text-warning'
+                : 'border-border text-muted hover:border-secondary hover:text-secondary'
+            }`}
+          >
+            {deleteMode ? 'CANCEL' : 'DELETE MODE'}
+          </button>
+        </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-auto flex-1">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="border-b border-border text-primary text-left select-none cursor-default">
+              {deleteMode && <th className="px-2 py-2 w-6" />}
               {[
                 { label: 'COMPANY', muted: false },
                 { label: 'TITLE',   muted: false },
@@ -851,6 +1002,29 @@ export default function JobLogPage() {
                   onCommit={handleCommit}
                   onDraftChange={handleDraftChange}
                   onTabOut={handleTabOut}
+                  deleteMode={deleteMode}
+                  checked={selected.has(job.id)}
+                  onToggle={(id, e) => {
+                    const committedVisible = visibleJobs.filter((j) => j.committed)
+                    const clickedIdx = committedVisible.findIndex((j) => j.id === id)
+                    if (e.shiftKey && lastCheckedIdxRef.current !== null) {
+                      const lo = Math.min(lastCheckedIdxRef.current, clickedIdx)
+                      const hi = Math.max(lastCheckedIdxRef.current, clickedIdx)
+                      const rangeIds = committedVisible.slice(lo, hi + 1).map((j) => j.id)
+                      setSelected((prev) => {
+                        const next = new Set(prev)
+                        rangeIds.forEach((rid) => next.add(rid))
+                        return next
+                      })
+                    } else {
+                      setSelected((prev) => {
+                        const next = new Set(prev)
+                        next.has(id) ? next.delete(id) : next.add(id)
+                        return next
+                      })
+                      lastCheckedIdxRef.current = clickedIdx
+                    }
+                  }}
                 />
               )
             })}
@@ -858,31 +1032,32 @@ export default function JobLogPage() {
         </table>
       </div>
 
+      {/* Quick Cast hotbar */}
+      <QuickCast />
+
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="px-4 py-3 border-t border-border flex items-center gap-3">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={safePage === 1}
-            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
-          >
-            ← PREV
-          </button>
-          <span className="text-muted text-[10px]">
-            {safePage} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={safePage === totalPages}
-            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
-          >
-            NEXT →
-          </button>
-          <span className="text-muted text-[10px] ml-2">
-            {committedFiltered.length} results
-          </span>
-        </div>
-      )}
+      <div className="bg-bg px-4 py-3 border-t border-border flex items-center gap-3">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={safePage === 1}
+          className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+        >
+          ← PREV
+        </button>
+        <span className="text-muted text-[10px]">
+          {safePage} / {totalPages}
+        </span>
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={safePage === totalPages}
+          className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+        >
+          NEXT →
+        </button>
+        <span className="text-muted text-[10px] ml-2">
+          {committedCount} total applications
+        </span>
+      </div>
     </div>
   )
 }

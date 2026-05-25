@@ -6,8 +6,8 @@ import AuthPage from '@/pages/AuthPage'
 import JobLogPage from '@/pages/JobLogPage'
 import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
+import StoryPage from '@/pages/StoryPage'
 import NavBar from '@/components/NavBar'
-import WorkdayBar from '@/components/WorkdayBar'
 import type { Session } from '@supabase/supabase-js'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
@@ -20,20 +20,18 @@ function ProtectedRoute({
   children: React.ReactNode
 }) {
   if (DEV_BYPASS) return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen">
       <NavBar />
-      <div className="flex-1 pb-12">{children}</div>
-      <WorkdayBar />
+      <div className="flex-1 flex flex-col min-h-0">{children}</div>
     </div>
   )
   // undefined = still loading, null = no session
   if (session === undefined) return null
   if (!session) return <Navigate to="/auth" replace />
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen">
       <NavBar />
-      <div className="flex-1 pb-12">{children}</div>
-      <WorkdayBar />
+      <div className="flex-1 flex flex-col min-h-0">{children}</div>
     </div>
   )
 }
@@ -68,6 +66,14 @@ export default function App() {
             element={
               <ProtectedRoute session={session}>
                 <StatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/story"
+            element={
+              <ProtectedRoute session={session}>
+                <StoryPage />
               </ProtectedRoute>
             }
           />

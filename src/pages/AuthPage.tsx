@@ -1,11 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
-type Screen = 'title' | 'login' | 'signup'
+type Screen = 'title' | 'email' | 'otp'
 type AuthError = string | null
-
-const SSO_PROVIDERS = ['GOOGLE', 'APPLE'] as const
 
 // ── Success blip ──────────────────────────────────────────────────────────────
 function playBlip() {
@@ -31,13 +29,9 @@ export default function AuthPage() {
   const [screen,        setScreen]        = useState<Screen>('title')
   const [returningName, setReturningName] = useState<string | null>(null)
   const [email,         setEmail]         = useState('')
-  const [password,      setPassword]      = useState('')
-  const [username,      setUsername]      = useState('')
+  const [otp,           setOtp]           = useState('')
   const [error,         setError]         = useState<AuthError>(null)
   const [loading,       setLoading]       = useState(false)
-  const [muted,         setMuted]         = useState(true)
-
-  const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -51,33 +45,11 @@ export default function AuthPage() {
     })
   }, [])
 
-  // Sync muted state and volume to the audio element
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.muted = muted
-      audioRef.current.volume = 0.4
-    }
-  }, [muted])
-
-
-  function toggleMute() {
-    const audio = audioRef.current
-    if (!audio) return
-    const nextMuted = !muted
-    setMuted(nextMuted)
-    if (!nextMuted) {
-      audio.muted = false
-      audio.play().catch(() => { /* blocked */ })
-    } else {
-      audio.muted = true
-    }
-  }
-
   function proceedFromTitle() {
     playBlip()
     setTimeout(() => {
       if (returningName) navigate('/')
-      else setScreen('login')
+      else setScreen('email')
     }, 80)
   }
 
@@ -94,81 +66,121 @@ export default function AuthPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    })
     setLoading(false)
     if (error) { setError(error.message); return }
-    navigate('/')
+    setScreen('otp')
   }
 
-  async function handleSignup(e: React.FormEvent) {
+  async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.verifyOtp({
       email,
-      password,
-      options: { data: { username } },
+      token: otp,
+      type: 'email',
     })
     setLoading(false)
     if (error) { setError(error.message); return }
     navigate('/')
   }
 
-  // Render audio at the root so it persists across all screens
-  const audioEl = <audio ref={audioRef} src="/theme.mp3" loop muted preload="auto" className="hidden" />
+  async function handleOAuth(provider: 'github' | 'google') {
+    setError(null)
+    const { error } = await supabase.auth.signInWithOAuth({ provider })
+    if (error) setError(error.message)
+  }
 
+  // ── Title screen ─────────────────────────────────────────────────────────────
   if (screen === 'title') {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines select-none">
-        {audioEl}
-        {/* Speaker toggle — top-right corner */}
-        <button
-          onClick={toggleMute}
-          className="fixed top-4 right-4 text-muted hover:text-primary text-sm leading-none"
-          title={muted ? 'Unmute theme' : 'Mute theme'}
-        >
-          {muted ? '🔇' : '🔊'}
-        </button>
-
         <div className="mb-12 text-center">
-          <p className="text-muted text-[10px] tracking-widest animate-pulse select-none mb-4">
-            ♪ BEST WITH SOUND ON
-          </p>
           <p className="text-primary text-2xl tracking-widest mb-3">FJOBHUNT</p>
           <p className="text-muted text-xs tracking-widest">GAMIFIED JOB SEARCH TRACKER</p>
         </div>
 
         {returningName ? (
-          <div className="text-center">
+          <button className="text-center" onClick={proceedFromTitle}>
             <p className="text-secondary text-xs mb-2">WELCOME BACK,</p>
             <p className="text-primary text-sm mb-10 tracking-widest">
               {returningName.toUpperCase()}
             </p>
             <p className="text-primary text-xs animate-blink">PRESS ENTER TO CONTINUE</p>
-          </div>
+          </button>
         ) : (
-          <p className="text-primary text-xs animate-blink">PRESS ENTER TO START</p>
+          <button className="text-primary text-xs animate-blink" onClick={proceedFromTitle}>
+            PRESS ENTER TO START
+          </button>
         )}
-
-        <button
-          className="mt-16 text-muted text-xs hover:text-primary"
-          onClick={proceedFromTitle}
-        >
-          [ or click here ]
-        </button>
       </div>
     )
   }
 
-  const isSignup = screen === 'signup'
+  // ── OTP verify screen ────────────────────────────────────────────────────────
+  if (screen === 'otp') {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines px-4">
+        <div className="w-full max-w-sm">
+          <button
+            onClick={() => { playBlip(); setScreen('email'); setOtp(''); setError(null) }}
+            className="text-muted text-xs mb-8 hover:text-primary"
+          >
+            &lt; BACK
+          </button>
 
+          <h1 className="text-primary text-lg mb-2 tracking-widest">CHECK YOUR EMAIL</h1>
+          <div className="border-b border-border mb-6" />
+
+          <p className="text-muted text-xs mb-8 leading-5">
+            CODE SENT TO <span className="text-primary">{email.toUpperCase()}</span>
+          </p>
+
+          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+            <Field
+              label="ENTER CODE"
+              type="text"
+              value={otp}
+              onChange={setOtp}
+              autoFocus
+            />
+
+            {error && <p className="text-red-500 text-xs leading-5">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
+            >
+              {loading ? 'VERIFYING...' : 'VERIFY CODE'}
+            </button>
+          </form>
+
+          <p className="text-muted text-xs mt-6 text-center">
+            DIDN&apos;T GET IT?{' '}
+            <button
+              className="text-secondary hover:text-primary"
+              onClick={() => { setOtp(''); setError(null); setScreen('email') }}
+            >
+              RESEND
+            </button>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Email screen ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines px-4">
-      {audioEl}
       <div className="w-full max-w-sm">
 
         <button
@@ -178,21 +190,23 @@ export default function AuthPage() {
           &lt; BACK
         </button>
 
-        <h1 className="text-primary text-lg mb-2 tracking-widest">
-          {isSignup ? 'CREATE ACCOUNT' : 'LOGIN'}
-        </h1>
+        <h1 className="text-primary text-lg mb-2 tracking-widest">SIGN IN</h1>
         <div className="border-b border-border mb-8" />
 
+        {/* OAuth */}
         <div className="flex flex-col gap-3 mb-8">
-          {SSO_PROVIDERS.map((label) => (
-            <button
-              key={label}
-              disabled
-              className="w-full border border-border text-muted text-xs py-3 px-4 text-left opacity-40 cursor-not-allowed"
-            >
-              &gt; SIGN IN WITH {label} (COMING SOON)
-            </button>
-          ))}
+          <button
+            onClick={() => handleOAuth('google')}
+            className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors"
+          >
+            &gt; SIGN IN WITH GOOGLE
+          </button>
+          <button
+            onClick={() => handleOAuth('github')}
+            className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors"
+          >
+            &gt; SIGN IN WITH GITHUB
+          </button>
         </div>
 
         <div className="flex items-center gap-3 mb-8">
@@ -201,52 +215,26 @@ export default function AuthPage() {
           <div className="flex-1 border-t border-border" />
         </div>
 
-        <form onSubmit={isSignup ? handleSignup : handleLogin} className="flex flex-col gap-4">
-          {isSignup && (
-            <Field
-              label="USERNAME"
-              type="text"
-              value={username}
-              onChange={setUsername}
-              autoFocus
-            />
-          )}
+        {/* OTP email */}
+        <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
           <Field
             label="EMAIL"
             type="email"
             value={email}
             onChange={setEmail}
-            autoFocus={!isSignup}
-          />
-          <Field
-            label="PASSWORD"
-            type="password"
-            value={password}
-            onChange={setPassword}
+            autoFocus
           />
 
-          {error && (
-            <p className="text-red-500 text-xs leading-5">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-xs leading-5">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
           >
-            {loading ? 'LOADING...' : isSignup ? 'CREATE ACCOUNT' : 'LOGIN'}
+            {loading ? 'SENDING...' : 'SEND CODE'}
           </button>
         </form>
-
-        <p className="text-muted text-xs mt-6 text-center">
-          {isSignup ? 'ALREADY HAVE AN ACCOUNT? ' : 'NO ACCOUNT? '}
-          <button
-            className="text-secondary hover:text-primary"
-            onClick={() => { setError(null); setScreen(isSignup ? 'login' : 'signup') }}
-          >
-            {isSignup ? 'LOGIN' : 'SIGN UP'}
-          </button>
-        </p>
 
       </div>
     </div>

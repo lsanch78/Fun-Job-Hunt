@@ -7,6 +7,8 @@ import { startWorkday, endWorkday } from '@/services/workdayService'
 
 const STORAGE_KEY = 'workday_punch_in'
 const WORKDAY_ID_KEY = 'workday_id'
+const BREAK_START_KEY = 'workday_break_start'
+const BREAK_LABEL_KEY = 'workday_break_label'
 
 function savePunchIn(isoString: string) {
   localStorage.setItem(STORAGE_KEY, isoString)
@@ -21,6 +23,27 @@ function loadPunchIn(): Date | null {
 
 function clearPunchIn() {
   localStorage.removeItem(STORAGE_KEY)
+}
+
+function saveBreakStart(isoString: string, label: string) {
+  localStorage.setItem(BREAK_START_KEY, isoString)
+  localStorage.setItem(BREAK_LABEL_KEY, label)
+}
+
+function loadBreakStart(): Date | null {
+  const raw = localStorage.getItem(BREAK_START_KEY)
+  if (!raw) return null
+  const d = new Date(raw)
+  return isNaN(d.getTime()) ? null : d
+}
+
+function loadBreakLabel(): string | null {
+  return localStorage.getItem(BREAK_LABEL_KEY)
+}
+
+function clearBreakStart() {
+  localStorage.removeItem(BREAK_START_KEY)
+  localStorage.removeItem(BREAK_LABEL_KEY)
 }
 
 // ── Time formatting helpers ───────────────────────────────────────────────────
@@ -95,54 +118,134 @@ function playBreakChime() {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── Sound: punch-in chime ─────────────────────────────────────────────────────
+// ── Sound: punch-in stamp ─────────────────────────────────────────────────────
 
 function playPunchIn() {
   try {
     const ctx = new AudioContext()
-    // Two short ascending beeps
-    [[440, 0], [660, 0.15]].forEach(([freq, delay]) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + delay
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0.08, t)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
-      osc.start(t)
-      osc.stop(t + 0.12)
-    })
+    const sr = ctx.sampleRate
+    const now = ctx.currentTime
+
+    // Layer 1: impact thud — short low-frequency sine thump
+    const thudOsc = ctx.createOscillator()
+    const thudGain = ctx.createGain()
+    thudOsc.type = 'sine'
+    thudOsc.frequency.setValueAtTime(90, now)
+    thudOsc.frequency.exponentialRampToValueAtTime(40, now + 0.08)
+    thudGain.gain.setValueAtTime(0.55, now)
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    thudOsc.connect(thudGain)
+    thudGain.connect(ctx.destination)
+    thudOsc.start(now)
+    thudOsc.stop(now + 0.12)
+
+    // Layer 2: stamp crack — filtered noise burst
+    const crackBuf = ctx.createBuffer(1, Math.ceil(sr * 0.06), sr)
+    const cd = crackBuf.getChannelData(0)
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1
+    const crackSrc = ctx.createBufferSource()
+    crackSrc.buffer = crackBuf
+    const crackHpf = ctx.createBiquadFilter()
+    crackHpf.type = 'bandpass'
+    crackHpf.frequency.value = 2200
+    crackHpf.Q.value = 0.8
+    const crackGain = ctx.createGain()
+    crackGain.gain.setValueAtTime(0.22, now)
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
+    crackSrc.connect(crackHpf)
+    crackHpf.connect(crackGain)
+    crackGain.connect(ctx.destination)
+    crackSrc.start(now)
+    crackSrc.stop(now + 0.06)
+
+    // Layer 3: ink-squeak — short rising chirp after the stamp lands
+    const squeakOsc = ctx.createOscillator()
+    const squeakGain = ctx.createGain()
+    squeakOsc.type = 'sine'
+    squeakOsc.frequency.setValueAtTime(700, now + 0.04)
+    squeakOsc.frequency.linearRampToValueAtTime(1100, now + 0.10)
+    squeakGain.gain.setValueAtTime(0, now + 0.04)
+    squeakGain.gain.linearRampToValueAtTime(0.06, now + 0.055)
+    squeakGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    squeakOsc.connect(squeakGain)
+    squeakGain.connect(ctx.destination)
+    squeakOsc.start(now + 0.04)
+    squeakOsc.stop(now + 0.12)
   } catch { /* AudioContext blocked */ }
 }
+
+// ── Sound: punch-out stamp + paper slide ─────────────────────────────────────
 
 function playPunchOut() {
   try {
     const ctx = new AudioContext()
-    // Two short descending beeps
-    [[660, 0], [440, 0.15]].forEach(([freq, delay]) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + delay
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0.08, t)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
-      osc.start(t)
-      osc.stop(t + 0.12)
-    })
+    const sr = ctx.sampleRate
+    const now = ctx.currentTime
+
+    // Layer 1: heavier thud — same stamp feel, slightly lower
+    const thudOsc = ctx.createOscillator()
+    const thudGain = ctx.createGain()
+    thudOsc.type = 'sine'
+    thudOsc.frequency.setValueAtTime(75, now)
+    thudOsc.frequency.exponentialRampToValueAtTime(32, now + 0.10)
+    thudGain.gain.setValueAtTime(0.6, now)
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14)
+    thudOsc.connect(thudGain)
+    thudGain.connect(ctx.destination)
+    thudOsc.start(now)
+    thudOsc.stop(now + 0.14)
+
+    // Layer 2: stamp crack
+    const crackBuf = ctx.createBuffer(1, Math.ceil(sr * 0.06), sr)
+    const cd = crackBuf.getChannelData(0)
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1
+    const crackSrc = ctx.createBufferSource()
+    crackSrc.buffer = crackBuf
+    const crackHpf = ctx.createBiquadFilter()
+    crackHpf.type = 'bandpass'
+    crackHpf.frequency.value = 1800
+    crackHpf.Q.value = 0.7
+    const crackGain = ctx.createGain()
+    crackGain.gain.setValueAtTime(0.25, now)
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
+    crackSrc.connect(crackHpf)
+    crackHpf.connect(crackGain)
+    crackGain.connect(ctx.destination)
+    crackSrc.start(now)
+    crackSrc.stop(now + 0.06)
+
+    // Layer 3: paper slide — low-passed noise that fades in after the stamp
+    const slideDur = 0.28
+    const slideBuf = ctx.createBuffer(1, Math.ceil(sr * slideDur), sr)
+    const sd = slideBuf.getChannelData(0)
+    for (let i = 0; i < sd.length; i++) sd[i] = Math.random() * 2 - 1
+    const slideSrc = ctx.createBufferSource()
+    slideSrc.buffer = slideBuf
+    slideSrc.playbackRate.value = 0.6
+    const slideLpf = ctx.createBiquadFilter()
+    slideLpf.type = 'lowpass'
+    slideLpf.frequency.value = 800
+    const slideGain = ctx.createGain()
+    const slideStart = now + 0.08
+    slideGain.gain.setValueAtTime(0, slideStart)
+    slideGain.gain.linearRampToValueAtTime(0.09, slideStart + 0.05)
+    slideGain.gain.exponentialRampToValueAtTime(0.001, slideStart + slideDur)
+    slideSrc.connect(slideLpf)
+    slideLpf.connect(slideGain)
+    slideGain.connect(ctx.destination)
+    slideSrc.start(slideStart)
+    slideSrc.stop(slideStart + slideDur)
   } catch { /* AudioContext blocked */ }
 }
 
 // ── WorkdayBar ────────────────────────────────────────────────────────────────
 
-export default function WorkdayBar() {
+export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
   const [now, setNow] = useState(() => new Date())
   const [punchIn, setPunchIn] = useState<Date | null>(() => loadPunchIn())
-  const [breakDue, setBreakDue] = useState<string | null>(null) // label of the break that just fired
+  const [breakStartedAt, setBreakStartedAt] = useState<Date | null>(() => loadBreakStart())
+  const [breakDue, setBreakDue] = useState<string | null>(() => loadBreakLabel())
+  const breakActive = breakStartedAt !== null
   // tracks which break offsets have already chimed, keyed by punchIn ISO string
   const firedChimesRef = useRef<Set<number>>(new Set())
   // lastActivity tracks last user interaction for auto-punch-out
@@ -192,8 +295,16 @@ export default function WorkdayBar() {
     }
   }, [now, punchIn])
 
-  function dismissBreak() {
-    setBreakDue(null)
+  function handleBreakButton() {
+    if (breakActive) {
+      clearBreakStart()
+      setBreakStartedAt(null)
+      setBreakDue(null)
+    } else {
+      const t = new Date()
+      saveBreakStart(t.toISOString(), breakDue ?? '')
+      setBreakStartedAt(t)
+    }
   }
 
   function doPunchIn() {
@@ -214,7 +325,9 @@ export default function WorkdayBar() {
     const workdayId = localStorage.getItem(WORKDAY_ID_KEY)
     localStorage.removeItem(WORKDAY_ID_KEY)
     clearPunchIn()
+    clearBreakStart()
     setPunchIn(null)
+    setBreakStartedAt(null)
     setBreakDue(null)
     firedChimesRef.current.clear()
     playPunchOut()
@@ -235,7 +348,7 @@ export default function WorkdayBar() {
   const btnDanger = `${btn} border-secondary text-secondary hover:bg-secondary hover:text-bg`
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel">
+    <div className={inline ? "bg-surface border-b border-border font-pixel" : "fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel"}>
       <div className="flex items-center gap-6 px-6 py-2 text-xs">
 
         {/* Live clock */}
@@ -320,10 +433,17 @@ export default function WorkdayBar() {
           <>
             <div className="h-8 w-px bg-border" />
             <button
-              className="font-pixel text-[9px] px-4 py-1.5 border border-secondary text-secondary animate-blink hover:bg-secondary hover:text-bg cursor-pointer tracking-widest transition-colors"
-              onClick={dismissBreak}
+              className={[
+                'font-pixel text-[9px] px-4 py-1.5 border cursor-pointer tracking-widest transition-colors',
+                breakActive
+                  ? 'border-secondary bg-secondary text-bg'
+                  : 'border-secondary text-secondary animate-blink hover:bg-secondary hover:text-bg',
+              ].join(' ')}
+              onClick={handleBreakButton}
             >
-              ► TAKE {breakDue} ◄
+              {breakActive
+                ? `■ ON BREAK ${breakStartedAt ? formatElapsed(now.getTime() - breakStartedAt.getTime()) : ''}`
+                : `TAKE ${breakDue}`}
             </button>
           </>
         )}

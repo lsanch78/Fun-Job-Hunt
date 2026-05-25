@@ -154,3 +154,9 @@ export async function updateJob(job: Job): Promise<void> {
 
   if (error) console.error('[jobService] updateJob:', error.message, job.id)
 }
+
+export async function deleteJobs(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('jobs').delete().in('id', ids)
+  if (error) console.error('[jobService] deleteJobs:', error.message)
+}

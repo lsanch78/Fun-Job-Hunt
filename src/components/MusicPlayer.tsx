@@ -1,4 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import {
+  fetchTracks as dbFetchTracks,
+  createTrack as dbCreateTrack,
+  renameTrack as dbRenameTrack,
+  deleteTrack as dbDeleteTrack,
+} from '@/services/musicService'
 
 interface Track {
   id: string
@@ -9,6 +16,25 @@ interface Track {
 
 const STORAGE_TRACKS = 'fjobhunt:music:tracks'
 const STORAGE_VOLUME = 'fjobhunt:music:volume'
+const STORAGE_RESUME = 'fjobhunt:music:resume'
+
+interface ResumeState {
+  idx: number
+  seconds: number
+  playing: boolean
+}
+
+function saveResume(state: ResumeState) {
+  try { localStorage.setItem(STORAGE_RESUME, JSON.stringify(state)) } catch { /* ignore */ }
+}
+
+function loadResume(): ResumeState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_RESUME)
+    if (raw) return JSON.parse(raw) as ResumeState
+  } catch { /* ignore */ }
+  return null
+}
 
 const DEFAULT_TRACKS: Track[] = [
   {
@@ -55,7 +81,8 @@ function extractVideoId(url: string): string | null {
 
 declare global {
   interface Window {
-    YT: typeof YT
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    YT: any
     onYouTubeIframeAPIReady: () => void
   }
 }
@@ -81,14 +108,15 @@ function loadYTApi(onReady: () => void) {
 
 const inputCls = 'bg-bg border border-border text-primary text-xs px-2 py-1 outline-none focus:border-primary font-pixel placeholder-muted'
 
-interface MusicPlayerProps {
-  muted: boolean
-}
-
-export default function MusicPlayer({ muted }: MusicPlayerProps) {
+export default function MusicPlayer() {
   const [open, setOpen] = useState(false)
   const [tracks, setTracks] = useState<Track[]>(loadTracks)
-  const [currentIdx, setCurrentIdx] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [currentIdx, setCurrentIdx] = useState(() => {
+    const r = loadResume()
+    const t = loadTracks()
+    return r && r.idx < t.length ? r.idx : 0
+  })
   const [playing, setPlaying] = useState(false)
   const [volume, setVolume] = useState(loadVolume)
   const [urlInput, setUrlInput] = useState('')
@@ -101,8 +129,40 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
   const playerRef = useRef<YT.Player | null>(null)
   const iframeContainerRef = useRef<HTMLDivElement>(null)
   const ytReadyRef = useRef(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Mirrors for use in unload handler (avoids stale closure over state)
+  const playingRef = useRef(false)
+  const currentIdxRef = useRef(currentIdx)
+  // Initialised once from storage; createPlayer consumes and clears it
+  const resume = loadResume()
+  const resumeSeekRef = useRef<number | null>(resume?.playing ? (resume.seconds ?? 0) : null)
+  const shouldAutoStartRef = useRef<boolean>(resume?.playing ?? false)
 
-  // Persist tracks
+  function scheduleClose() {
+    closeTimer.current = setTimeout(() => setOpen(false), 100)
+  }
+
+  function cancelClose() {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }
+
+  // On mount: resolve user, load tracks from DB if signed in
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+      dbFetchTracks(user.id).then((rows) => {
+        if (rows.length > 0) {
+          setTracks(rows.map((r) => ({ id: r.id, url: r.url, videoId: r.videoId, title: r.title })))
+        }
+      })
+    })
+  }, [])
+
+  // Persist tracks to localStorage (fallback for signed-out users)
   useEffect(() => {
     localStorage.setItem(STORAGE_TRACKS, JSON.stringify(tracks))
   }, [tracks])
@@ -123,10 +183,9 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
     return () => document.removeEventListener('mousedown', onOutside)
   }, [])
 
-  // Load YT API once
-  useEffect(() => {
-    loadYTApi(() => { ytReadyRef.current = true })
-  }, [])
+  // Keep refs in sync with state so unload handler never sees stale values
+  useEffect(() => { playingRef.current = playing }, [playing])
+  useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
 
   const createPlayer = useCallback((videoId: string) => {
     if (!iframeContainerRef.current) return
@@ -139,27 +198,33 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
     iframeContainerRef.current.innerHTML = ''
     iframeContainerRef.current.appendChild(div)
 
+    const seekTo = resumeSeekRef.current ?? 0
+    resumeSeekRef.current = null
+
     playerRef.current = new window.YT.Player(div.id, {
       height: '1',
       width: '1',
       videoId,
-      playerVars: { autoplay: 1, controls: 0 },
+      playerVars: { autoplay: 1, controls: 0, start: Math.floor(seekTo) },
       events: {
-        onReady(e) {
-          e.target.setVolume(muted ? 0 : volume)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onReady(e: any) {
+          e.target.setVolume(volume)
           e.target.playVideo()
           setPlaying(true)
+          playingRef.current = true
         },
-        onStateChange(e) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onStateChange(e: any) {
           if (e.data === window.YT.PlayerState.ENDED) {
             setCurrentIdx((idx) => (idx + 1) % tracks.length)
           }
-          if (e.data === window.YT.PlayerState.PLAYING) setPlaying(true)
-          if (e.data === window.YT.PlayerState.PAUSED) setPlaying(false)
+          if (e.data === window.YT.PlayerState.PLAYING) { setPlaying(true); playingRef.current = true }
+          if (e.data === window.YT.PlayerState.PAUSED)  { setPlaying(false); playingRef.current = false }
         },
       },
     })
-  }, [muted, tracks.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tracks.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevTracksLen = useRef(0)
   useEffect(() => {
@@ -174,25 +239,64 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
     }
   }, [currentIdx]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync mute + volume
+  // Load YT API; if we have a session to resume, kick off playback immediately
+  useEffect(() => {
+    loadYTApi(() => {
+      ytReadyRef.current = true
+      if (shouldAutoStartRef.current) {
+        shouldAutoStartRef.current = false
+        if (tracks[currentIdx]) createPlayer(tracks[currentIdx].videoId)
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save resume state every 5s (uses refs — always current, no stale closures)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!playerRef.current || !playingRef.current) return
+      try {
+        const seconds = playerRef.current.getCurrentTime()
+        saveResume({ idx: currentIdxRef.current, seconds, playing: true })
+      } catch { /* ignore */ }
+    }, 5_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Save resume state on page unload (refs guarantee fresh values)
+  useEffect(() => {
+    function onUnload() {
+      try {
+        const seconds = playerRef.current?.getCurrentTime() ?? 0
+        saveResume({ idx: currentIdxRef.current, seconds, playing: playingRef.current })
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [])
+
+  // Sync volume
   useEffect(() => {
     if (!playerRef.current) return
-    try { playerRef.current.setVolume(muted ? 0 : volume) } catch { /* ignore */ }
-  }, [muted, volume])
+    try { playerRef.current.setVolume(volume) } catch { /* ignore */ }
+  }, [volume])
 
   function addTrack() {
     setInputError(null)
     const videoId = extractVideoId(urlInput.trim())
     if (!videoId) { setInputError('Invalid YouTube URL'); return }
-    const newTrack: Track = {
-      id: crypto.randomUUID(),
-      url: urlInput.trim(),
-      videoId,
-      title: nameInput.trim() || `Track ${tracks.length + 1}`,
-    }
-    setTracks((prev) => [...prev, newTrack])
+    const url   = urlInput.trim()
+    const title = nameInput.trim() || `Track ${tracks.length + 1}`
+    const tempId = crypto.randomUUID()
+    setTracks((prev) => [...prev, { id: tempId, url, videoId, title }])
     setUrlInput('')
     setNameInput('')
+    if (userId) {
+      dbCreateTrack(userId, { url, videoId, title, position: tracks.length }).then((realId) => {
+        if (realId) {
+          setTracks((prev) => prev.map((t) => t.id === tempId ? { ...t, id: realId } : t))
+        }
+      })
+    }
   }
 
   function playTrack(idx: number) {
@@ -232,6 +336,7 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
       }
       return next
     })
+    if (userId) dbDeleteTrack(id)
   }
 
   function startEdit(t: Track) {
@@ -240,16 +345,23 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
   }
 
   function commitEdit(id: string) {
+    const title = editingName.trim()
     setTracks((prev) =>
-      prev.map((t) => t.id === id ? { ...t, title: editingName.trim() || t.title } : t)
+      prev.map((t) => t.id === id ? { ...t, title: title || t.title } : t)
     )
+    if (userId && title) dbRenameTrack(id, title)
     setEditingId(null)
   }
 
   const currentTrack = tracks[currentIdx] ?? null
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div
+      className="relative"
+      ref={panelRef}
+      onMouseEnter={() => { cancelClose(); setOpen(true) }}
+      onMouseLeave={scheduleClose}
+    >
       {/* YT iframe — always mounted so playback continues in background */}
       <div
         ref={iframeContainerRef}
@@ -257,39 +369,42 @@ export default function MusicPlayer({ muted }: MusicPlayerProps) {
         aria-hidden
       />
 
-      {/* Trigger button */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={`text-xs leading-none ${open || playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
-        title="Music player"
-      >
-        {playing ? '♪' : '♩'}
-      </button>
+      {/* Inline transport controls */}
+      <div className="flex items-center gap-1 leading-none">
+        <button
+          onClick={prev}
+          disabled={tracks.length === 0}
+          className="text-muted hover:text-primary disabled:opacity-30 text-[10px] px-0.5"
+          title="Previous"
+        >
+          ◀
+        </button>
+        <button
+          onClick={togglePlay}
+          disabled={tracks.length === 0}
+          className={`text-sm px-0.5 disabled:opacity-30 ${playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
+          title={playing ? 'Pause' : 'Play'}
+        >
+          {playing ? '⏸' : '▶'}
+        </button>
+        <button
+          onClick={next}
+          disabled={tracks.length === 0}
+          className="text-muted hover:text-primary disabled:opacity-30 text-[10px] px-0.5"
+          title="Next"
+        >
+          ▶
+        </button>
+      </div>
 
-      {/* Panel */}
+      {/* Panel — opens on hover */}
       {open && (
-        <div className="absolute right-0 top-8 bg-surface border border-border w-72 flex flex-col z-50 font-pixel text-xs">
+        <div className="absolute right-0 top-7 bg-surface border border-border w-72 flex flex-col z-50 font-pixel text-xs">
 
           {/* Now playing */}
           <div className="px-3 py-2 border-b border-border">
             <p className="text-muted mb-1">NOW PLAYING</p>
             <p className="text-primary truncate">{currentTrack ? currentTrack.title : '—'}</p>
-          </div>
-
-          {/* Playback controls */}
-          <div className="flex items-center justify-center gap-6 py-3 border-b border-border">
-            <button onClick={prev} disabled={tracks.length === 0}
-              className="text-muted hover:text-primary disabled:opacity-30 text-sm" title="Previous">
-              ◀◀
-            </button>
-            <button onClick={togglePlay} disabled={tracks.length === 0}
-              className="text-primary hover:text-secondary disabled:opacity-30 text-base" title={playing ? 'Pause' : 'Play'}>
-              {playing ? '⏸' : '▶'}
-            </button>
-            <button onClick={next} disabled={tracks.length === 0}
-              className="text-muted hover:text-primary disabled:opacity-30 text-sm" title="Next">
-              ▶▶
-            </button>
           </div>
 
           {/* Volume */}

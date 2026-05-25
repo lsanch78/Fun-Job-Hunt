@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchWorkdays, type WorkdayRow } from '@/services/workdayService'
 import { fetchJobs } from '@/services/jobService'
 import type { Job } from '@/types'
+import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,15 @@ function totalHours(workdays: WorkdayRow[]): number {
   return workdays.reduce((acc, r) => acc + sessionHours(r), 0)
 }
 
+/** Returns "YYYY-MM-DD" in local time for a given Date. */
+function localDateStr(d: Date): string {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 /** Hours for rows whose `date` field falls in the current ISO week (Mon–Sun). */
 function hoursThisWeek(workdays: WorkdayRow[]): number {
   const now = new Date()
@@ -41,7 +51,7 @@ function hoursThisWeek(workdays: WorkdayRow[]): number {
   const monday = new Date(now)
   monday.setHours(0, 0, 0, 0)
   monday.setDate(monday.getDate() - dayOfWeek)
-  const mondayStr = monday.toISOString().slice(0, 10)
+  const mondayStr = localDateStr(monday)
   return workdays
     .filter((r) => r.date >= mondayStr)
     .reduce((acc, r) => acc + sessionHours(r), 0)
@@ -49,7 +59,8 @@ function hoursThisWeek(workdays: WorkdayRow[]): number {
 
 /** Hours for rows whose `date` field falls in the current calendar month. */
 function hoursThisMonth(workdays: WorkdayRow[]): number {
-  const prefix = new Date().toISOString().slice(0, 7) // "YYYY-MM"
+  const now = new Date()
+  const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   return workdays
     .filter((r) => r.date.startsWith(prefix))
     .reduce((acc, r) => acc + sessionHours(r), 0)
@@ -69,16 +80,14 @@ function computeStreak(workdays: WorkdayRow[]): number {
   today.setHours(0, 0, 0, 0)
 
   // Start from today; if today has no session, still count from yesterday
-  const todayStr = today.toISOString().slice(0, 10)
   let cursor = new Date(today)
-  if (!completedDates.has(todayStr)) {
+  if (!completedDates.has(localDateStr(cursor))) {
     cursor.setDate(cursor.getDate() - 1)
   }
 
   let streak = 0
   while (true) {
-    const dateStr = cursor.toISOString().slice(0, 10)
-    if (!completedDates.has(dateStr)) break
+    if (!completedDates.has(localDateStr(cursor))) break
     streak++
     cursor.setDate(cursor.getDate() - 1)
   }
@@ -102,11 +111,28 @@ function appsPerDay(jobs: Job[], days = 30): { date: string; count: number }[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().slice(0, 10)
+    const dateStr = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
     result.push({ date: dateStr, count: map.get(dateStr) ?? 0 })
   }
   return result
 }
+
+/** ISO week string "YYYY-Www" for a YYYY-MM-DD date string. */
+function isoWeek(dateStr: string): string {
+  const d = new Date(dateStr)
+  const jan4 = new Date(d.getFullYear(), 0, 4)
+  const startOfWeek1 = new Date(jan4)
+  startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+  const daysDiff = Math.floor((d.getTime() - startOfWeek1.getTime()) / 86_400_000)
+  const week = Math.floor(daysDiff / 7) + 1
+  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
+}
+
+const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
 // ── Bar chart ─────────────────────────────────────────────────────────────────
 
@@ -196,7 +222,6 @@ export default function StatsPage() {
 
   const huntStartDate = useMemo(() => {
     if (jobs.length === 0) return null
-    // Earliest application date
     return jobs
       .map((j) => j.applicationDate)
       .filter(Boolean)
@@ -221,21 +246,154 @@ export default function StatsPage() {
   const allHrs = useMemo(() => totalHours(workdays), [workdays])
   const chartData = useMemo(() => appsPerDay(jobs), [jobs])
 
+  // Funnel / outcome
+  const offerCount = useMemo(() => jobs.filter((j) => j.status === 'OFFER').length, [jobs])
+  const ghostedCount = useMemo(() => jobs.filter((j) => j.status === 'GHOSTED').length, [jobs])
+  const rejectedCount = useMemo(() => jobs.filter((j) => j.status === 'REJECTED').length, [jobs])
+
+  const ghostRate = useMemo(() => {
+    if (totalApps === 0) return null
+    return Math.round((ghostedCount / totalApps) * 100)
+  }, [ghostedCount, totalApps])
+
+  const rejectionRate = useMemo(() => {
+    if (totalApps === 0) return null
+    return Math.round((rejectedCount / totalApps) * 100)
+  }, [rejectedCount, totalApps])
+
+  const winRate = useMemo(() => {
+    if (totalApps === 0) return null
+    return Math.round((offerCount / totalApps) * 100)
+  }, [offerCount, totalApps])
+
+  // Activity insights
+  const appsPerWorkHour = useMemo(() => {
+    if (allHrs === 0 || totalApps === 0) return null
+    return (totalApps / allHrs).toFixed(1)
+  }, [totalApps, allHrs])
+
+  const busiestDayOfWeek = useMemo(() => {
+    const counts = new Array(7).fill(0)
+    for (const job of jobs) {
+      if (!job.applicationDate) continue
+      const dow = new Date(job.applicationDate + 'T12:00:00').getDay()
+      counts[dow]++
+    }
+    const max = Math.max(...counts)
+    if (max === 0) return null
+    return DAY_NAMES[counts.indexOf(max)]
+  }, [jobs])
+
+  const avgSessionLength = useMemo(() => {
+    const completed = workdays.filter((r) => r.punch_out)
+    if (completed.length === 0) return null
+    return totalHours(completed) / completed.length
+  }, [workdays])
+
+  const longestSession = useMemo(() => {
+    if (workdays.length === 0) return null
+    return Math.max(...workdays.map(sessionHours))
+  }, [workdays])
+
+  // Job quality
+  const avgRating = useMemo(() => {
+    const rated = jobs.filter((j) => j.rating > 0)
+    if (rated.length === 0) return null
+    const sum = rated.reduce((acc, j) => acc + j.rating, 0)
+    return (sum / rated.length).toFixed(1)
+  }, [jobs])
+
+  const highConvictionCount = useMemo(() =>
+    jobs.filter((j) => j.rating >= 4).length
+  , [jobs])
+
+  // Momentum
+  const bestWeek = useMemo(() => {
+    const weekCounts = new Map<string, number>()
+    for (const job of jobs) {
+      if (!job.applicationDate) continue
+      const w = isoWeek(job.applicationDate)
+      weekCounts.set(w, (weekCounts.get(w) ?? 0) + 1)
+    }
+    if (weekCounts.size === 0) return null
+    return Math.max(...weekCounts.values())
+  }, [jobs])
+
+  const daysSinceLastApp = useMemo(() => {
+    const dates = jobs.map((j) => j.applicationDate).filter(Boolean).sort()
+    if (dates.length === 0) return null
+    const [y, m, d] = dates[dates.length - 1].split('-').map(Number)
+    const last = new Date(y, m - 1, d)       // local midnight
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return Math.floor((today.getTime() - last.getTime()) / 86_400_000)
+  }, [jobs])
+
+  // ── Rank ────────────────────────────────────────────────────────────────────
+  const xp = totalApps * XP.ADD_JOB
+  const rankInfo = useMemo(() => {
+    let rank = 1
+    for (let i = 1; i < RANK_THRESHOLDS.length; i++) {
+      if (xp >= RANK_THRESHOLDS[i]) rank = i
+      else break
+    }
+    const isMax = rank >= RANK_THRESHOLDS.length - 1
+    const currentFloor = RANK_THRESHOLDS[rank]
+    const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
+    const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
+    return { rank, title: RANK_TITLES[rank] ?? '', progress, nextFloor, isMax }
+  }, [xp])
+
+  const statsAvatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
+  const statsAvatarChar = statsAvatarChars[(rankInfo.rank - 1) % statsAvatarChars.length]
+  const statsBarPct = Math.round(rankInfo.progress * 100)
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-bg font-pixel text-primary scanlines pb-20">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border">
-        <h1 className="text-sm tracking-widest">STATS</h1>
-        <p className="text-muted text-xs mt-1">
-          {loading ? '...' : `${totalApps} applications · ${workdays.length} sessions`}
-        </p>
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-sm tracking-widest">STATS</h1>
+          <p className="text-muted text-xs mt-1">
+            {loading ? '...' : `${totalApps} applications · ${workdays.length} sessions`}
+          </p>
+        </div>
+
+        {/* XpTracker card — same layout as Jobs and Story pages */}
+        <div className="flex items-center gap-3 border border-border px-4 py-2.5 bg-surface">
+          <div className="text-2xl leading-none text-secondary select-none" title={`Rank ${rankInfo.rank}`}>
+            {statsAvatarChar}
+          </div>
+          <div className="flex flex-col gap-1 w-[200px]">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-secondary text-[11px] tracking-widest uppercase leading-none">
+                LVL {rankInfo.rank}
+              </span>
+              <span className="text-muted text-[9px] leading-none">
+                {rankInfo.isMax ? 'MAX' : `${xp} / ${rankInfo.nextFloor} XP`}
+              </span>
+            </div>
+            <div className="text-primary text-[9px] leading-tight">
+              {rankInfo.title}
+            </div>
+            <div className="w-full h-1.5 bg-border">
+              <div
+                className="h-full bg-secondary transition-all duration-500"
+                style={{ width: `${statsBarPct}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Row 1: Hunt overview ─────────────────────────────────────────────── */}
-      <div className="px-6 py-4 flex flex-wrap gap-4 border-b border-border">
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="text-[10px] tracking-widest text-muted">OVERVIEW</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
         <StatCard
           label="HUNT START"
           value={huntStartDate ?? (loading ? '...' : '—')}
@@ -243,6 +401,11 @@ export default function StatsPage() {
         <StatCard
           label="APPLICATIONS"
           value={loading ? '...' : String(totalApps)}
+        />
+        <StatCard
+          label="OFFERS"
+          value={loading ? '...' : String(offerCount)}
+          sub={offerCount > 0 ? `${winRate}% WIN RATE` : undefined}
         />
         <StatCard
           label="INTERVIEW RATE"
@@ -259,10 +422,47 @@ export default function StatsPage() {
               : undefined
           }
         />
+        <StatCard
+          label="DAYS SINCE LAST APP"
+          value={
+            loading
+              ? '...'
+              : daysSinceLastApp === null
+              ? '—'
+              : daysSinceLastApp === 0
+              ? 'TODAY'
+              : `${daysSinceLastApp}d`
+          }
+        />
       </div>
 
-      {/* ── Row 2: Time stats ────────────────────────────────────────────────── */}
-      <div className="px-6 py-4 flex flex-wrap gap-4 border-b border-border">
+      {/* ── Row 2: Outcomes ───────────────────────────────────────────────────── */}
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="text-[10px] tracking-widest text-muted">OUTCOMES</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+        <StatCard
+          label="GHOST RATE"
+          value={loading ? '...' : ghostRate === null ? '—' : `${ghostRate}%`}
+          sub={loading || ghostedCount === 0 ? undefined : `${ghostedCount} ghosted`}
+        />
+        <StatCard
+          label="REJECTION RATE"
+          value={loading ? '...' : rejectionRate === null ? '—' : `${rejectionRate}%`}
+          sub={loading || rejectedCount === 0 ? undefined : `${rejectedCount} rejected`}
+        />
+        <StatCard
+          label="WIN RATE"
+          value={loading ? '...' : winRate === null ? '—' : `${winRate}%`}
+          sub={loading || offerCount === 0 ? undefined : `${offerCount} offer${offerCount !== 1 ? 'S' : ''}`}
+        />
+      </div>
+
+      {/* ── Row 3: Time stats ────────────────────────────────────────────────── */}
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="text-[10px] tracking-widest text-muted">TIME</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
         <StatCard
           label="STREAK"
           value={loading ? '...' : streak === 0 ? '0 DAYS' : `${streak} DAY${streak !== 1 ? 'S' : ''}`}
@@ -278,6 +478,53 @@ export default function StatsPage() {
         <StatCard
           label="TOTAL HUNT HRS"
           value={loading ? '...' : formatHours(allHrs)}
+        />
+        <StatCard
+          label="AVG SESSION"
+          value={loading ? '...' : avgSessionLength === null ? '—' : formatHours(avgSessionLength)}
+        />
+        <StatCard
+          label="LONGEST SESSION"
+          value={loading ? '...' : longestSession === null || longestSession === 0 ? '—' : formatHours(longestSession)}
+        />
+      </div>
+
+      {/* ── Row 4: Activity insights ─────────────────────────────────────────── */}
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="text-[10px] tracking-widest text-muted">ACTIVITY</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+        <StatCard
+          label="APPS / WORK HOUR"
+          value={loading ? '...' : appsPerWorkHour === null ? '—' : appsPerWorkHour}
+          sub="efficiency ratio"
+        />
+        <StatCard
+          label="BUSIEST DAY"
+          value={loading ? '...' : busiestDayOfWeek ?? '—'}
+          sub="day of week"
+        />
+        <StatCard
+          label="BEST WEEK"
+          value={loading ? '...' : bestWeek === null ? '—' : `${bestWeek} APPS`}
+          sub="most in one week"
+        />
+      </div>
+
+      {/* ── Row 5: Job quality ───────────────────────────────────────────────── */}
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="text-[10px] tracking-widest text-muted">JOB QUALITY</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-center gap-4 border-b border-border">
+        <StatCard
+          label="AVG RATING"
+          value={loading ? '...' : avgRating === null ? '—' : `${avgRating} / 5`}
+          sub="across rated jobs"
+        />
+        <StatCard
+          label="HIGH CONVICTION"
+          value={loading ? '...' : String(highConvictionCount)}
+          sub="jobs rated 4+"
         />
       </div>
 
