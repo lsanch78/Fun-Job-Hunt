@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase'
 import WorkdayBar from '@/components/WorkdayBar'
 import QuickCast from '@/components/QuickCast'
 import AppDetailCard from '@/components/AppDetailCard'
+import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
+import { registerTutorialTrigger, unregisterTutorialTrigger } from '@/lib/tutorialBus'
 
 interface JobRowHandle {
   focusCompanyInput(): void
@@ -694,6 +696,7 @@ export default function JobLogPage() {
   const [deleteMode, setDeleteMode] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [showTutorial, setShowTutorial] = useState(false)
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
   const committedCountRef = useRef(0)
@@ -833,6 +836,17 @@ export default function JobLogPage() {
   // Reset to page 1 whenever filters/sort/search change
   const filterKey = `${search}|${[...hidden].sort().join(',')}|${sort?.field ?? ''}|${sort?.dir ?? ''}`
   useEffect(() => { setPage(1) }, [filterKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tutorial: register re-trigger bus + auto-show for first-time visitors
+  useEffect(() => {
+    registerTutorialTrigger(() => setShowTutorial(true))
+    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY) === 'true' } catch { return false } })()
+    if (!seen) {
+      const id = setTimeout(() => setShowTutorial(true), 800)
+      return () => { clearTimeout(id); unregisterTutorialTrigger() }
+    }
+    return () => { unregisterTutorialTrigger() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const committedFiltered = filteredJobs.filter((j) => j.committed)
   const drafts            = filteredJobs.filter((j) => !j.committed)
@@ -997,7 +1011,7 @@ export default function JobLogPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-auto flex-1">
+      <div data-tutorial="job-rows" className="overflow-auto flex-1">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="border-b border-border text-primary text-left select-none cursor-default">
@@ -1075,6 +1089,9 @@ export default function JobLogPage() {
           onChange={handleDraftChange}
         />
       )}
+
+      {/* Tutorial overlay */}
+      {showTutorial && <TutorialOverlay onDone={() => setShowTutorial(false)} />}
 
       {/* Quick Cast hotbar */}
       <QuickCast />

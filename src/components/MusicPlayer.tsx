@@ -359,6 +359,7 @@ export default function MusicPlayer() {
     <div
       className="relative"
       ref={panelRef}
+      data-tutorial="music-player"
       onMouseEnter={() => { cancelClose(); setOpen(true) }}
       onMouseLeave={scheduleClose}
     >

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
+import { fireTutorial } from '@/lib/tutorialBus'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal: 'TERMINAL',
@@ -136,7 +137,7 @@ export default function NavBar() {
     : '?'
 
   return (
-    <nav className="bg-surface border-b border-border font-pixel text-xs flex items-center justify-between px-4 h-10 shrink-0 z-50">
+    <nav data-tutorial="navbar" className="bg-surface border-b border-border font-pixel text-xs flex items-center justify-between px-4 h-10 shrink-0 z-50">
 
       {/* ── Left: App name + nav links ── */}
       <div className="flex items-center gap-6">
@@ -166,6 +167,15 @@ export default function NavBar() {
 
       {/* ── Right: controls + avatar ── */}
       <div className="flex items-center gap-3">
+
+        {/* Tutorial help button */}
+        <button
+          onClick={fireTutorial}
+          className="font-pixel text-[9px] text-muted hover:text-primary border border-border hover:border-primary w-5 h-5 flex items-center justify-center leading-none transition-none"
+          title="Help / Tutorial"
+        >
+          ?
+        </button>
 
         {/* Music player */}
         <MusicPlayer />

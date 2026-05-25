@@ -348,7 +348,7 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
   const btnDanger = `${btn} border-secondary text-secondary hover:bg-secondary hover:text-bg`
 
   return (
-    <div className={inline ? "bg-surface border-b border-border font-pixel" : "fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel"}>
+    <div data-tutorial="workday-bar" className={inline ? "bg-surface border-b border-border font-pixel" : "fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel"}>
       <div className="flex items-center gap-6 px-6 py-2 text-xs">
 
         {/* Live clock */}
