@@ -18,6 +18,9 @@ import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import ResumeModal from '@/components/ResumeModal'
+import AiPanel from '@/components/AiPanel'
+import { invalidateSlot } from '@/services/resumeTextService'
+import { fetchModels } from '@/services/ollamaService'
 import {
   fetchLinks as dbFetchLinks,
   createLink as dbCreateLink,
@@ -310,6 +313,8 @@ export default function QuickCast() {
   const [showResume,     setShowResume]     = useState(false)
   const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
   const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
+  const [aiPanelOpen,    setAiPanelOpen]    = useState(false)
+  const [ollamaStatus,   setOllamaStatus]   = useState<'unknown' | 'connected' | 'not_connected'>('unknown')
 
   const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
@@ -332,6 +337,16 @@ export default function QuickCast() {
         setResumeSlots(map)
       })
     })
+  }, [])
+
+  // Background Ollama status poll — checks once on mount, then every 15s
+  useEffect(() => {
+    function check() {
+      fetchModels().then(({ status }) => setOllamaStatus(status))
+    }
+    check()
+    const interval = setInterval(check, 15000)
+    return () => clearInterval(interval)
   }, [])
 
   // Persist links to localStorage whenever they change
@@ -452,6 +467,7 @@ export default function QuickCast() {
         },
       }))
     }
+    if (!error) invalidateSlot(userId, slot)
     setUploadingSlot(null)
   }
 
@@ -715,8 +731,52 @@ export default function QuickCast() {
             })}
           </div>
 
+          {/* ── Right zone: AI assistant ── */}
+          <div className="relative flex flex-col items-center">
+            <button
+              onClick={() => setAiPanelOpen((prev) => !prev)}
+              className={[
+                'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
+                'border transition-none select-none cursor-pointer',
+                aiPanelOpen
+                  ? 'border-primary text-primary'
+                  : 'border-border text-muted hover:border-primary hover:text-primary',
+              ].join(' ')}
+              title="AI Resume Assistant"
+            >
+              <span className="font-pixel leading-none font-bold tracking-tight" style={{ fontSize: 24 }}>
+                AI
+              </span>
+              <span
+                className="font-pixel text-[7px] tracking-widest leading-none"
+                style={{
+                  color: ollamaStatus === 'connected'
+                    ? '#22c55e'
+                    : ollamaStatus === 'not_connected'
+                    ? 'var(--color-warning)'
+                    : 'var(--color-dim)',
+                }}
+              >
+                {ollamaStatus === 'connected' ? '● ON' : ollamaStatus === 'not_connected' ? '○ OFF' : '· · ·'}
+              </span>
+            </button>
+          </div>
+
         </div>
       </div>
+
+      {/* AI panel — fixed centered overlay */}
+      {aiPanelOpen && userId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <AiPanel
+              userId={userId}
+              resumeSlots={resumeSlots}
+              onClose={() => setAiPanelOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Resume modal */}
       {showResume && resumeSignedUrl && activeSlot && resumeSlots[activeSlot] && (

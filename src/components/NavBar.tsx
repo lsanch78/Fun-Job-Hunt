@@ -14,9 +14,10 @@ const THEME_LABELS: Record<Theme, string> = {
 }
 
 const NAV_LINKS = [
-  { label: 'JOBS',  to: '/jobs' },
-  { label: 'STATS', to: '/stats' },
-  { label: 'STORY', to: '/story' },
+  { label: 'JOBS',    to: '/jobs' },
+  { label: 'STATS',   to: '/stats' },
+  { label: 'STORY',   to: '/story' },
+  { label: 'CREDITS', to: '/credits' },
 ]
 
 // ── Sound: logo — descending terminal close blip ─────────────────────────────
@@ -121,6 +122,32 @@ function playSignOutBlip() {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── Sound: credits page — gentle ascending arpeggio ──────────────────────────
+function playCreditsBlip() {
+  try {
+    const ctx = new AudioContext()
+    const notes = [
+      { freq: 523.25, t: 0,    dur: 0.10, vol: 0.026 }, // C5
+      { freq: 659.25, t: 0.10, dur: 0.10, vol: 0.024 }, // E5
+      { freq: 783.99, t: 0.20, dur: 0.14, vol: 0.021 }, // G5
+    ]
+    notes.forEach(({ freq, t, dur, vol }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
+      gain.gain.setValueAtTime(0, ctx.currentTime + t)
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.007)
+      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + t)
+      osc.stop(ctx.currentTime + t + dur + 0.01)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── Sound: stats page — quick ascending data blips ────────────────────────────
 function playStatsBlip() {
   try {
@@ -202,7 +229,7 @@ export default function NavBar() {
             <NavLink
               key={to}
               to={to}
-              onClick={to === '/jobs' ? playJobsBoot : to === '/stats' ? playStatsBlip : undefined}
+              onClick={to === '/jobs' ? playJobsBoot : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
               className={({ isActive }) =>
                 `whitespace-nowrap transition-none ${
                   isActive

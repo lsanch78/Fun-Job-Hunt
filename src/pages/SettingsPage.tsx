@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
+import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS } from '@/services/aiSettingsService'
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -35,6 +36,27 @@ export default function SettingsPage() {
   const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
   const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
 
+  const [aiLoading,          setAiLoading]          = useState(false)
+  const [aiSaving,           setAiSaving]           = useState(false)
+  const [coverLetterPrompt,  setCoverLetterPrompt]  = useState<string>(DEFAULT_PROMPTS.cover_letter)
+  const [whyGoodFitPrompt,   setWhyGoodFitPrompt]   = useState<string>(DEFAULT_PROMPTS.why_good_fit)
+  const [userId,             setUserId]             = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+      setAiLoading(true)
+      fetchAiSettings(user.id).then((settings) => {
+        if (settings) {
+          if (settings.cover_letter_prompt) setCoverLetterPrompt(settings.cover_letter_prompt)
+          if (settings.why_good_fit_prompt) setWhyGoodFitPrompt(settings.why_good_fit_prompt)
+        }
+        setAiLoading(false)
+      })
+    })
+  }, [])
+
   function handleGhostToggle() {
     const next = !ghostEnabled
     setGhostEnabled(next)
@@ -45,6 +67,18 @@ export default function SettingsPage() {
     const parsed = Math.max(1, parseInt(ghostDays, 10) || 60)
     setGhostDays(String(parsed))
     writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
+  }
+
+  async function handleSaveAiSettings() {
+    if (!userId) return
+    setAiSaving(true)
+    await upsertAiSettings({ user_id: userId, cover_letter_prompt: coverLetterPrompt, why_good_fit_prompt: whyGoodFitPrompt })
+    setAiSaving(false)
+  }
+
+  function handleResetAiSettings() {
+    setCoverLetterPrompt(DEFAULT_PROMPTS.cover_letter)
+    setWhyGoodFitPrompt(DEFAULT_PROMPTS.why_good_fit)
   }
 
   async function handleExport() {
@@ -143,6 +177,53 @@ export default function SettingsPage() {
         >
           {exporting ? '  Exporting…' : '  Export jobs to CSV'}
         </button>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-sm mb-6 text-secondary">AI ASSISTANT</h2>
+
+        {aiLoading ? (
+          <p className="text-muted text-xs">LOADING...</p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-muted text-[10px] tracking-widest">COVER LETTER SYSTEM PROMPT</label>
+              <textarea
+                rows={6}
+                value={coverLetterPrompt}
+                onChange={(e) => setCoverLetterPrompt(e.target.value)}
+                className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-muted text-[10px] tracking-widest">WHY GOOD FIT SYSTEM PROMPT</label>
+              <textarea
+                rows={6}
+                value={whyGoodFitPrompt}
+                onChange={(e) => setWhyGoodFitPrompt(e.target.value)}
+                className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveAiSettings}
+                disabled={aiSaving}
+                className="text-left text-xs px-4 py-3 border-2 border-primary text-primary hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+              >
+                {aiSaving ? '  Saving…' : '  Save AI Settings'}
+              </button>
+              <button
+                onClick={handleResetAiSettings}
+                disabled={aiSaving}
+                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+              >
+                {'  Reset to Defaults'}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )

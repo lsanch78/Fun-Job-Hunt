@@ -8,7 +8,9 @@ import JobLogPage from '@/pages/JobLogPage'
 import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import StoryPage from '@/pages/StoryPage'
+import CreditsPage from '@/pages/CreditsPage'
 import NavBar from '@/components/NavBar'
+import QuickCast from '@/components/QuickCast'
 import type { Session } from '@supabase/supabase-js'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
@@ -24,6 +26,7 @@ function ProtectedRoute({
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
+      <QuickCast />
     </div>
   )
   // undefined = still loading, null = no session
@@ -33,6 +36,7 @@ function ProtectedRoute({
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
+      <QuickCast />
     </div>
   )
 }
@@ -91,6 +95,14 @@ export default function App() {
             element={
               <ProtectedRoute session={session}>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/credits"
+            element={
+              <ProtectedRoute session={session}>
+                <CreditsPage />
               </ProtectedRoute>
             }
           />

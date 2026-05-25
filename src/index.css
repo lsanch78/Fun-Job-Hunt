@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Readable body text for credits page ────────────────────────────────────
+   VT323 looks retro but reads cleanly at larger sizes. Use .body-text
+   anywhere you want prose that doesn't strain the eyes.
+─────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .body-text {
+    font-family: 'VT323', monospace;
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+}
+
 /* ─── Theme tokens ───────────────────────────────────────────────────────────
    All components use these vars. Swapped by data-theme on <html>.
    bg       — page background
@@ -91,9 +103,7 @@ body {
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.12) 2px,
-    rgba(0, 0, 0, 0.12) 4px
+    transparent 2px
   );
   pointer-events: none;
   z-index: 9999;

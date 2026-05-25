@@ -6,7 +6,6 @@ import XpTracker from '@/components/XpTracker'
 import type { Job, JobStatus } from '@/types'
 import { readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs, runAutoGhost } from '@/services/jobService'
 import WorkdayBar from '@/components/WorkdayBar'
-import QuickCast from '@/components/QuickCast'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
@@ -1185,11 +1184,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Tutorial overlay */}
       {showTutorial && <TutorialOverlay onDone={() => setShowTutorial(false)} />}
 
-      {/* Quick Cast hotbar */}
-      <QuickCast />
-
       {/* Pagination */}
-      <div className="bg-bg px-4 py-3 border-t border-border flex items-center gap-3">
+      <div className="bg-bg px-4 py-3 border-t border-border flex items-center justify-center gap-3">
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={safePage === 1}
