@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { Terminal } from 'pixelarticons/react'
+import { Terminal, Trash } from 'pixelarticons/react'
 import { useNavigate } from 'react-router-dom'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import type { Job, JobStatus } from '@/types'
@@ -227,6 +227,126 @@ function playThud(mega = false) {
       src.start(t)
       src.stop(t + 0.03)
     }
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: delete mode bump ───────────────────────────────────────────────────
+function playDeleteBump() {
+  try {
+    const ctx = new AudioContext()
+    // Low thud: sub-bass sine with sharp transient
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(90, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(45, ctx.currentTime + 0.18)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.008)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.25)
+
+    // Click transient on top
+    const bufLen = ctx.sampleRate * 0.012
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = 800
+    const clickGain = ctx.createGain()
+    clickGain.gain.setValueAtTime(0.3, ctx.currentTime)
+    clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.012)
+    src.connect(lp)
+    lp.connect(clickGain)
+    clickGain.connect(ctx.destination)
+    src.start(ctx.currentTime)
+    src.stop(ctx.currentTime + 0.015)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: palatal click (checkbox select) ───────────────────────────────────
+function playSelectClick() {
+  try {
+    const ctx = new AudioContext()
+    const t = ctx.currentTime
+
+    // Noise burst shaped like a mouth click — very short, mid-forward
+    const bufLen = Math.ceil(ctx.sampleRate * 0.018)
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+
+    // Bandpass around 1.8 kHz — the "wet" mouth-click sweet spot
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 1800
+    bp.Q.value = 2.2
+
+    // Very fast attack, sharp decay
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, t)
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.001)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.018)
+
+    src.connect(bp)
+    bp.connect(gain)
+    gain.connect(ctx.destination)
+    src.start(t)
+    src.stop(t + 0.02)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: trash delete whoosh ────────────────────────────────────────────────
+function playTrash(count = 1) {
+  try {
+    const ctx = new AudioContext()
+    const duration = Math.min(0.08 + count * 0.04, 0.55)
+
+    // Descending noise whoosh
+    const bufLen = Math.ceil(ctx.sampleRate * duration)
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+
+    // Highpass sweeping downward — starts bright, ends dull
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.setValueAtTime(3200, ctx.currentTime)
+    hp.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + duration)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.22, ctx.currentTime)
+    gain.gain.setValueAtTime(0.22, ctx.currentTime + duration * 0.6)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+
+    src.connect(hp)
+    hp.connect(gain)
+    gain.connect(ctx.destination)
+    src.start(ctx.currentTime)
+    src.stop(ctx.currentTime + duration + 0.01)
+
+    // Short descending pitch "crunch" at the end
+    const crunch = ctx.createOscillator()
+    crunch.type = 'sawtooth'
+    const t0 = ctx.currentTime + duration * 0.5
+    crunch.frequency.setValueAtTime(220, t0)
+    crunch.frequency.exponentialRampToValueAtTime(55, t0 + duration * 0.5)
+    const crunchGain = ctx.createGain()
+    crunchGain.gain.setValueAtTime(0.06, t0)
+    crunchGain.gain.exponentialRampToValueAtTime(0.001, t0 + duration * 0.5)
+    crunch.connect(crunchGain)
+    crunchGain.connect(ctx.destination)
+    crunch.start(t0)
+    crunch.stop(t0 + duration * 0.5 + 0.01)
   } catch { /* AudioContext blocked */ }
 }
 
@@ -622,6 +742,30 @@ type SortField = 'company' | 'date' | 'status'
 type SortDir   = 'asc' | 'desc'
 interface SortState { field: SortField; dir: SortDir }
 
+type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
+
+const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
+  { value: 'today', label: 'TODAY'     },
+  { value: '7d',    label: 'LAST 7D'  },
+  { value: '30d',   label: 'LAST 30D' },
+  { value: 'year',  label: 'YEAR'     },
+  { value: 'all',   label: 'ALL TIME' },
+]
+
+const TIME_RANGE_KEY = 'fjobhunt:time_range'
+
+function getTimeRangeCutoff(range: TimeRange): string | null {
+  if (range === 'all') return null
+  const d = new Date()
+  if (range === 'today') {
+    return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+  }
+  if (range === '7d')   d.setDate(d.getDate() - 6)
+  if (range === '30d')  d.setDate(d.getDate() - 29)
+  if (range === 'year') d.setFullYear(d.getFullYear() - 1)
+  return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+}
+
 const HIDE_OPTIONS: { status: JobStatus; label: string }[] = [
   { status: 'GHOSTED',   label: 'Ghosted'   },
   { status: 'REJECTED',  label: 'Rejected'  },
@@ -692,6 +836,10 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [search, setSearch] = useState('')
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
   const [sort, setSort] = useState<SortState | null>(null)
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const saved = localStorage.getItem(TIME_RANGE_KEY)
+    return (saved as TimeRange | null) ?? 'today'
+  })
   const [page, setPage] = useState(1)
   const [deleteMode, setDeleteMode] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
@@ -813,11 +961,23 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const committedCount = jobs.filter((j) => j.committed).length
   const todayStr = (() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })()
   const todayCount = jobs.filter((j) => j.committed && j.applicationDate === todayStr).length
-  const todayJobs = jobs.filter((j) => !j.committed || j.applicationDate === todayStr)
-  const filteredJobs = applyFilters(todayJobs, search, hidden, sort)
+
+  function handleTimeRange(r: TimeRange) {
+    setTimeRange(r)
+    localStorage.setItem(TIME_RANGE_KEY, r)
+  }
+
+  const cutoff = getTimeRangeCutoff(timeRange)
+  const rangeJobs = jobs.filter((j) => {
+    if (!j.committed) return true
+    if (cutoff === null) return true
+    if (timeRange === 'today') return j.applicationDate === cutoff
+    return j.applicationDate >= cutoff
+  })
+  const filteredJobs = applyFilters(rangeJobs, search, hidden, sort)
 
   // Reset to page 1 whenever filters/sort/search change
-  const filterKey = `${search}|${[...hidden].sort().join(',')}|${sort?.field ?? ''}|${sort?.dir ?? ''}`
+  const filterKey = `${search}|${[...hidden].sort().join(',')}|${sort?.field ?? ''}|${sort?.dir ?? ''}|${timeRange}`
   useEffect(() => { setPage(1) }, [filterKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tutorial: register re-trigger bus + auto-show for first-time visitors
@@ -848,12 +1008,16 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   }
 
   function toggleDeleteMode() {
-    setDeleteMode((prev) => !prev)
+    setDeleteMode((prev) => {
+      if (!prev) playDeleteBump()
+      return !prev
+    })
     setSelected(new Set())
   }
 
   async function handleDelete() {
     const ids = [...selected]
+    playTrash(ids.length)
     await deleteJobs(ids)
     setJobs((prev) => {
       const next = prev.filter((j) => !selected.has(j.id))
@@ -919,7 +1083,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       <WorkdayBar inline />
 
       {/* Filter / sort toolbar */}
-      <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
+        {/* Row 1: search + sort + hide + delete */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {/* Search */}
         <div className="flex items-center gap-1.5 min-w-[160px]">
           <input
@@ -975,23 +1141,43 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           {deleteMode && selected.size > 0 && (
             <button
               onClick={handleDelete}
-              className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:opacity-80 transition-none"
+              className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:border-secondary hover:text-secondary transition-none"
             >
               DELETE {selected.size} JOB{selected.size !== 1 ? 'S' : ''}
             </button>
           )}
           <button
             onClick={toggleDeleteMode}
-            className={`text-[10px] px-2 py-0.5 border transition-none ${
+            className={`text-[10px] px-2 py-0.5 border transition-none flex items-center gap-1 ${
               deleteMode
-                ? 'border-warning text-warning'
+                ? 'border-warning text-warning hover:border-secondary hover:text-secondary'
                 : 'border-border text-muted hover:border-secondary hover:text-secondary'
             }`}
+            title={deleteMode ? 'Cancel' : 'Delete mode'}
           >
-            {deleteMode ? 'CANCEL' : 'DELETE MODE'}
+            {deleteMode ? 'X' : <Trash width={12} height={12} />}
           </button>
         </div>
-      </div>
+        </div>{/* end row 1 */}
+
+        {/* Row 2: time range */}
+        <div className="flex items-center gap-1">
+          <span className="text-muted text-[10px] mr-1 select-none">RANGE</span>
+          {TIME_RANGE_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => handleTimeRange(value)}
+              className={`text-[10px] px-2 py-0.5 border transition-none ${
+                timeRange === value
+                  ? 'border-primary text-primary'
+                  : 'border-border text-muted hover:border-secondary hover:text-secondary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>{/* end toolbar */}
 
       {/* Table */}
       <div data-tutorial="job-rows" className="overflow-auto flex-1">
@@ -1036,6 +1222,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   checked={selected.has(job.id)}
                   onOpenDetail={job.committed ? () => setDetailJobId(job.id) : undefined}
                   onToggle={(id, e) => {
+                    playSelectClick()
                     const committedVisible = visibleJobs.filter((j) => j.committed)
                     const clickedIdx = committedVisible.findIndex((j) => j.id === id)
                     if (e.shiftKey && lastCheckedIdxRef.current !== null) {
