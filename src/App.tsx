@@ -57,7 +57,14 @@ export default function App() {
             path="/jobs"
             element={
               <ProtectedRoute session={session}>
-                <JobLogPage />
+                <JobLogPage
+                  userId={session?.user?.id ?? null}
+                  userName={
+                    (session?.user?.user_metadata?.['username'] as string | undefined) ??
+                    session?.user?.email?.split('@')[0] ??
+                    null
+                  }
+                />
               </ProtectedRoute>
             }
           />
@@ -65,7 +72,7 @@ export default function App() {
             path="/stats"
             element={
               <ProtectedRoute session={session}>
-                <StatsPage />
+                <StatsPage userId={session?.user?.id ?? null} />
               </ProtectedRoute>
             }
           />
@@ -73,7 +80,7 @@ export default function App() {
             path="/story"
             element={
               <ProtectedRoute session={session}>
-                <StoryPage />
+                <StoryPage userId={session?.user?.id ?? null} />
               </ProtectedRoute>
             }
           />

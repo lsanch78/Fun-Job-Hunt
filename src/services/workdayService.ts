@@ -8,6 +8,30 @@ export interface WorkdayRow {
   date: string           // YYYY-MM-DD
 }
 
+// ── Cache ─────────────────────────────────────────────────────────────────────
+function workdayCacheKey(userId: string): string {
+  return `fjobhunt:workdays:${userId}`
+}
+
+export function readWorkdayCache(userId: string): WorkdayRow[] {
+  try {
+    const raw = localStorage.getItem(workdayCacheKey(userId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as WorkdayRow[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function writeWorkdayCache(userId: string, rows: WorkdayRow[]): void {
+  try {
+    localStorage.setItem(workdayCacheKey(userId), JSON.stringify(rows))
+  } catch {
+    console.error('[workdayService] writeWorkdayCache failed')
+  }
+}
+
 // Insert a new workday row when the user punches in.
 // Returns the new row's id (needed to close it on punch-out), or null on error.
 export async function startWorkday(userId: string, punchIn: Date): Promise<string | null> {
@@ -57,5 +81,7 @@ export async function fetchWorkdays(userId: string): Promise<WorkdayRow[]> {
     return []
   }
 
-  return data as WorkdayRow[]
+  const rows = data as WorkdayRow[]
+  writeWorkdayCache(userId, rows)
+  return rows
 }

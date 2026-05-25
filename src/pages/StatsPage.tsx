@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
-import { fetchWorkdays, type WorkdayRow } from '@/services/workdayService'
-import { fetchJobs } from '@/services/jobService'
+import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
+import { fetchJobs, readCache } from '@/services/jobService'
 import type { Job } from '@/types'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 
@@ -194,19 +193,24 @@ function StatCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function StatsPage() {
-  const [workdays, setWorkdays] = useState<WorkdayRow[]>([])
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [loading, setLoading] = useState(true)
+export default function StatsPage({ userId }: { userId: string | null }) {
+  const [workdays, setWorkdays] = useState<WorkdayRow[]>(() =>
+    userId ? readWorkdayCache(userId) : []
+  )
+  const [jobs, setJobs] = useState<Job[]>(() =>
+    userId ? readCache(userId) : []
+  )
+  const [loading, setLoading] = useState(() =>
+    userId ? readCache(userId).length === 0 && readWorkdayCache(userId).length === 0 : true
+  )
 
   useEffect(() => {
+    if (!userId) { setLoading(false); return }
     let cancelled = false
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled || !user) { setLoading(false); return }
       const [rows, jobRows] = await Promise.all([
-        fetchWorkdays(user.id),
-        fetchJobs(user.id),
+        fetchWorkdays(userId!),
+        fetchJobs(userId!),
       ])
       if (!cancelled) {
         setWorkdays(rows)
@@ -216,7 +220,7 @@ export default function StatsPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [userId])
 
   // ── Computed stats ──────────────────────────────────────────────────────────
 

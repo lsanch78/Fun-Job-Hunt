@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import type { Job, JobStatus } from '@/types'
 import { readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs, runAutoGhost } from '@/services/jobService'
-import { supabase } from '@/lib/supabase'
 import WorkdayBar from '@/components/WorkdayBar'
 import QuickCast from '@/components/QuickCast'
 import AppDetailCard from '@/components/AppDetailCard'
@@ -683,12 +682,13 @@ function getDailyMessage(name: string): string {
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
-export default function JobLogPage() {
+export default function JobLogPage({ userId, userName }: { userId: string | null; userName: string | null }) {
   const navigate = useNavigate()
-  const [jobs, setJobs] = useState<Job[]>([emptyJob()])
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    const cached = userId ? readCache(userId) : []
+    return [emptyJob(), ...cached]
+  })
   const [popups, setPopups] = useState<XpPopup[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userName, setUserName] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
   const [sort, setSort] = useState<SortState | null>(null)
@@ -713,37 +713,20 @@ export default function JobLogPage() {
     }
   }, [jobs])
 
-  // Mount: load cache → render, then hydrate from DB in background
+  // Mount: seed from cache already done in useState; hydrate from DB in background
   useEffect(() => {
+    if (!userId) return
     let cancelled = false
 
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled || !user) return
+      // Set initial committedCount from whatever the cache seeded
+      committedCountRef.current = jobs.filter((j) => j.committed).length
 
-      const uid = user.id
-      setUserId(uid)
-      setUserName(
-        (user.user_metadata?.['username'] as string | undefined) ??
-        user.email?.split('@')[0] ??
-        null
-      )
-
-      // 1. Render from cache immediately (draft pinned at top)
-      const cached = readCache(uid)
-      if (cached.length > 0) {
-        setJobs((prev) => {
-          const draft = prev.find((j) => !j.committed) ?? emptyJob()
-          return [draft, ...cached]
-        })
-        committedCountRef.current = cached.length
-      }
-
-      // 2. Hydrate from DB in background
-      let dbJobs = await fetchJobs(uid)
+      // Hydrate from DB in background
+      let dbJobs = await fetchJobs(userId!)
       if (cancelled) return
 
-      // 3. Auto-ghost stale entries (no-op if setting is disabled)
+      // Auto-ghost stale entries (no-op if setting is disabled)
       dbJobs = await runAutoGhost(dbJobs)
       if (cancelled) return
 
@@ -752,13 +735,13 @@ export default function JobLogPage() {
         const merged = dbJobs.length > 0 ? [draft, ...dbJobs] : prev
         return merged
       })
-      writeCache(uid, dbJobs)
+      writeCache(userId!, dbJobs)
       committedCountRef.current = dbJobs.length
     }
 
     init()
     return () => { cancelled = true }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup: cancel pending debounced update timers on unmount
   useEffect(() => {

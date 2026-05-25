@@ -383,7 +383,7 @@ export default function MusicPlayer() {
         <button
           onClick={togglePlay}
           disabled={tracks.length === 0}
-          className={`text-sm px-0.5 disabled:opacity-30 ${playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
+          className={`text-sm px-0.5 disabled:opacity-30 transform -translate-y-0.5 ${playing ? 'text-primary' : 'text-muted hover:text-primary'}`}
           title={playing ? 'Pause' : 'Play'}
         >
           {playing ? '⏸' : '▶'}

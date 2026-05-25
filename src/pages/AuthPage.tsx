@@ -143,11 +143,10 @@ export default function AuthPage() {
     return stop
   }, [])
 
-  // Start hum immediately if sound preference is already on
+  // Stop hum on unmount
   useEffect(() => {
-    if (soundOn) stopHumRef.current = startTerminalHum()
     return () => { stopHumRef.current?.() }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   function toggleSound() {
     if (soundOn) {
@@ -163,6 +162,10 @@ export default function AuthPage() {
   }
 
   function proceedFromTitle() {
+    // Start hum here (first user gesture) if preference is on and not already running
+    if (soundOn && !stopHumRef.current) {
+      stopHumRef.current = startTerminalHum()
+    }
     playBlip()
     setTimeout(() => {
       if (returningName) navigate('/')

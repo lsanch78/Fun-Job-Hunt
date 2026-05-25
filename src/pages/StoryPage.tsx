@@ -161,47 +161,38 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
 // ── Page ──────────────────────────────────────────────────────────────────────
 const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
 
-export default function StoryPage() {
-  const [xp, setXp] = useState(0)
+export default function StoryPage({ userId }: { userId: string | null }) {
+  const [xp, setXp] = useState(() => {
+    const cached = userId ? readCache(userId) : []
+    return cached.length * XP.ADD_JOB
+  })
   const [employed, setEmployed] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => {
+    return userId ? readCache(userId).length === 0 : true
+  })
   const [togglingEmployed, setTogglingEmployed] = useState(false)
   const [fanfare, setFanfare] = useState(false)
 
   useEffect(() => { playStoryChime() }, [])
 
   useEffect(() => {
+    if (!userId) { setLoading(false); return }
     let cancelled = false
 
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled || !user) return
-
-      const uid = user.id
-      setUserId(uid)
-
-      const cached = readCache(uid)
-      const cachedXp = cached.length * XP.ADD_JOB
-      if (!cancelled) setXp(cachedXp)
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('employed')
-        .eq('id', uid)
-        .single()
-      if (!cancelled && profile) setEmployed(!!profile.employed)
-
-      const dbJobs = await fetchJobs(uid)
-      if (!cancelled) {
-        setXp(dbJobs.length * XP.ADD_JOB)
-        setLoading(false)
-      }
+      const [profileResult, dbJobs] = await Promise.all([
+        supabase.from('profiles').select('employed').eq('id', userId!).single(),
+        fetchJobs(userId!),
+      ])
+      if (cancelled) return
+      if (profileResult.data) setEmployed(!!profileResult.data.employed)
+      setXp(dbJobs.length * XP.ADD_JOB)
+      setLoading(false)
     }
 
     init()
     return () => { cancelled = true }
-  }, [])
+  }, [userId])
 
   async function handleToggleEmployed() {
     if (!userId) return
