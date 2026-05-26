@@ -24,7 +24,17 @@
       "Bash(grep:*)",
       "WebFetch(domain:github.com)",
       "Bash(ls:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(git -C /c/effjobhunt log --oneline --all)",
+      "Bash(git -C /c/effjobhunt branch:*)",
+      "Bash(git -C /c/effjobhunt diff master...pxl-pets-impl --name-only)",
+      "Bash(git -C /c/effjobhunt log --all --oneline)",
+      "Bash(find:*)",
+      "Bash(git -C /c/effjobhunt log --all --grep=\"pet\" --oneline)",
+      "Bash(git -C /c/effjobhunt show --stat pxl-pets-impl)",
+      "Bash(git -C /c/effjobhunt log --all --name-status)",
+      "Bash(git -C /c/effjobhunt diff master..pxl-pets-impl --stat)",
+      "Bash(git -C /c/effjobhunt status)"
     ]
   }
 }

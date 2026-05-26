@@ -4,6 +4,7 @@ import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 import { isSfxMuted } from '@/lib/sfx'
 import XpTracker, { getRankInfo } from '@/components/XpTracker'
+import PenCanvas, { type PenPet } from '@/components/pets/PenCanvas'
 
 // ── Sound: story page entry chime ─────────────────────────────────────────────
 function playStoryChime() {
@@ -147,6 +148,13 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
   el.textContent = PULSE_STYLE
   document.head.appendChild(el)
 }
+
+// ── Mock pets for UI prototype ────────────────────────────────────────────────
+const MOCK_PETS: PenPet[] = [
+  { id: '1', species: 'dog', name: 'Biscuit', colorId: 'default', hatId: 'cowboy' },
+  { id: '2', species: 'cat', name: 'Pixel',   colorId: 'orange' },
+  { id: '3', species: 'dog', name: 'Rex',     colorId: 'dark',    hatId: 'crown' },
+]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
@@ -377,6 +385,19 @@ export default function StoryPage({ userId }: { userId: string | null }) {
             })}
           </div>
         )}
+      </div>
+
+      {/* ── Pxl Pets pen ──────────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-4 pb-2">
+        <div className="border-t border-border pt-4 pb-1 flex items-center gap-2">
+          <p className="text-primary text-[9px] tracking-widest opacity-60">PXL PETS</p>
+          <div className="flex-1 border-b border-border opacity-40" />
+        </div>
+        <div className="relative w-full" style={{ aspectRatio: '1 / 1' }}>
+          {/* dim border only — doesn't affect canvas content */}
+          <div className="absolute inset-0 border border-primary pointer-events-none" style={{ opacity: 0.3 }} />
+          <PenCanvas pets={MOCK_PETS} height={undefined} />
+        </div>
       </div>
 
       {/* Big "I Got a Job!" button */}
