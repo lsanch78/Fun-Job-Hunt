@@ -20,9 +20,9 @@ const PORTFOLIO_URL = 'https://luisbuenrostro.dev'
 const LINKEDIN_URL = 'https://linkedin.com/in/luisbuenrostro'
 
 const PHOTOS: { src: string; caption?: string }[] = [
-  { src: '/me1.jpg' },
-  { src: '/me2.jpg' },
-  { src: '/me3.jpg' },
+  { src: '/me1.webp' },
+  { src: '/me2.webp' },
+  { src: '/me3.webp' },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,15 +93,24 @@ export default function CreditsPage() {
   }, [booted])
 
   return (
-    <div className="min-h-screen bg-bg font-pixel text-primary overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-bg font-pixel text-primary">
       <div className="max-w-2xl mx-auto px-6 py-12">
 
         {/* ── Header ── */}
         <div className={`transition-opacity duration-500 ${booted ? 'opacity-100' : 'opacity-0'}`}>
           <h1 className="text-lg text-primary mb-1">CREDITS</h1>
-          <p className="text-secondary text-xs tracking-widest mb-10">
+          <p className="text-secondary text-xs tracking-widest mb-4">
             — Fun Job Hunt —
           </p>
+          <div className="flex items-center gap-2 mb-10">
+            <span
+              className="inline-block w-2 h-2 rounded-full bg-warning"
+              style={{ animation: 'blink 1.2s step-start infinite' }}
+            />
+            <span className="text-xs text-primary tracking-widest">
+              STATUS: <span className="text-warning">UNEMPLOYED</span>
+            </span>
+          </div>
         </div>
 
         {/* ── Photos gallery ── */}
@@ -118,7 +127,7 @@ export default function CreditsPage() {
                     />
                   </div>
                   {caption && (
-                    <figcaption className="body-text text-muted text-center leading-snug">
+                    <figcaption className="body-text text-primary text-center leading-snug">
                       {caption}
                     </figcaption>
                   )}
@@ -133,23 +142,23 @@ export default function CreditsPage() {
           <p className="body-text text-primary leading-relaxed mb-4">
             Hi! <br></br> I care about you and want to thank you for taking the time to read this.
           </p>
-          <p className="body-text text-muted leading-relaxed mb-4">
+          <p className="body-text text-primary leading-relaxed mb-4">
             The professional world can feel cold.
-            I worked food and beverage for 10 years before pursuing a software engineering 
+            I worked food and beverage for 10 years before pursuing a software engineering
             degree at ASU. When I started applying to jobs I was completely behind my peers when
-            it came to speaking "professionally", writing resumes, interviewing, and wowing recruiters. 
-            We are in the wild west of AI recruiting tools, people are submitting perfectly tailored resumes 
+            it came to speaking "professionally", writing resumes, interviewing, and wowing recruiters.
+            We are in the wild west of AI recruiting tools, people are submitting perfectly tailored resumes
             to perfectly crafted job descriptions to get rejected by AI that is seeking the perfect candidate.
-            It's a little funny, we've essentially nullified AI's ability by using it everywhere. 
+            It's a little funny, we've essentially nullified AI's ability by using it everywhere.
 
           </p>
-          <p className="body-text text-muted leading-relaxed mb-4">
-            The bar is higher than it's ever been for new grads. It's difficult to measure your progress 
+          <p className="body-text text-primary leading-relaxed mb-4">
+            The bar is higher than it's ever been for new grads. It's difficult to measure your progress
             while searching for jobs. So I made this app in order to help me better navigate this space by gamifying it.
           </p>
-          <p className="body-text text-muted leading-relaxed mb-4">
+          <p className="body-text text-primary leading-relaxed mb-4">
             This app is 100% free. If it helped you get employed or it brought you joy
-            in any capacity: I've provided my LinkedIn, Ko-Fi, and portfolio below. I'm 
+            in any capacity: I've provided my LinkedIn, Ko-Fi, and portfolio below. I'm
             always happy to make new friends, so please reach out just to say hello!
           </p>
           <p className="body-text text-primary leading-relaxed">

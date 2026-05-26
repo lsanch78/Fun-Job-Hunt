@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* ── Readable body text for credits page ────────────────────────────────────
    VT323 looks retro but reads cleanly at larger sizes. Use .body-text
    anywhere you want prose that doesn't strain the eyes.

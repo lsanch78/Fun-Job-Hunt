@@ -342,7 +342,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-bg text-primary scanlines pb-20">
+    <div className="h-full overflow-y-auto bg-bg text-primary scanlines pb-20">
 
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4">
