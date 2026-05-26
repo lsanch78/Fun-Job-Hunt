@@ -9,6 +9,7 @@ import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import StoryPage from '@/pages/StoryPage'
 import CreditsPage from '@/pages/CreditsPage'
+import DevPortalPage from '@/pages/DevPortalPage'
 import NavBar from '@/components/NavBar'
 import QuickCast from '@/components/QuickCast'
 import WorkdayBar from '@/components/WorkdayBar'
@@ -106,6 +107,14 @@ export default function App() {
             element={
               <ProtectedRoute session={session}>
                 <CreditsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dev"
+            element={
+              <ProtectedRoute session={session}>
+                <DevPortalPage />
               </ProtectedRoute>
             }
           />

@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { MessageText } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
+import FeedbackModal from '@/components/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
 import { isSfxMuted, toggleSfxMuted, onSfxMutedChange } from '@/lib/sfx'
+
+const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal: 'TERMINAL',
@@ -185,8 +189,10 @@ export default function NavBar() {
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [tutorialActive, setTutorialActive] = useState(false)
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -199,6 +205,7 @@ export default function NavBar() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setUserEmail(data.session?.user.email ?? null)
+      setUserId(data.session?.user.id ?? null)
     })
   }, [])
 
@@ -226,6 +233,7 @@ export default function NavBar() {
     : '?'
 
   return (
+    <>
     <nav data-tutorial="navbar" className="bg-surface border-b border-border font-pixel text-xs flex items-center justify-between px-4 h-10 shrink-0 z-50">
 
       {/* ── Left: App name + nav links ── */}
@@ -256,6 +264,17 @@ export default function NavBar() {
 
       {/* ── Right: controls + avatar ── */}
       <div className="flex items-center gap-3">
+
+        {/* Feedback button */}
+        {userId && (
+          <button
+            onClick={() => { playProfileBlip(); setFeedbackOpen(true) }}
+            className="w-6 h-6 border border-border flex items-center justify-center leading-none hover:opacity-80 text-muted hover:text-primary hover:border-primary"
+            title="Send Feedback"
+          >
+            <MessageText className="w-3.5 h-3.5" />
+          </button>
+        )}
 
         {/* Tutorial help button */}
         <button
@@ -322,6 +341,16 @@ export default function NavBar() {
                 SETTINGS
               </button>
 
+              {/* Dev portal — only visible to dev account */}
+              {userEmail === DEV_EMAIL && (
+                <button
+                  onClick={() => { navigate('/dev'); setDropdownOpen(false) }}
+                  className="text-left px-3 py-2 text-muted hover:text-primary hover:bg-border"
+                >
+                  DEV PORTAL
+                </button>
+              )}
+
               {/* Sign in / Sign out */}
               {userEmail ? (
                 <button
@@ -344,5 +373,10 @@ export default function NavBar() {
 
       </div>
     </nav>
+
+    {feedbackOpen && userId && (
+      <FeedbackModal userId={userId} onClose={() => setFeedbackOpen(false)} />
+    )}
+    </>
   )
 }
