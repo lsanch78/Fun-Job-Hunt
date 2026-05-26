@@ -159,6 +159,27 @@ export async function updateJob(job: Job): Promise<void> {
   if (error) console.error('[jobService] updateJob:', error.message, job.id)
 }
 
+/** Fetches all columns for every job — used for CSV export. */
+export async function fetchJobsForExport(userId: string): Promise<Job[]> {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('id,user_id,title,company,status,posting_url,date_applied,rating,salary,description,contacts,notes')
+    .eq('user_id', userId)
+    .order('date_applied', { ascending: false })
+
+  if (error) {
+    console.error('[jobService] fetchJobsForExport:', error.message)
+    return []
+  }
+
+  return (data as DbJob[]).map((row) => ({
+    ...dbJobToJob(row),
+    description: row.description ?? undefined,
+    contacts:    row.contacts    ?? undefined,
+    notes:       row.notes       ?? undefined,
+  }))
+}
+
 // ── Detail-card lazy load / save ──────────────────────────────────────────────
 
 /** Fetches only the detail columns for a single job. Returns null on error. */
@@ -191,4 +212,10 @@ export async function deleteJobs(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const { error } = await supabase.from('jobs').delete().in('id', ids)
   if (error) console.error('[jobService] deleteJobs:', error.message)
+}
+
+export async function deleteAllJobs(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('jobs').delete().eq('user_id', userId)
+  if (error) console.error('[jobService] deleteAllJobs:', error.message)
+  return { error: error?.message ?? null }
 }

@@ -19,7 +19,8 @@
       "Bash(npx create-vite@latest:*)",
       "Bash(cat:*)",
       "Bash(npx tsc:*)",
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(git log:*)"
     ]
   }
 }

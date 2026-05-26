@@ -1,6 +1,8 @@
 import { useEffect, useRef, type ChangeEvent } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 
 function playBookThud() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Low thud body — square wave dropping fast

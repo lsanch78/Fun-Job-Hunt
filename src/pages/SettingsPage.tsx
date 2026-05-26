@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
-import { fetchJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
+import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
+import { deleteAllWorkdays } from '@/services/workdayService'
 import { supabase } from '@/lib/supabase'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS } from '@/services/aiSettingsService'
 import type { Job } from '@/types'
@@ -14,8 +15,9 @@ const THEME_LABELS: Record<Theme, string> = {
 }
 
 function jobsToCSV(jobs: Job[]): string {
-  const headers = ['Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL']
+  const headers = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Contacts', 'Notes']
   const rows = jobs.map((j) => [
+    j.id,
     j.company,
     j.title,
     j.status.replace(/_/g, ' '),
@@ -23,6 +25,9 @@ function jobsToCSV(jobs: Job[]): string {
     j.salary ? `${j.salary}K` : '',
     j.rating > 0 ? String(j.rating) : '',
     j.postingUrl,
+    j.description ?? '',
+    j.contacts ?? '',
+    j.notes ?? '',
   ])
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
   return [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
@@ -31,6 +36,9 @@ function jobsToCSV(jobs: Job[]): string {
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [exporting, setExporting] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [resetDone, setResetDone] = useState(false)
 
   const initialGhost = readAutoGhostSetting()
   const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
@@ -83,12 +91,28 @@ export default function SettingsPage() {
     setWhyGoodFitPrompt(DEFAULT_PROMPTS.why_good_fit)
   }
 
+  async function handleReset() {
+    if (!userId) return
+    setResetting(true)
+    await Promise.all([deleteAllJobs(userId), deleteAllWorkdays(userId)])
+    // Clear local caches
+    localStorage.removeItem(`fjobhunt:jobs:${userId}`)
+    localStorage.removeItem(`fjobhunt:workdays:${userId}`)
+    localStorage.removeItem('workday_punch_in')
+    localStorage.removeItem('workday_id')
+    localStorage.removeItem('workday_break_start')
+    localStorage.removeItem('workday_break_label')
+    setResetting(false)
+    setResetConfirm(false)
+    setResetDone(true)
+  }
+
   async function handleExport() {
     setExporting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const jobs = await fetchJobs(user.id)
+      const jobs = await fetchJobsForExport(user.id)
       if (jobs.length === 0) return
       const csv = jobsToCSV(jobs)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -172,13 +196,54 @@ export default function SettingsPage() {
 
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">DATA</h2>
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-        >
-          {exporting ? '  Exporting…' : '  Export jobs to CSV'}
-        </button>
+        <div className="flex flex-col gap-4">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+          >
+            {exporting ? '  Exporting…' : '  Export jobs to CSV'}
+          </button>
+
+          <div className="flex flex-col gap-3">
+            {!resetConfirm && !resetDone && (
+              <button
+                onClick={() => setResetConfirm(true)}
+                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none"
+              >
+                {'  Reset job hunt'}
+              </button>
+            )}
+
+            {resetConfirm && !resetDone && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-red-500 px-1">
+                  This will permanently delete all jobs and activity logs. This cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReset}
+                    disabled={resetting}
+                    className="text-left text-xs px-4 py-3 border-2 border-red-500 text-red-500 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+                  >
+                    {resetting ? '  Deleting…' : '  Yes, delete everything'}
+                  </button>
+                  <button
+                    onClick={() => setResetConfirm(false)}
+                    disabled={resetting}
+                    className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+                  >
+                    {'  Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {resetDone && (
+              <p className="text-xs text-secondary px-1">Job hunt reset. All data deleted.</p>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="mt-12">

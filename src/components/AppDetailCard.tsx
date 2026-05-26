@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Job } from '@/types'
 import { fetchJobDetails, updateJobDetails } from '@/services/jobService'
+import { isSfxMuted } from '@/lib/sfx'
 
 // ── Boot animation — injected once ───────────────────────────────────────────
 const BOOT_STYLE = `
@@ -65,6 +66,7 @@ if (typeof document !== 'undefined' && !document.getElementById('console-boot-ke
 
 // ── Boot blip — plays once when the card mounts ──────────────────────────────
 function playBootBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Short rising two-tone blip: low beep → high confirm (quiet)
@@ -92,6 +94,7 @@ function playBootBlip() {
 
 // ── Terminal hum — looping fan drone, started on mount, killed on unmount ────
 function startTerminalHum(): () => void {
+  if (isSfxMuted()) return () => {}
   try {
     const ctx = new AudioContext()
 
@@ -204,6 +207,7 @@ function startTerminalHum(): () => void {
 
 // ── Exit blip — boot blip in reverse ─────────────────────────────────────────
 function playExitBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -230,6 +234,7 @@ function playExitBlip() {
 
 // ── Console nav blip — short typewriter-style click ──────────────────────────
 function playConsoleBlip(dir: 'forward' | 'back' = 'forward') {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Two quick tones: first a click burst, then a short pitched confirm
@@ -271,6 +276,7 @@ function playConsoleBlip(dir: 'forward' | 'back' = 'forward') {
 
 // ── Save blip — short confirm tone ───────────────────────────────────────────
 function playSaveBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [

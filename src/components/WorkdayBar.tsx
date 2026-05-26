@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { WORKDAY } from '@/config/game'
 import { supabase } from '@/lib/supabase'
 import { startWorkday, endWorkday } from '@/services/workdayService'
+import { isSfxMuted } from '@/lib/sfx'
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ function getNextBreak(punchIn: Date, now: Date): NextBreak | null {
 // ── Sound: break chime ───────────────────────────────────────────────────────
 
 function playBreakChime() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Three-note bell: E5 → G5 → E6, soft sine tone
@@ -118,65 +120,49 @@ function playBreakChime() {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── Sound: punch-in stamp ─────────────────────────────────────────────────────
+// ── Sound: clock tick-tock punch-in ──────────────────────────────────────────
 
 function playPunchIn() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const sr = ctx.sampleRate
-    const now = ctx.currentTime
 
-    // Layer 1: impact thud — short low-frequency sine thump
-    const thudOsc = ctx.createOscillator()
-    const thudGain = ctx.createGain()
-    thudOsc.type = 'sine'
-    thudOsc.frequency.setValueAtTime(90, now)
-    thudOsc.frequency.exponentialRampToValueAtTime(40, now + 0.08)
-    thudGain.gain.setValueAtTime(0.55, now)
-    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
-    thudOsc.connect(thudGain)
-    thudGain.connect(ctx.destination)
-    thudOsc.start(now)
-    thudOsc.stop(now + 0.12)
+    function makeTick(t: number, highPitch: boolean) {
+      // Hard transient: bandpass-filtered noise burst
+      const bufLen = Math.ceil(sr * 0.012)
+      const buf = ctx.createBuffer(1, bufLen, sr)
+      const data = buf.getChannelData(0)
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1
+      const src = ctx.createBufferSource()
+      src.buffer = buf
 
-    // Layer 2: stamp crack — filtered noise burst
-    const crackBuf = ctx.createBuffer(1, Math.ceil(sr * 0.06), sr)
-    const cd = crackBuf.getChannelData(0)
-    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1
-    const crackSrc = ctx.createBufferSource()
-    crackSrc.buffer = crackBuf
-    const crackHpf = ctx.createBiquadFilter()
-    crackHpf.type = 'bandpass'
-    crackHpf.frequency.value = 2200
-    crackHpf.Q.value = 0.8
-    const crackGain = ctx.createGain()
-    crackGain.gain.setValueAtTime(0.22, now)
-    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
-    crackSrc.connect(crackHpf)
-    crackHpf.connect(crackGain)
-    crackGain.connect(ctx.destination)
-    crackSrc.start(now)
-    crackSrc.stop(now + 0.06)
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.value = highPitch ? 3200 : 2000
+      bp.Q.value = 3.5
 
-    // Layer 3: ink-squeak — short rising chirp after the stamp lands
-    const squeakOsc = ctx.createOscillator()
-    const squeakGain = ctx.createGain()
-    squeakOsc.type = 'sine'
-    squeakOsc.frequency.setValueAtTime(700, now + 0.04)
-    squeakOsc.frequency.linearRampToValueAtTime(1100, now + 0.10)
-    squeakGain.gain.setValueAtTime(0, now + 0.04)
-    squeakGain.gain.linearRampToValueAtTime(0.06, now + 0.055)
-    squeakGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
-    squeakOsc.connect(squeakGain)
-    squeakGain.connect(ctx.destination)
-    squeakOsc.start(now + 0.04)
-    squeakOsc.stop(now + 0.12)
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.28, t)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.012)
+
+      src.connect(bp)
+      bp.connect(gain)
+      gain.connect(ctx.destination)
+      src.start(t)
+      src.stop(t + 0.015)
+    }
+
+    // tick … tock — two clicks with a short gap
+    makeTick(ctx.currentTime,        false) // tick (low)
+    makeTick(ctx.currentTime + 0.18, true)  // tock (high)
   } catch { /* AudioContext blocked */ }
 }
 
 // ── Sound: punch-out stamp + paper slide ─────────────────────────────────────
 
 function playPunchOut() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const sr = ctx.sampleRate
@@ -257,15 +243,35 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
     return () => clearInterval(id)
   }, [])
 
-  // Track user activity for auto punch-out
+  // Track user activity — auto punch-in on first interaction, refresh timestamp for auto punch-out
   const resetActivity = useCallback(() => {
     lastActivityRef.current = Date.now()
-  }, [])
+    // Auto punch-in: if not already punched in, start a workday on first interaction
+    setPunchIn((current) => {
+      if (current !== null) return current
+      const t = new Date()
+      savePunchIn(t.toISOString())
+      playPunchIn()
+      // Write a placeholder synchronously so any concurrent resetActivity call
+      // sees a non-empty key and skips the insert, preventing duplicate rows.
+      if (!localStorage.getItem(WORKDAY_ID_KEY)) {
+        localStorage.setItem(WORKDAY_ID_KEY, 'pending')
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) { localStorage.removeItem(WORKDAY_ID_KEY); return }
+          startWorkday(user.id, t).then((id) => {
+            if (id) localStorage.setItem(WORKDAY_ID_KEY, id)
+            else localStorage.removeItem(WORKDAY_ID_KEY)
+          })
+        })
+      }
+      return t
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll']
-    events.forEach((e) => window.addEventListener(e, resetActivity, { passive: true }))
-    return () => events.forEach((e) => window.removeEventListener(e, resetActivity))
+    const handler = () => resetActivity()
+    window.addEventListener('fjobhunt:job-input', handler)
+    return () => window.removeEventListener('fjobhunt:job-input', handler)
   }, [resetActivity])
 
   // Auto punch-out after idle threshold
@@ -307,20 +313,6 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
     }
   }
 
-  function doPunchIn() {
-    const t = new Date()
-    savePunchIn(t.toISOString())
-    setPunchIn(t)
-    playPunchIn()
-    // Persist to DB fire-and-forget; store returned id for punch-out
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      startWorkday(user.id, t).then((id) => {
-        if (id) localStorage.setItem(WORKDAY_ID_KEY, id)
-      })
-    })
-  }
-
   function doPunchOut(_at?: Date) {
     const workdayId = localStorage.getItem(WORKDAY_ID_KEY)
     localStorage.removeItem(WORKDAY_ID_KEY)
@@ -340,12 +332,6 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
   const isPunchedIn = punchIn !== null
   const elapsedMs = isPunchedIn ? now.getTime() - punchIn.getTime() : 0
   const nextBreak = isPunchedIn ? getNextBreak(punchIn, now) : null
-
-  const btn =
-    'font-pixel text-[9px] px-3 py-1.5 border border-border cursor-pointer select-none tracking-widest transition-colors'
-  const btnPrimary = `${btn} border-primary text-primary hover:bg-primary hover:text-bg`
-  const btnMuted = `${btn} border-muted text-muted cursor-not-allowed opacity-50`
-  const btnDanger = `${btn} border-secondary text-secondary hover:bg-secondary hover:text-bg`
 
   return (
     <div data-tutorial="workday-bar" className={inline ? "bg-surface border-b border-border font-pixel" : "fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel"}>
@@ -389,42 +375,11 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
           )}
         </div>
 
-        {/* Divider */}
-        <div className="h-8 w-px bg-border" />
-
-        {/* Punch in / out buttons */}
-        <div className="flex items-center gap-3">
-          {isPunchedIn ? (
-            <button className={btnMuted} disabled>
-              PUNCH IN
-            </button>
-          ) : (
-            <button className={btnPrimary} onClick={doPunchIn}>
-              PUNCH IN
-            </button>
-          )}
-
-          {isPunchedIn ? (
-            <button className={btnDanger} onClick={() => doPunchOut()}>
-              PUNCH OUT
-            </button>
-          ) : (
-            <button className={btnMuted} disabled>
-              PUNCH OUT
-            </button>
-          )}
-        </div>
-
-        {/* Punch-in timestamp */}
+        {/* Activity status */}
         {isPunchedIn && (
           <>
             <div className="h-8 w-px bg-border" />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-muted text-[8px] tracking-widest">CLOCKED IN</span>
-              <span className="text-muted text-[9px] tabular-nums">
-                {punchIn.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
+            <ActivityStatus lastActivityRef={lastActivityRef} />
           </>
         )}
 
@@ -452,6 +407,39 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
         <AutoIdleWarning lastActivityRef={lastActivityRef} isPunchedIn={isPunchedIn} />
 
       </div>
+    </div>
+  )
+}
+
+// ── Activity status label ─────────────────────────────────────────────────────
+
+const IDLE_LABEL_THRESHOLD_MS = 15 * 60 * 1000 // 15 minutes
+
+function ActivityStatus({ lastActivityRef }: { lastActivityRef: React.RefObject<number> }) {
+  const [idleMs, setIdleMs] = useState(0)
+  const [dots, setDots] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIdleMs(Date.now() - lastActivityRef.current)
+    }, 5_000)
+    return () => clearInterval(id)
+  }, [lastActivityRef])
+
+  const isIdle = idleMs >= IDLE_LABEL_THRESHOLD_MS
+
+  useEffect(() => {
+    if (isIdle) return
+    const id = setInterval(() => setDots((d) => (d + 1) % 4), 500)
+    return () => clearInterval(id)
+  }, [isIdle])
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-muted text-[8px] tracking-widest">STATUS</span>
+      <span className={`text-[9px] ${isIdle ? 'text-warning' : 'text-primary'}`}>
+        {isIdle ? 'IDLE' : `TRACKING${'.'.repeat(dots)}`}
+      </span>
     </div>
   )
 }

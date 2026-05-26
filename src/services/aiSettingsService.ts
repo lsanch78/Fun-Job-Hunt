@@ -9,9 +9,9 @@ export interface AiSettings {
 
 export const DEFAULT_PROMPTS = {
   cover_letter:
-    'You are an expert job application writer. Write a formal, professional cover letter in 3 paragraphs. Paragraph 1: introduce the candidate and the role. Paragraph 2: match the candidate\'s specific experience to the job description requirements. Paragraph 3: closing with a call to action. Do not include addresses or dates. Output only the letter body.',
+    'You are an expert job application writer. Write a formal, professional cover letter in 1 paragraph. Introduce the candidate and the role. Match the candidate\'s specific experience to the job description requirements. Closing with a call to action. Do not include addresses or dates. Output only the letter body. Ensure that it is in first person.',
   why_good_fit:
-    'You are a recruiter reviewing a candidate\'s resume against a job description. Write a concise 3-5 sentence analysis explaining why this candidate is a strong fit for the role. Reference specific skills, experiences, and requirements by name. Be direct and factual. Output only the analysis, no preamble.',
+    'Imagine you are applying to this job. Using the resume provided why do you think you\'d be a good fit to work here? What would excite you most about working here? Answer this in 3 sentences maximum.',
   custom:
     'You are a helpful career assistant. Using the resume and job description provided, complete the following task:',
 } as const

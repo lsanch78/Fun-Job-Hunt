@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -41,6 +42,7 @@ import {
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
 function playPageFlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const hitDuration = 0.65
@@ -73,6 +75,7 @@ function playPageFlip() {
 }
 
 function playSpellCast() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [220, 277.18, 329.63, 440, 554.37, 659.25]
@@ -734,6 +737,7 @@ export default function QuickCast() {
           {/* ── Right zone: AI assistant ── */}
           <div className="relative flex flex-col items-center">
             <button
+              data-tutorial="ai-assistant"
               onClick={() => setAiPanelOpen((prev) => !prev)}
               className={[
                 'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',

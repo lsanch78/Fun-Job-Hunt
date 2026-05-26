@@ -45,7 +45,7 @@ export const RANK_TITLES: string[] = [
 // --- WORKDAY ---
 export const WORKDAY = {
   DEFAULT_SHIFT_HOURS: 8,
-  AUTO_PUNCH_OUT_IDLE_MS: 60 * 60 * 1000, // 1 hour
+  AUTO_PUNCH_OUT_IDLE_MS: 15 * 60 * 1000, // 15 minutes
 } as const
 
 // Derived break time in minutes based on shift length

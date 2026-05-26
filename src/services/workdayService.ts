@@ -67,6 +67,12 @@ export async function endWorkday(workdayId: string, punchOut: Date): Promise<voi
   }
 }
 
+export async function deleteAllWorkdays(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('workdays').delete().eq('user_id', userId)
+  if (error) console.error('[workdayService] deleteAllWorkdays:', error.message)
+  return { error: error?.message ?? null }
+}
+
 // Fetch all workday rows for a user, newest first.
 export async function fetchWorkdays(userId: string): Promise<WorkdayRow[]> {
   const { data, error } = await supabase

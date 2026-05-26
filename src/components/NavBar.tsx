@@ -5,6 +5,7 @@ import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
+import { isSfxMuted, toggleSfxMuted, onSfxMutedChange } from '@/lib/sfx'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal: 'TERMINAL',
@@ -22,6 +23,7 @@ const NAV_LINKS = [
 
 // ── Sound: logo — descending terminal close blip ─────────────────────────────
 function playExitBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -48,6 +50,7 @@ function playExitBlip() {
 
 // ── Sound: jobs page — sharp terminal boot crack ──────────────────────────────
 function playJobsBoot() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Short noise burst through a high-pass filter: crisp terminal "snap"
@@ -79,6 +82,7 @@ function playJobsBoot() {
 
 // ── Sound: profile dropdown open — soft single blip ──────────────────────────
 function playProfileBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -99,6 +103,7 @@ function playProfileBlip() {
 
 // ── Sound: sign out — descending two-note blip ────────────────────────────────
 function playSignOutBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -124,6 +129,7 @@ function playSignOutBlip() {
 
 // ── Sound: credits page — gentle ascending arpeggio ──────────────────────────
 function playCreditsBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -150,6 +156,7 @@ function playCreditsBlip() {
 
 // ── Sound: stats page — quick ascending data blips ────────────────────────────
 function playStatsBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Three rapid ascending square-wave blips: D5 → F#5 → A5
@@ -179,12 +186,15 @@ export default function NavBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [tutorialActive, setTutorialActive] = useState(false)
+  const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     registerTutorialActiveListener(setTutorialActive)
     return () => unregisterTutorialActiveListener()
   }, [])
+
+  useEffect(() => onSfxMutedChange(setSfxMutedState), [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -254,6 +264,15 @@ export default function NavBar() {
           title="Help / Tutorial"
         >
           ?
+        </button>
+
+        {/* SFX mute toggle */}
+        <button
+          onClick={() => setSfxMutedState(toggleSfxMuted())}
+          className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 font-pixel text-[8px] ${sfxMuted ? 'bg-surface text-muted border-border line-through' : 'bg-surface text-primary border-primary'}`}
+          title={sfxMuted ? 'Unmute SFX' : 'Mute SFX'}
+        >
+          SFX
         </button>
 
         {/* Music player */}

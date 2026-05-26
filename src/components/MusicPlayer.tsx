@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 import { Music } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -116,6 +117,7 @@ function loadYTApi(onReady: () => void) {
 }
 
 function playMusicBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -161,6 +163,7 @@ export default function MusicPlayer() {
   const currentIdxRef = useRef(currentIdx)
   const shuffleRef = useRef(shuffle)
   const tracksRef = useRef(tracks)
+  const volumeRef = useRef(volume)
   // Initialised once from storage; createPlayer consumes and clears it
   const resume = loadResume()
   const resumeSeekRef = useRef<number | null>(resume?.playing ? (resume.seconds ?? 0) : null)
@@ -210,6 +213,7 @@ export default function MusicPlayer() {
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
   useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
   useEffect(() => { tracksRef.current = tracks }, [tracks])
+  useEffect(() => { volumeRef.current = volume }, [volume])
 
   const createPlayer = useCallback((videoId: string) => {
     if (!iframeContainerRef.current) return
@@ -233,7 +237,7 @@ export default function MusicPlayer() {
       events: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onReady(e: any) {
-          e.target.setVolume(volume)
+          e.target.setVolume(volumeRef.current)
           e.target.playVideo()
           setPlaying(true)
           playingRef.current = true

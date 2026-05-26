@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 import { fetchModels, streamCompletion } from '@/services/ollamaService'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
@@ -83,6 +84,7 @@ const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 function playBootBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -108,6 +110,7 @@ function playBootBlip() {
 }
 
 function playExitBlip() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const notes = [
@@ -299,7 +302,6 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
   const [copied,            setCopied]           = useState(false)
   const [aiSettings,        setAiSettings]       = useState<AiSettings | null>(null)
   const [showInfo,          setShowInfo]         = useState(false)
-  const [pinnedInfo,        setPinnedInfo]       = useState(false)
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLPreElement>(null)
@@ -496,39 +498,12 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
               <span style={{ color: T.warn }}>○</span> NOT DETECTED
             </span>
           )}
-          <div
-            style={{ position: 'relative' }}
-            onMouseEnter={() => setShowInfo(true)}
-            onMouseLeave={() => { if (!pinnedInfo) setShowInfo(false) }}
+          <button
+            onClick={() => setShowInfo(true)}
+            style={{ color: T.greenDim, fontSize: '13px', lineHeight: 1, background: 'none', border: `1px solid ${T.border}`, cursor: 'pointer', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"VT323", monospace' }}
           >
-            <button
-              onClick={() => { setPinnedInfo((p) => { const next = !p; if (!next) setShowInfo(false); return next }) }}
-              style={{ color: pinnedInfo ? T.green : T.greenDim, fontSize: '13px', lineHeight: 1, background: 'none', border: `1px solid ${pinnedInfo ? T.green : T.border}`, cursor: 'pointer', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"VT323", monospace' }}
-            >
-              ?
-            </button>
-            {(showInfo || pinnedInfo) && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: 0,
-                  width: '340px',
-                  background: T.bg,
-                  border: `1px solid ${T.green}`,
-                  borderRadius: '6px',
-                  padding: '12px 14px',
-                  zIndex: 100,
-                  boxShadow: '0 0 16px 2px rgba(57,255,20,0.18)',
-                  textShadow: '0 0 4px rgba(57,255,20,0.25)',
-                }}
-              >
-                <pre style={{ fontFamily: '"VT323", monospace', fontSize: '13px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
-                  {status === 'not_connected' ? OLLAMA_INFO_NOT_CONNECTED : OLLAMA_INFO_CONNECTED}
-                </pre>
-              </div>
-            )}
-          </div>
+            ?
+          </button>
           <button
             onClick={handleClose}
             style={{ color: T.greenDim, fontSize: '16px', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -566,7 +541,7 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
 
           {/* Resume toggles */}
           <div>
-            <div style={labelStyle}>Resume</div>
+            <div style={labelStyle}>Reference Resumes</div>
             {occupiedSlots.length === 0 ? (
               <div style={{ color: T.warn, fontSize: '13px', lineHeight: '1.6' }}>
                 <p>&gt; No resumes uploaded yet.</p>
@@ -776,6 +751,69 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
               {copied ? '✓ COPIED' : 'COPY'}
             </button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── INFO DIALOG ─────────────────────────────────────────────────────── */}
+      {showInfo && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 200,
+            display: 'flex',
+            flexDirection: 'column',
+            background: T.bg,
+            borderRadius: '8px',
+          }}
+        >
+          {/* Dialog header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 14px',
+              borderBottom: `1px solid ${T.border}`,
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: '13px', letterSpacing: '0.1em' }}>
+              // OLLAMA INFO
+            </span>
+            <button
+              onClick={() => setShowInfo(false)}
+              style={{ color: T.greenDim, fontSize: '16px', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}
+            >
+              ✕
+            </button>
+          </div>
+          {/* Dialog body */}
+          <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1 }}>
+            <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+              {status === 'not_connected' ? OLLAMA_INFO_NOT_CONNECTED : OLLAMA_INFO_CONNECTED}
+            </pre>
+            <div style={{ marginTop: '16px', fontFamily: '"VT323", monospace', fontSize: '13px', color: T.greenDim }}>
+              For more information on how to set up,{' '}
+              <a
+                href="https://docs.ollama.com/quickstart"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: T.green, textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                click here
+              </a>
+            </div>
+          </div>
+          {/* Dialog footer */}
+          <div style={{ padding: '8px 14px', borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+            <button
+              onClick={() => setShowInfo(false)}
+              style={{ ...termBtn(false), fontSize: '13px' }}
+            >
+              CLOSE
+            </button>
           </div>
         </div>
       )}

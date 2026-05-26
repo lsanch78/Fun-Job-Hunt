@@ -98,16 +98,15 @@ export default function CreditsPage() {
 
         {/* ── Header ── */}
         <div className={`transition-opacity duration-500 ${booted ? 'opacity-100' : 'opacity-0'}`}>
-          <p className="text-muted text-[10px] tracking-widest mb-2">// CREDITS.EXE</p>
-          <h1 className="text-lg text-primary mb-1">ABOUT THIS GAME</h1>
+          <h1 className="text-lg text-primary mb-1">CREDITS</h1>
           <p className="text-secondary text-xs tracking-widest mb-10">
-            — a dev's true story —
+            — Fun Job Hunt —
           </p>
         </div>
 
         {/* ── Photos gallery ── */}
         {PHOTOS.length > 0 && (
-          <Section title="ME" delay="delay-100" booted={booted}>
+          <Section title="ME IN ACTION" delay="delay-100" booted={booted}>
             <div className="grid grid-cols-3 gap-4">
               {PHOTOS.map(({ src, caption }, i) => (
                 <figure key={i} className="flex flex-col gap-2">
@@ -131,26 +130,27 @@ export default function CreditsPage() {
 
         {/* ── Story ── */}
         <Section title="FROM THE DEV" delay="delay-200" booted={booted}>
-          <p className="body-text text-muted leading-relaxed mb-4">
-            Hi everyone! Jobless and employed alike. Thank you for taking the time to use my app.
+          <p className="body-text text-primary leading-relaxed mb-4">
+            Hi! <br></br> I care about you and want to thank you for taking the time to read this.
           </p>
           <p className="body-text text-muted leading-relaxed mb-4">
-            As a new grad dev, the professional world was feeling increasingly cold.
-            I've worked food and beverage for 12 years before making the switch to SWE
-            and pursuing a degree at ASU. I've grinded LeetCode, been to multiple final rounds,
-            and in a world that expects perfection, I'll be the first to admit I am anything
-            close to that.
+            The professional world can feel cold.
+            I worked food and beverage for 10 years before pursuing a software engineering 
+            degree at ASU. When I started applying to jobs I was completely behind my peers when
+            it came to speaking "professionally", writing resumes, interviewing, and wowing recruiters. 
+            We are in the wild west of AI recruiting tools, people are submitting perfectly tailored resumes 
+            to perfectly crafted job descriptions to get rejected by AI that is seeking the perfect candidate.
+            It's a little funny, we've essentially nullified AI's ability by using it everywhere. 
+
           </p>
           <p className="body-text text-muted leading-relaxed mb-4">
-            But I was making progress, and progress in the job application world is hard to
-            measure and difficult to hold yourself accountable to. So I made this app in order
-            to help me better navigate this world and gamify it.
+            The bar is higher than it's ever been for new grads. It's difficult to measure your progress 
+            while searching for jobs. So I made this app in order to help me better navigate this space by gamifying it.
           </p>
           <p className="body-text text-muted leading-relaxed mb-4">
-            This app is 100% free. If it helped you get employed, or you found any sort of joy
-            from it and you want to help me out, I've provided my LinkedIn, Ko-Fi, and my
-            portfolio below. I'm always happy to make new friends, so please reach out
-            for anything!
+            This app is 100% free. If it helped you get employed or it brought you joy
+            in any capacity: I've provided my LinkedIn, Ko-Fi, and portfolio below. I'm 
+            always happy to make new friends, so please reach out just to say hello!
           </p>
           <p className="body-text text-primary leading-relaxed">
             Thank you,<br />Luis

@@ -1,4 +1,4 @@
-const OLLAMA_BASE = 'http://localhost:11434'
+const OLLAMA_BASE = 'http://127.0.0.1:11434'
 
 export interface OllamaModel {
   name: string

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,8 @@ const STEPS: TutorialStep[] = [
     title: 'WORKDAY',
     subtitle: 'time tracking · breaks',
     body: [
-      'Punch in when you start your session, punch out when done. Break reminders fire automatically at scheduled intervals to keep you fresh.',
+      'Time tracking is automatic — your session starts the moment you interact with the app and stops after 15 minutes of inactivity. No punching in or out required.',
+      'NOTE: The bar shows TRACKING while active and IDLE after 15 minutes without interaction. Break reminders still fire at scheduled intervals to keep you fresh.',
     ],
   },
   {
@@ -56,11 +58,21 @@ const STEPS: TutorialStep[] = [
       'Theme switcher and account settings are in the avatar menu (top right). Press ? anytime to replay this tutorial.',
     ],
   },
+  {
+    id: 'ai-assistant',
+    title: 'AI ASSISTANT',
+    subtitle: 'ollama · local ai',
+    body: [
+      'The AI button opens a local resume assistant powered by Ollama. Ask it to tailor your resume, write cover letter bullets, or prep interview answers — all running on your own machine, nothing sent to the cloud.',
+      'NOTE: Requires Ollama installed and running locally. Visit ollama.com to get started. Once running, the button shows ● ON. Model and prompt behaviour can be configured in Settings.',
+    ],
+  },
 ]
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
 function playNext() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     ;[440, 660].forEach((freq, i) => {
@@ -79,6 +91,7 @@ function playNext() {
 }
 
 function playBack() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     ;[660, 440].forEach((freq, i) => {
@@ -97,6 +110,7 @@ function playBack() {
 }
 
 function playExit() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     ;[

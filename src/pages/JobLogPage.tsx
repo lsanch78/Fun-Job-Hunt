@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { isSfxMuted } from '@/lib/sfx'
 import { Terminal, Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
@@ -52,6 +53,7 @@ function isDraftReady(draft: Job): boolean {
 
 // ── Sound: status upgrade chime (Phone Screen / Interview) ───────────────────
 function playProgressChime() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Two ascending notes: G4 → B4
@@ -76,6 +78,7 @@ function playProgressChime() {
 
 // ── Sound: offer celebration fanfare ─────────────────────────────────────────
 function playCelebrationFanfare() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // C5 → E5 → G5 → E5 → C6
@@ -101,6 +104,7 @@ function playCelebrationFanfare() {
 
 // ── Sound ───────────────────────────────────────────────────────────────────
 function playThud(mega = false) {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const keyCount = mega ? 14 : 7
@@ -141,6 +145,7 @@ function playThud(mega = false) {
 
 // ── Sound: delete mode bump ───────────────────────────────────────────────────
 function playDeleteBump() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     // Low thud: sub-bass sine with sharp transient
@@ -180,6 +185,7 @@ function playDeleteBump() {
 
 // ── Sound: palatal click (checkbox select) ───────────────────────────────────
 function playSelectClick() {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const t = ctx.currentTime
@@ -214,6 +220,7 @@ function playSelectClick() {
 
 // ── Sound: trash delete whoosh ────────────────────────────────────────────────
 function playTrash(count = 1) {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const duration = Math.min(0.08 + count * 0.04, 0.55)
@@ -816,6 +823,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   }
 
   function handleDraftChange(draft: Job) {
+    // Notify WorkdayBar that the user is actively working on a job row
+    window.dispatchEvent(new Event('fjobhunt:job-input'))
+
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === draft.id)
       if (idx === -1) return prev
