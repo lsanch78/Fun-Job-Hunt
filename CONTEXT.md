@@ -98,3 +98,42 @@ A named color palette applied globally to the UI. Four options: Classic Terminal
 
 ## Music Player
 A persistent bottom-bar HUD element. Plays YouTube videos/playlists via the YouTube IFrame API. Desktop-only for v1. Users can paste YouTube links and save playlists. Default playlists are provided (lofi 8-bit, chiptune study, retro game OSTs).
+
+---
+
+## Job Cap
+The maximum number of Jobs a user may have active at one time: **1,000**. Enforced at two layers — UI (before draft creation) and service (count query before insert). When the cap is reached, the user is prompted to export their data and delete old terminal-status Jobs before adding new ones.
+
+---
+
+## Field Limits
+Character limits enforced at three layers: frontend `maxLength`, service-layer validation before DB writes, and DB `varchar(N)` constraints as a final backstop. The canonical source of truth is a single `JOB_LIMITS` constants object in `jobService.ts`.
+
+| Field | Limit |
+|---|---|
+| company | 100 |
+| title | 150 |
+| posting_url | 500 |
+| salary | 20 |
+| description | 5,000 |
+| contacts | 1,000 |
+| notes | 2,000 |
+| cover_letter_prompt | 3,000 |
+| why_good_fit_prompt | 3,000 |
+| resume slot name | 50 |
+| jdText (AI panel, not persisted) | 10,000 — frontend only |
+
+---
+
+## Resume Limit
+Each user may store up to 3 resume PDFs (slots a, b, c). Maximum file size per PDF: **1 MB**. Enforced in the frontend before upload and via Supabase Storage bucket policy. Rationale: 3 slots × 1 MB = 3 MB max storage exposure per user.
+
+---
+
+## Quick Cast Links
+Hotbar shortcuts per user. Maximum **20 links** per user. Enforced in the UI.
+
+---
+
+## Music Tracks
+Saved YouTube tracks per user. Maximum **50 tracks** per user. Enforced in the UI.

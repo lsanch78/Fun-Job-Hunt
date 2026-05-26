@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import mammoth from 'mammoth'
 import { isSfxMuted } from '@/lib/sfx'
 
 function playBookThud() {
@@ -48,6 +49,22 @@ interface ResumeModalProps {
 
 export default function ResumeModal({ url, fileName, slotColor, onClose, onReplace, replacing }: ResumeModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isDocx = url.toLowerCase().includes('.docx')
+  const [docxHtml, setDocxHtml] = useState<string | null>(null)
+  const [docxError, setDocxError] = useState(false)
+
+  useEffect(() => {
+    if (!isDocx) { setDocxHtml(null); return }
+    setDocxHtml(null)
+    setDocxError(false)
+    let cancelled = false
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => mammoth.convertToHtml({ arrayBuffer: buf }))
+      .then((result) => { if (!cancelled) setDocxHtml(result.value) })
+      .catch(() => { if (!cancelled) setDocxError(true) })
+    return () => { cancelled = true }
+  }, [url, isDocx])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -86,7 +103,7 @@ export default function ResumeModal({ url, fileName, slotColor, onClose, onRepla
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -95,7 +112,7 @@ export default function ResumeModal({ url, fileName, slotColor, onClose, onRepla
             onClick={() => fileInputRef.current?.click()}
             disabled={replacing}
             className="font-pixel text-[9px] border border-border text-muted px-3 py-1 hover:border-secondary hover:text-secondary transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Replace resume PDF"
+            title="Replace resume file"
           >
             {replacing ? '▶ UPLOADING...' : '▶ REPLACE'}
           </button>
@@ -110,12 +127,27 @@ export default function ResumeModal({ url, fileName, slotColor, onClose, onRepla
         </div>
       </div>
 
-      {/* PDF embed */}
-      <embed
-        src={url}
-        type="application/pdf"
-        className="flex-1 w-full"
-      />
+      {/* Preview area */}
+      {isDocx ? (
+        <div className="flex-1 overflow-auto bg-white text-black p-8">
+          {docxError ? (
+            <p className="font-pixel text-[10px] text-muted">Failed to load DOCX preview.</p>
+          ) : docxHtml === null ? (
+            <p className="font-pixel text-[10px] text-muted">Loading preview...</p>
+          ) : (
+            <div
+              className="max-w-3xl mx-auto prose prose-sm"
+              dangerouslySetInnerHTML={{ __html: docxHtml }}
+            />
+          )}
+        </div>
+      ) : (
+        <embed
+          src={url}
+          type="application/pdf"
+          className="flex-1 w-full"
+        />
+      )}
     </div>
   )
 }

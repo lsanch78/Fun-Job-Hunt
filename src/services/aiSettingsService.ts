@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase'
 
+// ── Field limits (see docs/SCALABILITY.md) ───────────────────────────────────
+export const AI_PROMPT_LIMIT = 3000
+
 export interface AiSettings {
   user_id: string
   cover_letter_prompt: string

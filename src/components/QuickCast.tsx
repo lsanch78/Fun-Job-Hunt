@@ -452,7 +452,8 @@ export default function QuickCast() {
   async function handleResumeFileInput(slot: ResumeSlot, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file || file.type !== 'application/pdf') return
+    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!file || !allowed.includes(file.type)) return
     if (!userId) return
     setUploadingSlot(slot)
     const { error } = await uploadResumePdf(userId, slot, file)
@@ -725,7 +726,7 @@ export default function QuickCast() {
                   <input
                     ref={(el) => { fileInputRefs.current[slot] = el }}
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     className="hidden"
                     onChange={(e) => handleResumeFileInput(slot, e)}
                   />

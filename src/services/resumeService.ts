@@ -57,23 +57,31 @@ export async function deleteResumeSlot(
   return { error: null }
 }
 
-export function resumeStoragePath(userId: string, slot: ResumeSlot): string {
-  return `${userId}/resume_${slot}.pdf`
+export function resumeStoragePath(userId: string, slot: ResumeSlot, ext = 'pdf'): string {
+  return `${userId}/resume_${slot}.${ext}`
 }
 
 export async function getResumeSignedUrl(
   userId: string,
   slot: ResumeSlot,
 ): Promise<string | null> {
-  const path = resumeStoragePath(userId, slot)
-  const { data, error } = await supabase.storage
-    .from('resumes')
-    .createSignedUrl(path, 3600)
-  if (error || !data) {
-    console.error('[resumeService] getResumeSignedUrl:', error?.message)
-    return null
+  // Try docx first, fall back to pdf
+  for (const ext of ['docx', 'pdf']) {
+    const path = resumeStoragePath(userId, slot, ext)
+    const { data } = await supabase.storage
+      .from('resumes')
+      .createSignedUrl(path, 3600)
+    if (data?.signedUrl) return data.signedUrl
   }
-  return data.signedUrl
+  console.error('[resumeService] getResumeSignedUrl: no file found for slot', slot)
+  return null
+}
+
+const MAX_RESUME_BYTES = 1 * 1024 * 1024 // 1 MB — see docs/SCALABILITY.md
+
+const ALLOWED_MIME: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
 }
 
 export async function uploadResumePdf(
@@ -81,10 +89,19 @@ export async function uploadResumePdf(
   slot: ResumeSlot,
   file: File,
 ): Promise<{ error: string | null }> {
-  const path = resumeStoragePath(userId, slot)
+  const ext = ALLOWED_MIME[file.type]
+  if (!ext) return { error: 'Only PDF and DOCX files are supported.' }
+  if (file.size > MAX_RESUME_BYTES) {
+    return { error: 'Resume must be 1 MB or smaller. Try exporting at a lower quality or removing embedded images.' }
+  }
+  // Remove the other format if it exists so signed-URL lookup doesn't return a stale file
+  const otherExt = ext === 'pdf' ? 'docx' : 'pdf'
+  await supabase.storage.from('resumes').remove([resumeStoragePath(userId, slot, otherExt)])
+
+  const path = resumeStoragePath(userId, slot, ext)
   const { error } = await supabase.storage
     .from('resumes')
-    .upload(path, file, { upsert: true, contentType: 'application/pdf' })
+    .upload(path, file, { upsert: true, contentType: file.type })
   if (error) {
     console.error('[resumeService] uploadResumePdf:', error.message)
     return { error: error.message }
@@ -96,10 +113,8 @@ export async function deleteResumePdf(
   userId: string,
   slot: ResumeSlot,
 ): Promise<{ error: string | null }> {
-  const path = resumeStoragePath(userId, slot)
-  const { error } = await supabase.storage
-    .from('resumes')
-    .remove([path])
+  const paths = ['pdf', 'docx'].map((ext) => resumeStoragePath(userId, slot, ext))
+  const { error } = await supabase.storage.from('resumes').remove(paths)
   if (error) {
     console.error('[resumeService] deleteResumePdf:', error.message)
     return { error: error.message }

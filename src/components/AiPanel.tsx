@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { isSfxMuted } from '@/lib/sfx'
 import { fetchModels, streamCompletion } from '@/services/ollamaService'
 import { getResumeText } from '@/services/resumeTextService'
-import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
+import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 
 // ── CRT styles — injected once, mirrors AppDetailCard ────────────────────────
@@ -613,6 +613,7 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
             <div style={labelStyle}>Job Description</div>
             <textarea
               rows={7}
+              maxLength={10000}
               value={jdText}
               onChange={(e) => setJdText(e.target.value)}
               placeholder="Paste job description here..."
@@ -680,6 +681,7 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
                 </div>
                 <textarea
                   rows={5}
+                  maxLength={AI_PROMPT_LIMIT}
                   value={draftPrompt}
                   onChange={(e) => setDraftPrompt(e.target.value)}
                   style={termTextarea}

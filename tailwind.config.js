@@ -21,6 +21,7 @@ export default {
       },
       animation: {
         blink: 'blink 1s step-end infinite',
+        'blink-bg': 'blink-bg 1s step-end infinite',
         scanline: 'scanline 8s linear infinite',
         'xp-pop': 'xp-pop 0.9s ease-out forwards',
         'xp-pop-mega': 'xp-pop-mega 1.2s ease-out forwards',

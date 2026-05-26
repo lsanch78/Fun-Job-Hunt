@@ -1,6 +1,32 @@
 import { supabase } from '@/lib/supabase'
 import type { Job, DbJob } from '@/types'
 
+// ── Job cap (see docs/SCALABILITY.md) ────────────────────────────────────────
+export const JOB_CAP = 1000
+
+export async function countJobs(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+  if (error) {
+    console.error('[jobService] countJobs:', error.message)
+    return 0
+  }
+  return count ?? 0
+}
+
+// ── Field limits (see docs/SCALABILITY.md) ───────────────────────────────────
+export const JOB_LIMITS = {
+  company:     100,
+  title:       150,
+  postingUrl:  500,
+  salary:       20,
+  description: 5000,
+  contacts:    1000,
+  notes:       2000,
+} as const
+
 // ── Cache key ────────────────────────────────────────────────────────────────
 export function cacheKey(userId: string): string {
   return `fjobhunt:jobs:${userId}`
@@ -140,8 +166,30 @@ export async function runAutoGhost(jobs: import('@/types').Job[]): Promise<impor
   )
 }
 
+// ── Validation ────────────────────────────────────────────────────────────────
+function validateCoreFields(job: Job): string | null {
+  if (job.company.length   > JOB_LIMITS.company)    return `Company name must be ${JOB_LIMITS.company} characters or less`
+  if (job.title.length     > JOB_LIMITS.title)      return `Job title must be ${JOB_LIMITS.title} characters or less`
+  if (job.postingUrl.length > JOB_LIMITS.postingUrl) return `Posting URL must be ${JOB_LIMITS.postingUrl} characters or less`
+  if (job.salary.length    > JOB_LIMITS.salary)     return `Salary must be ${JOB_LIMITS.salary} characters or less`
+  return null
+}
+
+function validateDetailFields(details: { description: string | null; contacts: string | null; notes: string | null }): string | null {
+  if ((details.description?.length ?? 0) > JOB_LIMITS.description) return `Description must be ${JOB_LIMITS.description} characters or less`
+  if ((details.contacts?.length    ?? 0) > JOB_LIMITS.contacts)    return `Contacts must be ${JOB_LIMITS.contacts} characters or less`
+  if ((details.notes?.length       ?? 0) > JOB_LIMITS.notes)       return `Notes must be ${JOB_LIMITS.notes} characters or less`
+  return null
+}
+
 // ── DB writes ─────────────────────────────────────────────────────────────────
 export async function insertJob(job: Job, userId: string): Promise<{ error: string | null }> {
+  const validationError = validateCoreFields(job)
+  if (validationError) return { error: validationError }
+
+  const currentCount = await countJobs(userId)
+  if (currentCount >= JOB_CAP) return { error: `job_cap_reached` }
+
   const { error } = await supabase
     .from('jobs')
     .insert(jobToDbInsert(job, userId))
@@ -150,13 +198,17 @@ export async function insertJob(job: Job, userId: string): Promise<{ error: stri
   return { error: error?.message ?? null }
 }
 
-export async function updateJob(job: Job): Promise<void> {
+export async function updateJob(job: Job): Promise<{ error: string | null }> {
+  const validationError = validateCoreFields(job)
+  if (validationError) return { error: validationError }
+
   const { error } = await supabase
     .from('jobs')
     .update(jobToDbUpdate(job))
     .eq('id', job.id)
 
   if (error) console.error('[jobService] updateJob:', error.message, job.id)
+  return { error: error?.message ?? null }
 }
 
 /** Fetches all columns for every job — used for CSV export. */
@@ -199,6 +251,9 @@ export async function fetchJobDetails(jobId: string): Promise<{ description: str
 
 /** Persists only the detail columns for a single job. */
 export async function updateJobDetails(jobId: string, details: { description: string | null; contacts: string | null; notes: string | null }): Promise<{ error: string | null }> {
+  const validationError = validateDetailFields(details)
+  if (validationError) return { error: validationError }
+
   const { error } = await supabase
     .from('jobs')
     .update(details)

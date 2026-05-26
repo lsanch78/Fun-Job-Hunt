@@ -11,6 +11,7 @@ import StoryPage from '@/pages/StoryPage'
 import CreditsPage from '@/pages/CreditsPage'
 import NavBar from '@/components/NavBar'
 import QuickCast from '@/components/QuickCast'
+import WorkdayBar from '@/components/WorkdayBar'
 import type { Session } from '@supabase/supabase-js'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
@@ -27,6 +28,7 @@ function ProtectedRoute({
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
       <QuickCast />
+      <WorkdayBar inline />
     </div>
   )
   // undefined = still loading, null = no session
@@ -37,6 +39,7 @@ function ProtectedRoute({
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
       <QuickCast />
+      <WorkdayBar inline />
     </div>
   )
 }

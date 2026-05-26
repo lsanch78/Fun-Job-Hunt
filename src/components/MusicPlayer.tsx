@@ -20,6 +20,7 @@ const STORAGE_TRACKS = 'fjobhunt:music:tracks'
 const STORAGE_VOLUME = 'fjobhunt:music:volume'
 const STORAGE_RESUME = 'fjobhunt:music:resume'
 const STORAGE_SHUFFLE = 'fjobhunt:music:shuffle'
+const MAX_TRACKS = 50 // see docs/SCALABILITY.md
 
 interface ResumeState {
   idx: number
@@ -319,6 +320,7 @@ export default function MusicPlayer() {
 
   function addTrack() {
     setInputError(null)
+    if (tracks.length >= MAX_TRACKS) { setInputError(`Queue limit reached (${MAX_TRACKS} tracks max). Remove some tracks to add more.`); return }
     const videoId = extractVideoId(urlInput.trim())
     if (!videoId) { setInputError('Invalid YouTube URL'); return }
     const url   = urlInput.trim()

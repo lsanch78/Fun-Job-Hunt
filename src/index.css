@@ -7,6 +7,11 @@
   50%       { opacity: 0; }
 }
 
+@keyframes blink-bg {
+  0%, 100% { background-color: transparent; }
+  50%       { background-color: var(--color-secondary); }
+}
+
 /* ── Readable body text for credits page ────────────────────────────────────
    VT323 looks retro but reads cleanly at larger sizes. Use .body-text
    anywhere you want prose that doesn't strain the eyes.

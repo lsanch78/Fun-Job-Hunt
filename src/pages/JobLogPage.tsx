@@ -5,8 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
 import type { Job, JobStatus } from '@/types'
-import { readCache, writeCache, fetchJobs, insertJob, updateJob, updateJobDetails, deleteJobs, runAutoGhost } from '@/services/jobService'
-import WorkdayBar from '@/components/WorkdayBar'
+import { readCache, writeCache, fetchJobs, insertJob, updateJob, updateJobDetails, deleteJobs, runAutoGhost, JOB_LIMITS, JOB_CAP } from '@/services/jobService'
+import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
@@ -218,6 +218,59 @@ function playSelectClick() {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── Sound: scratch pad drawer open — slide out ───────────────────────────────
+function playScratchOpen() {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const t0 = ctx.currentTime
+    const slideLen = ctx.sampleRate * 0.18
+    const slideBuf = ctx.createBuffer(1, slideLen, ctx.sampleRate)
+    const slideData = slideBuf.getChannelData(0)
+    for (let i = 0; i < slideLen; i++) slideData[i] = Math.random() * 2 - 1
+    const slideSrc = ctx.createBufferSource()
+    slideSrc.buffer = slideBuf
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.setValueAtTime(400, t0)
+    bp.frequency.linearRampToValueAtTime(1800, t0 + 0.18)
+    bp.Q.value = 1.5
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, t0)
+    gain.gain.linearRampToValueAtTime(0.12, t0 + 0.02)
+    gain.gain.setValueAtTime(0.12, t0 + 0.14)
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18)
+    slideSrc.connect(bp); bp.connect(gain); gain.connect(ctx.destination)
+    slideSrc.start(t0); slideSrc.stop(t0 + 0.19)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Sound: scratch pad drawer close — slide in ───────────────────────────────
+function playScratchClose() {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const t0 = ctx.currentTime
+    const slideLen = ctx.sampleRate * 0.16
+    const slideBuf = ctx.createBuffer(1, slideLen, ctx.sampleRate)
+    const slideData = slideBuf.getChannelData(0)
+    for (let i = 0; i < slideLen; i++) slideData[i] = Math.random() * 2 - 1
+    const slideSrc = ctx.createBufferSource()
+    slideSrc.buffer = slideBuf
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.setValueAtTime(1600, t0)
+    bp.frequency.linearRampToValueAtTime(300, t0 + 0.16)
+    bp.Q.value = 1.5
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.10, t0)
+    gain.gain.linearRampToValueAtTime(0.02, t0 + 0.14)
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16)
+    slideSrc.connect(bp); bp.connect(gain); gain.connect(ctx.destination)
+    slideSrc.start(t0); slideSrc.stop(t0 + 0.17)
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── Sound: trash delete whoosh ────────────────────────────────────────────────
 function playTrash(count = 1) {
   if (isSfxMuted()) return
@@ -267,7 +320,7 @@ function playTrash(count = 1) {
 }
 
 // ── XP popup ────────────────────────────────────────────────────────────────
-interface XpPopup { id: number; mega: boolean; x: number; y: number }
+interface XpPopup { id: number; mega: boolean; x: number; y: number; label?: string }
 
 // Inject keyframes once into the document head
 const XP_POP_STYLE = `
@@ -460,6 +513,7 @@ function PostingCell({ value, onChange, onEnter }: {
           className={`${cellInput} text-center`}
           placeholder="_"
           value={value}
+          maxLength={JOB_LIMITS.postingUrl}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onEnter()}
           onBlur={handleBlur}
@@ -495,6 +549,7 @@ function SalaryCell({ value, onChange, onEnter }: {
           className={cellInput}
           placeholder="_"
           value={value}
+          maxLength={JOB_LIMITS.salary}
           onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
           onKeyDown={(e) => e.key === 'Enter' && onEnter()}
           onBlur={() => setEditing(false)}
@@ -585,6 +640,7 @@ const JobRow = forwardRef<JobRowHandle, {
               className={cellInput}
               placeholder="Company"
               value={draft.company}
+              maxLength={JOB_LIMITS.company}
               onChange={(e) => update('company', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
             />
@@ -597,6 +653,7 @@ const JobRow = forwardRef<JobRowHandle, {
               className={cellInput}
               placeholder="Job title"
               value={draft.title}
+              maxLength={JOB_LIMITS.title}
               onChange={(e) => update('title', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
             />
@@ -842,6 +899,7 @@ function DetailCell({ value, onChange, onBlur, placeholder, onOpenDetail, isNewR
           className={`${cellInput} text-muted placeholder-muted/40`}
           placeholder={placeholder}
           value={value ?? ''}
+          maxLength={JOB_LIMITS.description}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
         />
@@ -953,6 +1011,387 @@ function applyFilters(
   return visible
 }
 
+// ── Sync badge ───────────────────────────────────────────────────────────────
+function SyncBadge({ status }: { status: 'synced' | 'syncing' | null }) {
+  if (!status) return <span className="font-pixel text-[9px] text-muted select-none">local only</span>
+  return (
+    <span className="flex items-center gap-1 select-none">
+      <span className={`font-pixel text-[9px] ${status === 'syncing' ? 'animate-blink' : ''} ${status === 'synced' ? 'text-secondary' : 'text-muted'}`}>●</span>
+      <span className="font-pixel text-[9px] text-muted">{status === 'synced' ? 'synced' : 'syncing'}</span>
+    </span>
+  )
+}
+
+// ── Scratch pad ───────────────────────────────────────────────────────────────
+const SCRATCH_PAD_KEY    = 'fjobhunt:scratchpad'
+const SCRATCH_LIST_KEY   = 'fjobhunt:scratchlist'
+const SCRATCH_TAB_KEY    = 'fjobhunt:scratchtab'
+const SCRATCH_HEIGHT_KEY = 'fjobhunt:scratchheight'
+const SCRATCH_OPEN_KEY   = 'fjobhunt:scratchopen'
+
+const SCRATCH_MIN_H = 120
+const SCRATCH_MAX_H = 600
+const SCRATCH_DEF_H = 220
+
+interface CheckItem { id: string; text: string; done: boolean }
+
+function readList(): CheckItem[] {
+  try {
+    const raw = localStorage.getItem(SCRATCH_LIST_KEY)
+    return raw ? (JSON.parse(raw) as CheckItem[]) : []
+  } catch { return [] }
+}
+function saveList(items: CheckItem[]) {
+  try { localStorage.setItem(SCRATCH_LIST_KEY, JSON.stringify(items)) } catch { /* noop */ }
+}
+
+function ScratchPad({ userId }: { userId: string | null }) {
+  const [open, setOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem(SCRATCH_OPEN_KEY) === 'true' } catch { return false }
+  })
+  const [tab, setTab] = useState<'pad' | 'list'>(() => {
+    try { return (localStorage.getItem(SCRATCH_TAB_KEY) as 'pad' | 'list') ?? 'pad' } catch { return 'pad' }
+  })
+  const [height, setHeight] = useState<number>(() => {
+    try { return Number(localStorage.getItem(SCRATCH_HEIGHT_KEY)) || SCRATCH_DEF_H } catch { return SCRATCH_DEF_H }
+  })
+  const [text, setText] = useState(() => {
+    try { return localStorage.getItem(SCRATCH_PAD_KEY) ?? '' } catch { return '' }
+  })
+  const [items, setItems] = useState<CheckItem[]>(readList)
+  const [newItem, setNewItem] = useState('')
+
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced')
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  const textareaRef   = useRef<HTMLTextAreaElement>(null)
+  const newItemRef    = useRef<HTMLInputElement>(null)
+  const isDragging    = useRef(false)
+  const saveTextTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveListTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Hydrate from DB on mount
+  useEffect(() => {
+    if (!userId) return
+    setSyncStatus('syncing')
+    fetchScratchPad(userId).then((rec) => {
+      if (rec) {
+        if (rec.notes) {
+          setText(rec.notes)
+          try { localStorage.setItem(SCRATCH_PAD_KEY, rec.notes) } catch { /* noop */ }
+        }
+        if (rec.list) {
+          try {
+            const parsed = JSON.parse(rec.list) as CheckItem[]
+            setItems(parsed)
+            saveList(parsed)
+          } catch { /* noop */ }
+        }
+      }
+      setSyncStatus('synced')
+    })
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!open) return
+    setTimeout(() => {
+      if (tab === 'pad') textareaRef.current?.focus()
+      else newItemRef.current?.focus()
+    }, 50)
+  }, [open, tab])
+
+  function toggleOpen() {
+    setOpen((o) => {
+      const next = !o
+      next ? playScratchOpen() : playScratchClose()
+      try { localStorage.setItem(SCRATCH_OPEN_KEY, String(next)) } catch { /* noop */ }
+      return next
+    })
+  }
+
+  function switchTab(t: 'pad' | 'list') {
+    setTab(t)
+    try { localStorage.setItem(SCRATCH_TAB_KEY, t) } catch { /* noop */ }
+  }
+
+  function persistText(val: string) {
+    try { localStorage.setItem(SCRATCH_PAD_KEY, val) } catch { /* noop */ }
+    if (!userId) return
+    setSyncStatus('syncing')
+    if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
+    saveTextTimer.current = setTimeout(async () => {
+      await upsertScratchPad(userId, { notes: val })
+      setSyncStatus('synced')
+    }, 800)
+  }
+
+  function persistItems(next: CheckItem[]) {
+    saveList(next)
+    if (!userId) return
+    setSyncStatus('syncing')
+    if (saveListTimer.current) clearTimeout(saveListTimer.current)
+    saveListTimer.current = setTimeout(async () => {
+      await upsertScratchPad(userId, { list: JSON.stringify(next) })
+      setSyncStatus('synced')
+    }, 800)
+  }
+
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value.slice(0, SCRATCH_PAD_LIMIT)
+    setText(val)
+    persistText(val)
+  }
+
+  function addItem() {
+    const trimmed = newItem.trim()
+    if (!trimmed) return
+    const next = [...items, { id: crypto.randomUUID(), text: trimmed, done: false }]
+    setItems(next); persistItems(next); setNewItem('')
+  }
+
+  function toggleItem(id: string) {
+    playSelectClick()
+    const next = items.map((it) => it.id === id ? { ...it, done: !it.done } : it)
+    setItems(next); persistItems(next)
+  }
+
+  function deleteItem(id: string) {
+    const next = items.filter((it) => it.id !== id)
+    setItems(next); persistItems(next)
+  }
+
+  function clearDone() {
+    const next = items.filter((it) => !it.done)
+    setItems(next); persistItems(next)
+  }
+
+  function clearAll() {
+    setItems([]); persistItems([])
+  }
+
+  function onItemDragHandlePointerDown(e: React.PointerEvent<HTMLSpanElement>, dragId: string) {
+    e.preventDefault()
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    const listEl = (e.currentTarget as HTMLElement).closest('ul')
+    if (!listEl) return
+
+    function getIdAtY(y: number): string | null {
+      const lis = Array.from(listEl!.querySelectorAll<HTMLElement>('li[data-id]'))
+      for (const li of lis) {
+        const rect = li.getBoundingClientRect()
+        if (y < rect.top + rect.height / 2) return li.dataset.id ?? null
+      }
+      return null // dropped at end
+    }
+
+    function onMove(ev: PointerEvent) {
+      setDragOverId(getIdAtY(ev.clientY) ?? '__end__')
+    }
+    function onUp(ev: PointerEvent) {
+      const targetId = getIdAtY(ev.clientY)
+      setDragOverId(null)
+      setItems((prev) => {
+        if (dragId === targetId) return prev
+        const next = prev.filter((it) => it.id !== dragId)
+        const dragged = prev.find((it) => it.id === dragId)!
+        const insertIdx = targetId === null ? next.length : next.findIndex((it) => it.id === targetId)
+        next.splice(insertIdx, 0, dragged)
+        persistItems(next)
+        return next
+      })
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // Drag-to-resize: pointer capture on the handle strip
+  function onHandlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault()
+    isDragging.current = true
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    const startY = e.clientY
+    const startH = height
+
+    function onMove(ev: PointerEvent) {
+      const next = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
+      setHeight(next)
+    }
+    function onUp(ev: PointerEvent) {
+      isDragging.current = false
+      const final = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
+      try { localStorage.setItem(SCRATCH_HEIGHT_KEY, String(final)) } catch { /* noop */ }
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  const doneCount   = items.filter((it) => it.done).length
+  const hasActivity = (!!text) || items.length > 0
+
+  return (
+    <div className="border-t border-border bg-bg shrink-0">
+      {/* Drag handle — only visible when open */}
+      {open && (
+        <div
+          onPointerDown={onHandlePointerDown}
+          className="w-full flex items-center justify-center h-3 cursor-ns-resize hover:bg-surface/60 select-none group/handle"
+          title="Drag to resize"
+        >
+          <span className="font-pixel text-[8px] text-muted/40 group-hover/handle:text-muted leading-none">⠿⠿⠿</span>
+        </div>
+      )}
+
+      {/* Toggle bar */}
+      <button
+        onClick={toggleOpen}
+        className="w-full flex items-center gap-2 px-4 text-muted hover:text-primary transition-none group"
+        style={open ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' } : { height: 119 }}
+        title={open ? 'Close journal' : 'Open journal'}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1.5" y="1.5" width="9" height="9" rx="0.5" />
+          <line x1="3.5" y1="4" x2="8.5" y2="4" />
+          <line x1="3.5" y1="6" x2="8.5" y2="6" />
+          <line x1="3.5" y1="8" x2="6.5" y2="8" />
+        </svg>
+        <span className="font-pixel text-[10px] select-none">JOURNAL</span>
+        {hasActivity && !open && (
+          <span className="font-pixel text-[8px] text-secondary ml-1 select-none">●</span>
+        )}
+        <span className="ml-auto font-pixel text-[10px] select-none group-hover:text-primary">
+          {open ? '▼' : '▲'}
+        </span>
+      </button>
+
+      {/* Drawer */}
+      {open && (
+        <div className="px-4 pb-3 flex flex-col gap-2 overflow-hidden" style={{ height }}>
+          {/* Tabs */}
+          <div className="flex items-center gap-0 border-b border-border shrink-0">
+            {(['pad', 'list'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => switchTab(t)}
+                className={`font-pixel text-[10px] px-3 py-1 border-b-2 -mb-px transition-none ${
+                  tab === t ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-secondary'
+                }`}
+              >
+                {t === 'pad' ? 'NOTES' : 'CHECKLIST'}
+              </button>
+            ))}
+          </div>
+
+          {/* Notes tab */}
+          {tab === 'pad' && (
+            <div className="flex flex-col gap-1.5 flex-1 min-h-0">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={handleTextChange}
+                placeholder="jot something down…"
+                className="w-full flex-1 bg-surface border border-border text-primary font-terminal text-sm placeholder-muted outline-none focus:border-primary resize-none px-3 py-2 leading-relaxed min-h-0"
+              />
+              <div className="flex items-center justify-between shrink-0">
+                <SyncBadge status={userId ? syncStatus : null} />
+                {text && (
+                  <button
+                    onClick={() => { setText(''); persistText('') }}
+                    className="font-pixel text-[9px] text-muted hover:text-warning transition-none"
+                  >
+                    CLEAR
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Checklist tab */}
+          {tab === 'list' && (
+            <div className="flex flex-col gap-2 flex-1 min-h-0">
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  ref={newItemRef}
+                  value={newItem}
+                  onChange={(e) => setNewItem(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                  placeholder="add item…"
+                  className="flex-1 bg-surface border border-border text-primary font-terminal text-sm placeholder-muted outline-none focus:border-primary px-2 py-1"
+                />
+                <button
+                  onClick={addItem}
+                  disabled={!newItem.trim()}
+                  className="font-pixel text-[10px] px-2 py-1 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+                >
+                  + ADD
+                </button>
+              </div>
+
+              {items.length > 0 && (
+                <ul className="flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0">
+                  {items.map((it) => (
+                    <li
+                      key={it.id}
+                      data-id={it.id}
+                      className={`flex items-center gap-2 group/item py-0.5 border-t-2 transition-none ${dragOverId === it.id ? 'border-secondary' : 'border-transparent'}`}
+                    >
+                      {/* Drag grip */}
+                      <span
+                        onPointerDown={(e) => onItemDragHandlePointerDown(e, it.id)}
+                        className="opacity-0 group-hover/item:opacity-40 hover:!opacity-100 font-pixel text-[9px] text-muted cursor-grab active:cursor-grabbing shrink-0 select-none"
+                        title="Drag to reorder"
+                      >
+                        ⠿
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={it.done}
+                        onChange={() => toggleItem(it.id)}
+                        className="accent-secondary cursor-pointer shrink-0"
+                      />
+                      <span className={`font-terminal text-sm flex-1 leading-snug ${it.done ? 'line-through text-muted' : 'text-primary'}`}>
+                        {it.text}
+                      </span>
+                      <button
+                        onClick={() => deleteItem(it.id)}
+                        className="opacity-0 group-hover/item:opacity-100 font-pixel text-[9px] text-muted hover:text-warning transition-none shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex items-center justify-between shrink-0">
+                <span className="flex items-center gap-2">
+                  <SyncBadge status={userId ? syncStatus : null} />
+                  {items.length > 0 && <span className="font-pixel text-[9px] text-muted">{doneCount} / {items.length} done</span>}
+                </span>
+                <div className="flex items-center gap-3">
+                  {doneCount > 0 && (
+                    <button onClick={clearDone} className="font-pixel text-[9px] text-muted hover:text-warning transition-none">
+                      CLEAR DONE
+                    </button>
+                  )}
+                  {items.length > 0 && (
+                    <button onClick={clearAll} className="font-pixel text-[9px] text-muted hover:text-warning transition-none">
+                      CLEAR ALL
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── First-app-of-the-day messages ────────────────────────────────────────────
 const MORNING_MESSAGES = [
   (name: string) => `you've got this, ${name}.`,
@@ -1050,9 +1489,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     }
   }, [])
 
-  function spawnPopup(mega: boolean, x: number, y: number) {
+  function spawnPopup(mega: boolean, x: number, y: number, label?: string) {
     const id = ++popupCounter.current
-    setPopups((prev) => [...prev, { id, mega, x, y }])
+    setPopups((prev) => [...prev, { id, mega, x, y, label }])
     setTimeout(() => setPopups((prev) => prev.filter((p) => p.id !== id)), 1400)
   }
 
@@ -1083,6 +1522,13 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   }
 
   function handleCommit(committed: Job, rowEl: HTMLTableRowElement | null) {
+    if (committedCountRef.current >= JOB_CAP) {
+      const rect = rowEl?.getBoundingClientRect()
+      const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
+      const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+      spawnPopup(false, x, y, `✕ ${JOB_CAP} APP LIMIT — export or delete old entries`)
+      return
+    }
     committedCountRef.current += 1
     const mega = committedCountRef.current % 10 === 0
     const rect = rowEl?.getBoundingClientRect()
@@ -1189,6 +1635,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       if (userId) writeCache(userId, next.filter((j) => j.committed))
       return next
     })
+    committedCountRef.current = Math.max(0, committedCountRef.current - ids.length)
     setSelected(new Set())
     setDeleteMode(false)
   }
@@ -1217,11 +1664,11 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             left: p.x,
             top: p.y,
             fontSize: p.mega ? '0.875rem' : '0.75rem',
-            color: p.mega ? 'var(--color-secondary)' : 'var(--color-primary)',
+            color: p.label ? '#ff4444' : p.mega ? 'var(--color-secondary)' : 'var(--color-primary)',
             animation: `${p.mega ? 'xp-pop-mega 1.3s' : 'xp-pop 1.0s'} ease-out forwards`,
           }}
         >
-          {p.mega ? `✦ +${XP.ADD_JOB * 2} XP ✦` : `+${XP.ADD_JOB} XP`}
+          {p.label ?? (p.mega ? `✦ +${XP.ADD_JOB * 2} XP ✦` : `+${XP.ADD_JOB} XP`)}
         </div>
       ))}
 
@@ -1243,9 +1690,6 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           <XpTracker xp={committedCount * XP.ADD_JOB} />
         </button>
       </div>
-
-      {/* Workday bar */}
-      <WorkdayBar inline />
 
       {/* Filter / sort toolbar */}
       <div className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
@@ -1553,6 +1997,30 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             })}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        <div className="px-4 py-3 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+          >
+            ← PREV
+          </button>
+          <span className="text-muted text-[10px]">
+            {safePage} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+          >
+            NEXT →
+          </button>
+          <span className="text-muted text-[10px] ml-2">
+            {committedCount} total applications
+          </span>
+        </div>
       </div>
 
       {/* Application detail card */}
@@ -1568,29 +2036,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Tutorial overlay */}
       {showTutorial && <TutorialOverlay onDone={() => setShowTutorial(false)} />}
 
-      {/* Pagination */}
-      <div className="bg-bg px-4 py-3 border-t border-border flex items-center justify-center gap-3">
-        <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={safePage === 1}
-          className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
-        >
-          ← PREV
-        </button>
-        <span className="text-muted text-[10px]">
-          {safePage} / {totalPages}
-        </span>
-        <button
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          disabled={safePage === totalPages}
-          className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
-        >
-          NEXT →
-        </button>
-        <span className="text-muted text-[10px] ml-2">
-          {committedCount} total applications
-        </span>
-      </div>
+      {/* Scratch pad drawer */}
+      <ScratchPad userId={userId} />
+
     </div>
   )
 }

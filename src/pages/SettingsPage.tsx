@@ -4,7 +4,7 @@ import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { supabase } from '@/lib/supabase'
-import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS } from '@/services/aiSettingsService'
+import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT } from '@/services/aiSettingsService'
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -257,6 +257,7 @@ export default function SettingsPage() {
               <label className="text-muted text-[10px] tracking-widest">COVER LETTER SYSTEM PROMPT</label>
               <textarea
                 rows={6}
+                maxLength={AI_PROMPT_LIMIT}
                 value={coverLetterPrompt}
                 onChange={(e) => setCoverLetterPrompt(e.target.value)}
                 className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"
@@ -267,6 +268,7 @@ export default function SettingsPage() {
               <label className="text-muted text-[10px] tracking-widest">WHY GOOD FIT SYSTEM PROMPT</label>
               <textarea
                 rows={6}
+                maxLength={AI_PROMPT_LIMIT}
                 value={whyGoodFitPrompt}
                 onChange={(e) => setWhyGoodFitPrompt(e.target.value)}
                 className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"

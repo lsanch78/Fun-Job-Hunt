@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
+import { isSfxMuted } from '@/lib/sfx'
 
 export function getRankInfo(xp: number) {
   let rank = 1
@@ -15,6 +16,7 @@ export function getRankInfo(xp: number) {
 }
 
 function playLevelUp() {
+  if (isSfxMuted()) return;
   try {
     const ctx = new AudioContext()
     const notes = [523.25, 659.25, 783.99, 1046.5]

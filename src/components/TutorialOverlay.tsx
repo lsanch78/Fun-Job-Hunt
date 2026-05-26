@@ -34,10 +34,10 @@ const STEPS: TutorialStep[] = [
   {
     id: 'workday-bar',
     title: 'WORKDAY',
-    subtitle: 'time tracking · breaks',
+    subtitle: 'time tracking',
     body: [
-      'Time tracking is automatic — your session starts the moment you interact with the app and stops after 15 minutes of inactivity. No punching in or out required.',
-      'NOTE: The bar shows TRACKING while active and IDLE after 15 minutes without interaction. Break reminders still fire at scheduled intervals to keep you fresh.',
+      'Time tracking is automatic — your session starts the moment you interact with the app and stops after 60 minutes of inactivity. No punching in or out required.',
+      'NOTE: The bar shows TRACKING while active and IDLE after 15 minutes without interaction.',
     ],
   },
   {

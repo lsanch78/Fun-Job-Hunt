@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Job } from '@/types'
-import { fetchJobDetails, updateJobDetails } from '@/services/jobService'
+import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
 import { isSfxMuted } from '@/lib/sfx'
 
 // ── Boot animation — injected once ───────────────────────────────────────────
@@ -328,6 +328,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
   const [page, setPage] = useState<1 | 2>(1)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const loadedIds = useRef<Set<string>>(new Set())
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -407,12 +408,14 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
   async function handleSave() {
     if (!job || saveState === 'saving') return
     setSaveState('saving')
+    setSaveError(null)
     const { error } = await updateJobDetails(job.id, {
       description: job.description ?? null,
       contacts:    job.contacts ?? null,
       notes:       job.notes ?? null,
     })
     if (error) {
+      setSaveError(error)
       setSaveState('error')
       setTimeout(() => setSaveState('idle'), 2000)
     } else {
@@ -517,6 +520,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
                   className={inputClass}
                   style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
                   value={job.company}
+                  maxLength={JOB_LIMITS.company}
                   onChange={(e) => update('company', e.target.value)}
                   placeholder="Company name"
                 />
@@ -529,6 +533,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
                   className={inputClass}
                   style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
                   value={job.title}
+                  maxLength={JOB_LIMITS.title}
                   onChange={(e) => update('title', e.target.value)}
                   placeholder="Role / position"
                 />
@@ -541,6 +546,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
                   className={textareaClass}
                   style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
                   rows={4}
+                  maxLength={JOB_LIMITS.description}
                   value={job.description ?? ''}
                   onChange={(e) => update('description', e.target.value)}
                   placeholder="Paste or summarize the job description…"
@@ -554,6 +560,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
                   className={textareaClass}
                   style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
                   rows={3}
+                  maxLength={JOB_LIMITS.contacts}
                   value={job.contacts ?? ''}
                   onChange={(e) => update('contacts', e.target.value)}
                   placeholder="Recruiter, hiring manager, referral…"
@@ -575,6 +582,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
                   className={textareaClass}
                   style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
                   rows={14}
+                  maxLength={JOB_LIMITS.notes}
                   value={job.notes ?? ''}
                   onChange={(e) => update('notes', e.target.value)}
                   placeholder={[
@@ -610,7 +618,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
               color:  saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim,
               border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}`,
             }}
-            title="Save detail fields to database"
+            title={saveState === 'error' && saveError ? saveError : 'Save detail fields to database'}
           >
             {saveState === 'saving' ? '…' : saveState === 'saved' ? '✓ SAVED' : saveState === 'error' ? '✕ ERR' : 'SAVE'}
           </button>

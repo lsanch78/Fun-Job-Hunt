@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
+import { isSfxMuted } from '@/lib/sfx'
 import XpTracker, { getRankInfo } from '@/components/XpTracker'
 
 // ── Sound: story page entry chime ─────────────────────────────────────────────
 function playStoryChime() {
+  if (isSfxMuted()) return;
   try {
     const ctx = new AudioContext()
     const notes = [440.00, 329.63]
@@ -29,6 +31,7 @@ function playStoryChime() {
 
 // ── Fanfare sound (Web Audio API — no file needed) ────────────────────────────
 function playFanfare() {
+  if (isSfxMuted()) return;
   try {
     const ctx = new AudioContext()
     // A short ascending trumpet-ish fanfare: C5 E5 G5 C6

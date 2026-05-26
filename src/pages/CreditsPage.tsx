@@ -1,15 +1,4 @@
-// ── CreditsPage ───────────────────────────────────────────────────────────────
-// The "why I built this" page. Edit the sections below with your own story,
-// photos, and links. Search for TODO comments to find all editable spots.
-
-// ── HOW TO ADD PHOTOS ────────────────────────────────────────────────────────
-// 1. Drop your image files into public/credits/ (create the folder if needed)
-//    e.g.  public/credits/me.jpg
-//          public/credits/setup.png
-// 2. In the PHOTOS array below, add an entry like:
-//    { src: '/credits/me.jpg', caption: 'Me, circa burnout era' }
-// 3. Images render in a scrollable pixel-bordered gallery.
-// ─────────────────────────────────────────────────────────────────────────────
+import { isSfxMuted } from '@/lib/sfx'
 
 // ── EDITABLE DATA ─────────────────────────────────────────────────────────────
 
@@ -28,6 +17,7 @@ const PHOTOS: { src: string; caption?: string }[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 function playCreditsChime() {
+  if (isSfxMuted()) return;
   try {
     const ctx = new AudioContext()
     // Gentle ascending arpeggio — "level complete" vibe
@@ -55,6 +45,7 @@ function playCreditsChime() {
 }
 
 function playLinkBlip() {
+  if (isSfxMuted()) return;
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
