@@ -265,6 +265,15 @@ export default function NavBar() {
       {/* ── Right: controls + avatar ── */}
       <div className="flex items-center gap-3">
 
+        {/* Tutorial help button */}
+        <button
+          onClick={() => { playProfileBlip(); if (hasTutorialTrigger()) { fireTutorial() } else { navigate('/jobs?tutorial=1') } }}
+          className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 font-pixel text-xs ${tutorialActive ? 'bg-primary text-bg border-primary' : 'bg-surface text-muted border-border hover:text-primary hover:border-primary'}`}
+          title="Help / Tutorial"
+        >
+          ?
+        </button>
+
         {/* Feedback button */}
         {userId && (
           <button
@@ -275,15 +284,6 @@ export default function NavBar() {
             <MessageText className="w-3.5 h-3.5" />
           </button>
         )}
-
-        {/* Tutorial help button */}
-        <button
-          onClick={() => { playProfileBlip(); if (hasTutorialTrigger()) { fireTutorial() } else { navigate('/jobs?tutorial=1') } }}
-          className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 font-pixel text-xs ${tutorialActive ? 'bg-primary text-bg border-primary' : 'bg-surface text-muted border-border hover:text-primary hover:border-primary'}`}
-          title="Help / Tutorial"
-        >
-          ?
-        </button>
 
         {/* SFX mute toggle */}
         <button
