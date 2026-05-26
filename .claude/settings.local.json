@@ -24,7 +24,9 @@
       "Bash(grep:*)",
       "WebFetch(domain:github.com)",
       "Bash(ls:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "PowerShell(Get-ChildItem \"C:\\\\effjobhunt\\\\node_modules\\\\pixelarticons\\\\react\\\\\" | Select-Object -First 30 | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"C:\\\\effjobhunt\\\\node_modules\\\\pixelarticons\\\\react\\\\\" | Where-Object { $_.Name -match '^\\(Chat|Message|Bubble|Comment|Feedback\\)' } | ForEach-Object { $_.Name })"
     ]
   }
 }
