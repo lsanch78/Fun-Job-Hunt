@@ -1233,7 +1233,7 @@ function ScratchPad({ userId }: { userId: string | null }) {
   const hasActivity = (!!text) || items.length > 0
 
   return (
-    <div className="border-t border-border bg-bg shrink-0">
+    <div data-tutorial="journal" className="border-t border-border bg-bg shrink-0">
       {/* Drag handle — only visible when open */}
       {open && (
         <div

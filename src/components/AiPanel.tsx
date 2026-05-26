@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { isSfxMuted } from '@/lib/sfx'
+import { playBootBlip, playExitBlip } from '@/lib/sfx'
 import { fetchModels, streamCompletion } from '@/services/ollamaService'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
@@ -83,57 +83,6 @@ const SLOT_COLORS: Record<ResumeSlot, string> = {
 const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
-function playBootBlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const notes = [
-      { freq: 220, t: 0,    dur: 0.06, vol: 0.022 },
-      { freq: 440, t: 0.07, dur: 0.05, vol: 0.018 },
-      { freq: 880, t: 0.13, dur: 0.12, vol: 0.015 },
-    ]
-    notes.forEach(({ freq, t, dur, vol }) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
-      gain.gain.setValueAtTime(0, ctx.currentTime + t)
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.005)
-      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(ctx.currentTime + t)
-      osc.stop(ctx.currentTime + t + dur + 0.01)
-    })
-  } catch { /* AudioContext blocked */ }
-}
-
-function playExitBlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const notes = [
-      { freq: 880, t: 0,    dur: 0.06, vol: 0.030 },
-      { freq: 440, t: 0.07, dur: 0.05, vol: 0.028 },
-      { freq: 220, t: 0.13, dur: 0.12, vol: 0.026 },
-    ]
-    notes.forEach(({ freq, t, dur, vol }) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
-      gain.gain.setValueAtTime(0, ctx.currentTime + t)
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.005)
-      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(ctx.currentTime + t)
-      osc.stop(ctx.currentTime + t + dur + 0.01)
-    })
-  } catch { /* AudioContext blocked */ }
-}
 
 // ── Ollama info tooltip content ───────────────────────────────────────────────
 const OLLAMA_INFO_CONNECTED = `WHY OLLAMA?

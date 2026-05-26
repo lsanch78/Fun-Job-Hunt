@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { isSfxMuted } from '@/lib/sfx'
+import { isSfxMuted, playBootBlip, playExitBlip } from '@/lib/sfx'
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ const STEPS: TutorialStep[] = [
     title: 'JOB LOG',
     subtitle: 'tracking rows',
     body: [
-      'Tab through fields fast. Only Company + Title are required to submit — URL, Salary, Rating, Date, and Status are all optional.',
+      'Tab through fields fast. Only Company + Title are required to submit — URL, Salary, Rating, Date, and Status are all optional. Columns are fully customizable — show, hide, and reorder them to match exactly how you like to track jobs.',
       'Use the [■] console icon on a row to open the full detail view. Enable DELETE MODE in the toolbar to remove entries.',
     ],
   },
@@ -65,72 +65,54 @@ const STEPS: TutorialStep[] = [
     body: [
       'The AI button opens a local resume assistant powered by Ollama. Ask it to tailor your resume, write cover letter bullets, or prep interview answers — all running on your own machine, nothing sent to the cloud.',
       'NOTE: Requires Ollama installed and running locally. Visit ollama.com to get started. Once running, the button shows ● ON. Model and prompt behaviour can be configured in Settings.',
+      'PRO TIP: Configure prompt settings to your liking, copy a job description, then right-click this button for fast generation referencing your resume in the background.',
+    ],
+  },
+  {
+    id: 'journal',
+    title: 'SCRATCHPAD',
+    subtitle: 'journal · daily checklist',
+    body: [
+      'A persistent workspace at the bottom of the screen. The NOTES tab is a free-form journal for thoughts, prep notes, and reminders. The CHECKLIST tab is a drag-to-reorder daily task list — add items, check them off, and clear completed ones anytime.',
+      'NOTE: Drag the handle to resize the panel. Your notes and checklist sync automatically to your account.',
     ],
   },
 ]
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
-function playNext() {
+
+function playPage(dir: 'forward' | 'back' = 'forward') {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
-    ;[440, 660].forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.connect(gain); gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.06
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t)
-      gain.gain.linearRampToValueAtTime(0.035, t + 0.008)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
-      osc.start(t); osc.stop(t + 0.09)
-    })
+    const freq = dir === 'forward' ? 660 : 440
+    const clickBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.018), ctx.sampleRate)
+    const cd = clickBuf.getChannelData(0)
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource()
+    src.buffer = clickBuf
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 2400
+    const cg = ctx.createGain()
+    cg.gain.setValueAtTime(0.12, ctx.currentTime)
+    cg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.022)
+    src.connect(bp); bp.connect(cg); cg.connect(ctx.destination)
+    src.start(); src.stop(ctx.currentTime + 0.025)
+    const osc = ctx.createOscillator()
+    const og = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + 0.018)
+    og.gain.setValueAtTime(0, ctx.currentTime + 0.018)
+    og.gain.linearRampToValueAtTime(0.028, ctx.currentTime + 0.024)
+    og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07)
+    osc.connect(og); og.connect(ctx.destination)
+    osc.start(ctx.currentTime + 0.018); osc.stop(ctx.currentTime + 0.08)
   } catch { /* blocked */ }
 }
 
-function playBack() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    ;[660, 440].forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.connect(gain); gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.06
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t)
-      gain.gain.linearRampToValueAtTime(0.035, t + 0.008)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
-      osc.start(t); osc.stop(t + 0.09)
-    })
-  } catch { /* blocked */ }
-}
 
-function playExit() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    ;[
-      { freq: 880, t: 0,    dur: 0.06, vol: 0.030 },
-      { freq: 440, t: 0.07, dur: 0.05, vol: 0.028 },
-      { freq: 220, t: 0.13, dur: 0.12, vol: 0.026 },
-    ].forEach(({ freq, t, dur, vol }) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
-      gain.gain.setValueAtTime(0, ctx.currentTime + t)
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.005)
-      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + dur + 0.01)
-    })
-  } catch { /* blocked */ }
-}
 
 // ── Arrow geometry ────────────────────────────────────────────────────────────
 
@@ -197,6 +179,9 @@ export default function TutorialOverlay({ onDone }: Props) {
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
+  // Play boot sound on mount
+  useEffect(() => { playBootBlip() }, [])
+
   // Read target element rect whenever step changes
   useEffect(() => {
     const id = setTimeout(() => {
@@ -235,14 +220,14 @@ export default function TutorialOverlay({ onDone }: Props) {
     try { localStorage.setItem(TUTORIAL_SEEN_KEY, 'true') } catch { /* ignore */ }
   }
   function handleNext() {
-    if (step < STEPS.length - 1) { playNext(); setStep((s) => s + 1) }
+    if (step < STEPS.length - 1) { playPage('forward'); setStep((s) => s + 1) }
     else handleDone()
   }
   function handleBack() {
-    if (step > 0) { playBack(); setStep((s) => s - 1) }
+    if (step > 0) { playPage('back'); setStep((s) => s - 1) }
   }
-  function handleSkip() { playExit(); markSeen(); onDone() }
-  function handleDone() { playExit(); markSeen(); onDone() }
+  function handleSkip() { playExitBlip(); markSeen(); onDone() }
+  function handleDone() { playExitBlip(); markSeen(); onDone() }
 
   const vw = window.innerWidth
   const vh = window.innerHeight
