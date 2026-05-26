@@ -203,6 +203,7 @@ interface AiPanelProps {
   userId: string
   resumeSlots: Partial<Record<ResumeSlot, ResumeSlotRecord>>
   onClose: () => void
+  initialOutput?: string
 }
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
@@ -283,7 +284,7 @@ function saveResumeText(userId: string, text: string) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) {
+export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }: AiPanelProps) {
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 
   const [status,            setStatus]           = useState<OllamaStatus>('checking')
@@ -296,8 +297,8 @@ export default function AiPanel({ userId, resumeSlots, onClose }: AiPanelProps) 
   const [promptText,        setPromptText]       = useState('')
   const [editingQuick,      setEditingQuick]     = useState<QuickKey | null>(null)
   const [draftPrompt,       setDraftPrompt]      = useState('')
-  const [view,              setView]             = useState<PanelView>('form')
-  const [output,            setOutput]           = useState('')
+  const [view,              setView]             = useState<PanelView>(initialOutput ? 'output' : 'form')
+  const [output,            setOutput]           = useState(initialOutput ?? '')
   const [isStreaming,       setIsStreaming]       = useState(false)
   const [copied,            setCopied]           = useState(false)
   const [aiSettings,        setAiSettings]       = useState<AiSettings | null>(null)

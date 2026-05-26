@@ -21,7 +21,8 @@
       "Bash(npx tsc:*)",
       "Bash(supabase db push:*)",
       "Bash(git log:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

@@ -129,16 +129,46 @@ export default function ResumeModal({ url, fileName, slotColor, onClose, onRepla
 
       {/* Preview area */}
       {isDocx ? (
-        <div className="flex-1 overflow-auto bg-white text-black p-8">
+        <div className="flex-1 overflow-auto bg-bg text-fg">
+          {/* Disclaimer */}
+          <div className="bg-yellow-50 border-b border-yellow-300 px-6 py-2 text-center">
+            <span className="font-pixel text-[9px] text-yellow-800 tracking-wide">
+              Formatting may differ from original Word document — for your quick reference only
+            </span>
+          </div>
+
           {docxError ? (
-            <p className="font-pixel text-[10px] text-muted">Failed to load DOCX preview.</p>
+            <p className="font-pixel text-[10px] text-gray-500 p-8">Failed to load DOCX preview.</p>
           ) : docxHtml === null ? (
-            <p className="font-pixel text-[10px] text-muted">Loading preview...</p>
+            <p className="font-pixel text-[10px] text-gray-500 p-8">Loading preview...</p>
           ) : (
-            <div
-              className="max-w-3xl mx-auto prose prose-sm"
-              dangerouslySetInnerHTML={{ __html: docxHtml }}
-            />
+            <>
+              <style>{`
+                .docx-preview {
+                  font-family: 'Times New Roman', Times, serif;
+                  font-size: 11pt;
+                  line-height: 1.4;
+                  color: #111;
+                }
+                .docx-preview h1 { font-size: 18pt; font-weight: bold; margin: 0 0 4px; }
+                .docx-preview h2 { font-size: 13pt; font-weight: bold; margin: 14px 0 4px; border-bottom: 1px solid #555; padding-bottom: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+                .docx-preview h3 { font-size: 11pt; font-weight: bold; margin: 10px 0 2px; }
+                .docx-preview p  { margin: 2px 0; }
+                .docx-preview ul, .docx-preview ol { margin: 2px 0 2px 1.4em; padding: 0; }
+                .docx-preview li { margin: 1px 0; }
+                .docx-preview table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+                .docx-preview td, .docx-preview th { padding: 2px 6px; vertical-align: top; }
+                .docx-preview a { color: #1a0dab; }
+                .docx-preview strong { font-weight: bold; }
+                .docx-preview em { font-style: italic; }
+              `}</style>
+              <div className="max-w-[850px] mx-auto my-8 bg-white shadow-md px-[1in] py-[0.75in]">
+                <div
+                  className="docx-preview"
+                  dangerouslySetInnerHTML={{ __html: docxHtml }}
+                />
+              </div>
+            </>
           )}
         </div>
       ) : (

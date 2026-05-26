@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { isSfxMuted } from '@/lib/sfx'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
@@ -17,11 +18,13 @@ import { Share } from 'pixelarticons/react'
 import { AtSign } from 'pixelarticons/react'
 import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
+import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import ResumeModal from '@/components/ResumeModal'
 import AiPanel from '@/components/AiPanel'
-import { invalidateSlot } from '@/services/resumeTextService'
-import { fetchModels } from '@/services/ollamaService'
+import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
+import { fetchModels, streamCompletion } from '@/services/ollamaService'
+import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
 import {
   fetchLinks as dbFetchLinks,
   createLink as dbCreateLink,
@@ -93,6 +96,84 @@ function playSpellCast() {
       osc.stop(t + 0.1)
     })
   } catch { /* AudioContext blocked */ }
+}
+
+function playAiConsume() {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const dur = 0.9
+    const bufSize = Math.ceil(ctx.sampleRate * dur)
+    const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+    const nd = noiseBuf.getChannelData(0)
+    for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1
+
+    const src = ctx.createBufferSource()
+    src.buffer = noiseBuf
+    src.playbackRate.value = 0.4
+
+    // Band-pass centered low — gives a "vacuum/sucking" character
+    const bpf = ctx.createBiquadFilter()
+    bpf.type = 'bandpass'
+    bpf.frequency.setValueAtTime(320, ctx.currentTime)
+    bpf.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + dur)
+    bpf.Q.value = 1.8
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.08)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+
+    src.connect(bpf)
+    bpf.connect(gain)
+    gain.connect(ctx.destination)
+    src.start(ctx.currentTime)
+    src.stop(ctx.currentTime + dur)
+  } catch { /* AudioContext blocked */ }
+}
+
+function playAiDing() {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    // Two sine partials for a bell-like quality
+    const partials: { freq: number; vol: number; decay: number }[] = [
+      { freq: 1046.5, vol: 0.12, decay: 0.9 },   // C6 fundamental
+      { freq: 2093.0, vol: 0.05, decay: 0.5 },   // C7 octave shimmer
+    ]
+    partials.forEach(({ freq, vol, decay }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(vol, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + decay)
+    })
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── AI ready animation — injected once ────────────────────────────────────────
+
+if (typeof document !== 'undefined' && !document.getElementById('qc-ai-ready-style')) {
+  const el = document.createElement('style')
+  el.id = 'qc-ai-ready-style'
+  el.textContent = `
+@keyframes qc-ai-ready-shine {
+  0%   { box-shadow: none; border-color: rgba(88,28,135,0.4); }
+  50%  { box-shadow: 0 0 6px 1px rgba(107,33,168,0.22),
+                     inset 0 0 8px 1px rgba(88,28,135,0.06);
+          border-color: rgba(126,34,206,0.65); }
+  100% { box-shadow: none; border-color: rgba(88,28,135,0.4); }
+}
+.qc-ai-ready {
+  animation: qc-ai-ready-shine 2.5s ease-in-out infinite;
+}
+`
+  document.head.appendChild(el)
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -319,10 +400,21 @@ export default function QuickCast() {
   const [aiPanelOpen,    setAiPanelOpen]    = useState(false)
   const [ollamaStatus,   setOllamaStatus]   = useState<'unknown' | 'connected' | 'not_connected'>('unknown')
 
+  // AI quick-generate (right-click submenu)
+  const [aiMenuOpen,     setAiMenuOpen]     = useState(false)
+  const [aiGenerating,   setAiGenerating]   = useState(false)
+  const [aiGenDots,      setAiGenDots]      = useState(0)        // 0-2 for animation
+  const [aiResult,       setAiResult]       = useState<string | null>(null)   // null = none ready
+  const [aiSettings,     setAiSettings]     = useState<AiSettings | null>(null)
+  const aiMenuRef    = useRef<HTMLDivElement>(null)
+  const aiAbortRef   = useRef<AbortController | null>(null)
+
   const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
-  // One file input per slot
   const fileInputRefs = useRef<Partial<Record<ResumeSlot, HTMLInputElement | null>>>({})
+  const linkButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const editPopupRef  = useRef<HTMLDivElement>(null)
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null)
 
   // On mount: resolve user, load from DB
   useEffect(() => {
@@ -339,6 +431,7 @@ export default function QuickCast() {
         rows.forEach((r) => { map[r.slot as ResumeSlot] = r })
         setResumeSlots(map)
       })
+      fetchAiSettings(user.id).then(setAiSettings)
     })
   }, [])
 
@@ -354,6 +447,25 @@ export default function QuickCast() {
 
   // Persist links to localStorage whenever they change
   useEffect(() => { saveLinks(links) }, [links])
+
+  // Generating dots animation
+  useEffect(() => {
+    if (!aiGenerating) return
+    const id = setInterval(() => setAiGenDots((d) => (d + 1) % 3), 500)
+    return () => clearInterval(id)
+  }, [aiGenerating])
+
+  // Close AI context menu when clicking outside
+  useEffect(() => {
+    if (!aiMenuOpen) return
+    function onPointerDown(e: PointerEvent) {
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
+        setAiMenuOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [aiMenuOpen])
 
   // Focus label input when add form opens
   useEffect(() => {
@@ -372,6 +484,18 @@ export default function QuickCast() {
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [editingSlot])
+
+  // Close link edit popup when clicking outside
+  useEffect(() => {
+    if (!addFormOpen || !editingId || editingId === 'new') return
+    function onPointerDown(e: PointerEvent) {
+      if (editPopupRef.current && !editPopupRef.current.contains(e.target as Node)) {
+        cancelEdit()
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [addFormOpen, editingId])
 
   // ── Link handlers ─────────────────────────────────────────────────────────
 
@@ -406,6 +530,16 @@ export default function QuickCast() {
     setDraftUrl(slot.url)
     setDraftIcon(slot.icon)
     setAddFormOpen(true)
+    // Compute clamped fixed position above the button
+    const btn = linkButtonRefs.current[slot.id]
+    if (btn) {
+      const rect = btn.getBoundingClientRect()
+      const popupW = 224 // w-56
+      const popupH = 220 // approximate
+      const top = Math.max(8, rect.top - popupH - 8)
+      const left = Math.min(rect.left, window.innerWidth - popupW - 8)
+      setPopupPos({ top, left: Math.max(8, left) })
+    }
   }
 
   function commitEdit() {
@@ -526,6 +660,68 @@ export default function QuickCast() {
     fileInputRefs.current[slot]?.click()
   }
 
+  // ── AI quick-generate ─────────────────────────────────────────────────────
+
+  async function handleAiQuickGenerate(mode: 'cover_letter' | 'why_work_here' | 'custom') {
+    if (!userId || aiGenerating) return
+    setAiMenuOpen(false)
+
+    // Read clipboard for job description
+    let jd = ''
+    try { jd = await navigator.clipboard.readText() } catch { /* permission denied */ }
+
+    // Resolve prompt from saved settings or defaults
+    const systemPrompt =
+      mode === 'cover_letter'
+        ? (aiSettings?.cover_letter_prompt || DEFAULT_PROMPTS.cover_letter)
+        : mode === 'why_work_here'
+        ? (aiSettings?.why_good_fit_prompt  || DEFAULT_PROMPTS.why_good_fit)
+        : (aiSettings?.custom_prompt        || DEFAULT_PROMPTS.custom)
+
+    // Pick first available model
+    const { models } = await fetchModels()
+    if (models.length === 0) return
+
+    // Assemble resume context from any occupied slots
+    const occupiedSlots = (Object.keys(resumeSlots) as ResumeSlot[]).filter((s) => resumeSlots[s])
+    const parts: string[] = []
+    for (const slot of occupiedSlots) {
+      const signedUrl = await getResumeSignedUrl(userId, slot)
+      if (signedUrl) {
+        const text = await getResumeText(userId, slot, signedUrl)
+        if (text) parts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
+      }
+    }
+    let userPrompt = ''
+    if (parts.length > 0) userPrompt += `RESUME:\n${parts.join('\n\n')}\n\n`
+    if (jd.trim()) userPrompt += `JOB DESCRIPTION:\n${jd.trim()}`
+
+    setAiResult(null)
+    setAiGenerating(true)
+    setAiGenDots(0)
+    playAiConsume()
+
+    let accumulated = ''
+    const controller = new AbortController()
+    aiAbortRef.current = controller
+
+    streamCompletion({
+      model: models[0],
+      system: systemPrompt,
+      prompt: userPrompt,
+      signal: controller.signal,
+      onToken: (token) => { accumulated += token },
+      onDone: () => {
+        setAiGenerating(false)
+        setAiResult(accumulated)
+        playAiDing()
+      },
+      onError: () => {
+        setAiGenerating(false)
+      },
+    })
+  }
+
   // ── Shared classnames ─────────────────────────────────────────────────────
 
   const inputCls =
@@ -566,6 +762,7 @@ export default function QuickCast() {
             {links.map((slot) => (
               <div key={slot.id} className="relative group">
                 <button
+                  ref={(el) => { linkButtonRefs.current[slot.id] = el }}
                   onClick={() => handleCopy(slot)}
                   onContextMenu={(e) => { e.preventDefault(); openEditSlot(slot) }}
                   className={hotbarBtnCls(copiedId === slot.id)}
@@ -584,6 +781,58 @@ export default function QuickCast() {
                 </div>
               </div>
             ))}
+            {/* Edit popup — portalled to body so it's never clipped */}
+            {addFormOpen && editingId && editingId !== 'new' && popupPos && createPortal(
+              <div
+                ref={editPopupRef}
+                className={formPanelCls}
+                style={{ position: 'fixed', top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
+              >
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                  <span className="text-muted text-[9px] tracking-widest">EDIT SLOT</span>
+                  <button
+                    onClick={cancelEdit}
+                    className="text-muted hover:text-primary text-[9px] transition-none"
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="px-3 py-2 flex flex-col gap-2">
+                  <input
+                    ref={labelInputRef}
+                    className={inputCls}
+                    placeholder="Label  (e.g. LinkedIn)"
+                    value={draftLabel}
+                    onChange={(e) => setDraftLabel(e.target.value)}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="https://..."
+                    value={draftUrl}
+                    onChange={(e) => setDraftUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && commitEdit()}
+                  />
+                  <IconPicker value={draftIcon} onChange={setDraftIcon} />
+                  <div className="flex gap-1 mt-0.5">
+                    <button
+                      onClick={commitEdit}
+                      disabled={!draftUrl.trim()}
+                      className="bg-primary text-bg text-[9px] px-3 py-1 font-pixel hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+                    >
+                      SAVE
+                    </button>
+                    <button
+                      onClick={() => deleteSlot(editingId)}
+                      className="text-muted border border-border text-[9px] px-3 py-1 font-pixel hover:border-warning hover:text-warning transition-none"
+                    >
+                      DELETE
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
 
             {/* + button — hidden at max slots */}
             {links.length < MAX_SLOTS && (
@@ -596,22 +845,11 @@ export default function QuickCast() {
                   {addFormOpen ? '✕' : '+'}
                 </button>
 
-                {/* Add / edit form — pops upward above the + button */}
-                {addFormOpen && (
+                {/* Add form — pops upward above the + button (new slots only) */}
+                {addFormOpen && editingId === 'new' && (
                   <div className={`absolute bottom-full right-0 mb-2 ${formPanelCls}`}>
                     <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                      <span className="text-muted text-[9px] tracking-widest">
-                        {editingId === 'new' ? 'ADD SLOT' : 'EDIT SLOT'}
-                      </span>
-                      {editingId && editingId !== 'new' && (
-                        <button
-                          onClick={() => deleteSlot(editingId)}
-                          className="text-muted hover:text-warning text-[9px] transition-none"
-                          title="Delete slot"
-                        >
-                          ✕ DELETE
-                        </button>
-                      )}
+                      <span className="text-muted text-[9px] tracking-widest">ADD SLOT</span>
                     </div>
                     <div className="px-3 py-2 flex flex-col gap-2">
                       <input
@@ -736,18 +974,28 @@ export default function QuickCast() {
           </div>
 
           {/* ── Right zone: AI assistant ── */}
-          <div className="relative flex flex-col items-center">
+          <div className="relative flex flex-col items-center" ref={aiMenuRef}>
             <button
               data-tutorial="ai-assistant"
-              onClick={() => setAiPanelOpen((prev) => !prev)}
+              onClick={() => {
+                if (aiGenerating) return
+                setAiPanelOpen((prev) => !prev)
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                if (ollamaStatus !== 'connected' || aiGenerating) return
+                setAiMenuOpen((prev) => !prev)
+              }}
               className={[
                 'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
                 'border transition-none select-none cursor-pointer',
                 aiPanelOpen
                   ? 'border-primary text-primary'
+                  : aiResult && !aiGenerating
+                  ? 'qc-ai-ready'
                   : 'border-border text-muted hover:border-primary hover:text-primary',
               ].join(' ')}
-              title="AI Resume Assistant"
+              title={aiGenerating ? 'Generating…' : aiResult ? 'Click to view result · Right-click for quick generate' : 'AI Resume Assistant · Right-click for quick generate'}
             >
               <span className="font-pixel leading-none font-bold tracking-tight" style={{ fontSize: 24 }}>
                 AI
@@ -755,16 +1003,60 @@ export default function QuickCast() {
               <span
                 className="font-pixel text-[7px] tracking-widest leading-none"
                 style={{
-                  color: ollamaStatus === 'connected'
+                  color: aiGenerating
+                    ? '#22c55e'
+                    : aiResult
+                    ? '#7e22ce'
+                    : ollamaStatus === 'connected'
                     ? '#22c55e'
                     : ollamaStatus === 'not_connected'
                     ? 'var(--color-warning)'
                     : 'var(--color-dim)',
                 }}
               >
-                {ollamaStatus === 'connected' ? '● ON' : ollamaStatus === 'not_connected' ? '○ OFF' : '· · ·'}
+                {aiGenerating
+                  ? `GEN${'.'.repeat(aiGenDots + 1)}${'  '.repeat(2 - aiGenDots)}`
+                  : aiResult
+                  ? '● READY'
+                  : ollamaStatus === 'connected'
+                  ? '● ON'
+                  : ollamaStatus === 'not_connected'
+                  ? '○ OFF'
+                  : '· · ·'}
               </span>
             </button>
+
+            {/* AI right-click context menu */}
+            {aiMenuOpen && (
+              <div className="absolute bottom-full mb-2 right-0 z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-56">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                  <span className="text-[9px] tracking-widest text-muted">QUICK GENERATE</span>
+                  <button
+                    onClick={() => setAiMenuOpen(false)}
+                    className="text-muted hover:text-primary text-[9px] transition-none"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="px-3 py-2 flex flex-col gap-1">
+                  {([
+                    ['cover_letter',  'COVER LETTER'],
+                    ['why_work_here', 'WHY WORK HERE?'],
+                    ['custom',        'CUSTOM'],
+                  ] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      onClick={() => handleAiQuickGenerate(mode)}
+                      className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none flex items-center gap-1.5"
+                    >
+                      <Clipboard width={10} height={10} className="shrink-0" />
+                      + {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
 
         </div>
@@ -777,7 +1069,8 @@ export default function QuickCast() {
             <AiPanel
               userId={userId}
               resumeSlots={resumeSlots}
-              onClose={() => setAiPanelOpen(false)}
+              initialOutput={aiResult ?? undefined}
+              onClose={() => { setAiPanelOpen(false); setAiResult(null) }}
             />
           </div>
         </div>
