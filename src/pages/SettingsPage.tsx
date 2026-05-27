@@ -3,6 +3,7 @@ import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { deleteAllWorkdays } from '@/services/workdayService'
+import { WORKDAY_KEYS } from '@/lib/workdayKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
 import { useSubscription } from '@/lib/SubscriptionContext'
@@ -129,10 +130,8 @@ export default function SettingsPage() {
     // Clear local caches
     localStorage.removeItem(`fjobhunt:jobs:${userId}`)
     localStorage.removeItem(`fjobhunt:workdays:${userId}`)
-    localStorage.removeItem('workday_punch_in')
-    localStorage.removeItem('workday_id')
-    localStorage.removeItem('workday_break_start')
-    localStorage.removeItem('workday_break_label')
+    localStorage.removeItem(WORKDAY_KEYS.punchIn)
+    localStorage.removeItem(WORKDAY_KEYS.workdayId)
     setResetting(false)
     setResetConfirm(false)
     setResetDone(true)

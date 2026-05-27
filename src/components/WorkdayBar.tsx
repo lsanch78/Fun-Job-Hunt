@@ -1,28 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { WORKDAY } from '@/config/game'
-import { supabase } from '@/lib/supabase'
-import { startWorkday, endWorkday } from '@/services/workdayService'
-import { playPunchIn, playPunchOut } from '@/lib/sfx'
-
-// ── Storage helpers ───────────────────────────────────────────────────────────
-
-const STORAGE_KEY    = 'workday_punch_in'
-const WORKDAY_ID_KEY = 'workday_id'
-
-function savePunchIn(isoString: string) {
-  localStorage.setItem(STORAGE_KEY, isoString)
-}
-
-function loadPunchIn(): Date | null {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return null
-  const d = new Date(raw)
-  return isNaN(d.getTime()) ? null : d
-}
-
-function clearPunchIn() {
-  localStorage.removeItem(STORAGE_KEY)
-}
+import { useWorkdayTracking } from '@/hooks/useWorkdayTracking'
 
 // ── Time formatting helpers ───────────────────────────────────────────────────
 
@@ -44,10 +22,15 @@ function formatElapsed(ms: number): string {
 
 // ── WorkdayBar ────────────────────────────────────────────────────────────────
 
-export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
-  const [now, setNow]       = useState(() => new Date())
-  const [punchIn, setPunchIn] = useState<Date | null>(() => loadPunchIn())
-  const lastActivityRef     = useRef<number>(Date.now())
+export default function WorkdayBar({
+  userId,
+  inline = false,
+}: {
+  userId: string | null
+  inline?: boolean
+}) {
+  const [now, setNow] = useState(() => new Date())
+  const { punchIn, isPunchedIn, lastActivityRef } = useWorkdayTracking(userId)
 
   // Tick every second
   useEffect(() => {
@@ -55,59 +38,7 @@ export default function WorkdayBar({ inline = false }: { inline?: boolean }) {
     return () => clearInterval(id)
   }, [])
 
-  // Track user activity — auto punch-in on first interaction
-  const resetActivity = useCallback(() => {
-    lastActivityRef.current = Date.now()
-    setPunchIn((current) => {
-      if (current !== null) return current
-      const t = new Date()
-      savePunchIn(t.toISOString())
-      playPunchIn()
-      if (!localStorage.getItem(WORKDAY_ID_KEY)) {
-        localStorage.setItem(WORKDAY_ID_KEY, 'pending')
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (!user) { localStorage.removeItem(WORKDAY_ID_KEY); return }
-          startWorkday(user.id, t).then((id) => {
-            if (id) localStorage.setItem(WORKDAY_ID_KEY, id)
-            else localStorage.removeItem(WORKDAY_ID_KEY)
-          })
-        })
-      }
-      return t
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const handler = () => resetActivity()
-    window.addEventListener('fjobhunt:job-input', handler)
-    return () => window.removeEventListener('fjobhunt:job-input', handler)
-  }, [resetActivity])
-
-  // Auto punch-out after idle threshold
-  useEffect(() => {
-    if (!punchIn) return
-    const id = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current
-      if (idleMs >= WORKDAY.AUTO_PUNCH_OUT_IDLE_MS) {
-        doPunchOut(new Date(lastActivityRef.current))
-      }
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [punchIn]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function doPunchOut(_at?: Date) {
-    const workdayId = localStorage.getItem(WORKDAY_ID_KEY)
-    localStorage.removeItem(WORKDAY_ID_KEY)
-    clearPunchIn()
-    setPunchIn(null)
-    playPunchOut()
-    if (workdayId) {
-      endWorkday(workdayId, _at ?? new Date())
-    }
-  }
-
-  const isPunchedIn = punchIn !== null
-  const elapsedMs   = isPunchedIn ? now.getTime() - punchIn.getTime() : 0
+  const elapsedMs = isPunchedIn ? now.getTime() - punchIn!.getTime() : 0
 
   return (
     <div data-tutorial="workday-bar" className={inline ? "bg-surface border-b border-border font-pixel" : "fixed bottom-0 left-0 right-0 z-[9990] bg-surface border-t border-border font-pixel"}>

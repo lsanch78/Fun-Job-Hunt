@@ -488,6 +488,8 @@ interface ColConfig {
   width: number  // px
 }
 
+const REQUIRED_COLS = new Set(['company', 'title'])
+
 const COL_DEFS: Record<string, { label: string; defaultWidth: number }> = {
   company:  { label: 'COMPANY',  defaultWidth: 140 },
   title:    { label: 'TITLE',    defaultWidth: 160 },
@@ -540,12 +542,13 @@ function writeColConfig(cols: ColConfig[]): void {
 
 // ── Column context menu ───────────────────────────────────────────────────────
 function ColContextMenu({
-  x, y, isFirst, isLast, allCols,
+  x, y, isFirst, isLast, allCols, activeKey,
   onMoveLeft, onMoveRight, onHide, onToggleCol, onReset, onClose,
 }: {
   x: number; y: number
   isFirst: boolean; isLast: boolean
   allCols: ColConfig[]
+  activeKey: string
   onMoveLeft: () => void; onMoveRight: () => void
   onHide: () => void; onToggleCol: (key: string) => void; onReset: () => void; onClose: () => void
 }) {
@@ -575,23 +578,29 @@ function ColContextMenu({
           → Move Right
         </button>
         <div className="border-t border-border my-1" />
-        <button className={btnActive} onClick={() => { onHide(); onClose() }}>
+        <button
+          className={REQUIRED_COLS.has(activeKey) ? btnDimmed : btnActive}
+          onClick={REQUIRED_COLS.has(activeKey) ? undefined : () => { onHide(); onClose() }}
+        >
           ✕ Hide Column
         </button>
         <button className={btnActive} onClick={() => { onReset(); onClose() }}>
           ↺ Reset to Default
         </button>
         <div className="border-t border-border my-1" />
-        {allCols.map((col) => (
-          <button
-            key={col.key}
-            className={`${btnBase} flex items-center gap-2 text-muted hover:bg-surface hover:text-primary`}
-            onClick={() => onToggleCol(col.key)}
-          >
-            <span className="w-3 text-secondary">{col.visible ? '✓' : ''}</span>
-            {COL_DEFS[col.key].label}
-          </button>
-        ))}
+        {allCols.map((col) => {
+          const isRequired = REQUIRED_COLS.has(col.key)
+          return (
+            <button
+              key={col.key}
+              className={`${btnBase} flex items-center gap-2 ${isRequired ? 'text-muted/40 cursor-default' : 'text-muted hover:bg-surface hover:text-primary'}`}
+              onClick={isRequired ? undefined : () => onToggleCol(col.key)}
+            >
+              <span className="w-3 text-secondary">{col.visible ? '✓' : ''}</span>
+              <span className={isRequired ? 'text-warn' : ''}>{COL_DEFS[col.key].label}</span>
+            </button>
+          )
+        })}
       </div>
     </>
   )
@@ -1533,6 +1542,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
               y={colMenu.y}
               isFirst={visIdx === 0}
               isLast={visIdx === visibleCols.length - 1}
+              activeKey={colMenu.key}
               onClose={() => setColMenu(null)}
               onMoveLeft={() => {
                 setColConfig((prev) => {
@@ -1634,7 +1644,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   }`}
                   title="Drag to reorder · Right-click for options"
                 >
-                  {COL_DEFS[col.key].label}
+                  <span className={REQUIRED_COLS.has(col.key) ? 'text-warn' : ''}>
+                    {COL_DEFS[col.key].label}
+                  </span>
                   <span className="ml-1 opacity-0 group-hover:opacity-40 text-[8px]">⠿</span>
                   {/* Resize handle — uses pointer capture so it wins over the th's drag */}
                   <span

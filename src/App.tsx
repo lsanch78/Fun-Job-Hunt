@@ -20,6 +20,25 @@ import MobileJobLogPage from '@/pages/MobileJobLogPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
+// Prefetch credits photos while the browser is idle so they're instant on arrival
+const CREDITS_PHOTOS = ['/me1.webp', '/me2.webp', '/me3.webp']
+function prefetchCreditsPhotos() {
+  const cb = () => {
+    CREDITS_PHOTOS.forEach((src) => {
+      const link = document.createElement('link')
+      link.rel = 'prefetch'
+      link.as = 'image'
+      link.href = src
+      document.head.appendChild(link)
+    })
+  }
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(cb, { timeout: 3000 })
+  } else {
+    setTimeout(cb, 2000)
+  }
+}
+
 function ProtectedRoute({
   session,
   children,
@@ -27,12 +46,13 @@ function ProtectedRoute({
   session: Session | null | undefined
   children: React.ReactNode
 }) {
+  const userId = session?.user?.id ?? null
   if (DEV_BYPASS) return (
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
       <QuickCast />
-      <WorkdayBar inline />
+      <WorkdayBar userId={userId} inline />
     </div>
   )
   // undefined = still loading, null = no session
@@ -43,7 +63,7 @@ function ProtectedRoute({
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
       <QuickCast />
-      <WorkdayBar inline />
+      <WorkdayBar userId={userId} inline />
     </div>
   )
 }
@@ -61,6 +81,10 @@ function JobLogRoute({ session }: { session: Session | null | undefined }) {
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
+
+  useEffect(() => {
+    prefetchCreditsPhotos()
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
