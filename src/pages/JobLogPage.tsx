@@ -4,6 +4,7 @@ import { Terminal, Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
+import { calculateXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { readCache, writeCache, fetchJobs, insertJob, updateJob, updateJobDetails, deleteJobs, runAutoGhost, JOB_LIMITS, JOB_CAP } from '@/services/jobService'
 import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
@@ -1419,7 +1420,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           className="cursor-pointer hover:opacity-80 transition-opacity"
           title="View Story Map"
         >
-          <XpTracker xp={committedCount * XP.ADD_JOB} />
+          <XpTracker xp={calculateXp(committedCount)} />
         </button>
       </div>
 

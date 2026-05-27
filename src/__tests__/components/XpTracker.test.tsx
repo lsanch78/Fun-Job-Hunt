@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import XpTracker, { getRankInfo } from '@/components/XpTracker'
+import XpTracker from '@/components/XpTracker'
+import { getRankInfo } from '@/services/xpService'
 
 // Mock sfx to avoid AudioContext issues in level-up tests
 jest.mock('@/lib/sfx', () => ({

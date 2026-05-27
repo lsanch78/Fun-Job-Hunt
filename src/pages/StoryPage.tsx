@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
+import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
-import XpTracker, { getRankInfo } from '@/components/XpTracker'
+import XpTracker from '@/components/XpTracker'
+import { calculateXp, getRankInfo } from '@/services/xpService'
 
 // ── S-path node positions ─────────────────────────────────────────────────────
 const NODE_COLS = 4
@@ -99,7 +100,7 @@ const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '�
 export default function StoryPage({ userId }: { userId: string | null }) {
   const [xp, setXp] = useState(() => {
     const cached = userId ? readCache(userId) : []
-    return cached.length * XP.ADD_JOB
+    return calculateXp(cached.length)
   })
   const [employed, setEmployed] = useState(false)
   const [loading, setLoading] = useState(() => {
@@ -121,7 +122,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       ])
       if (cancelled) return
       if (profileResult.data) setEmployed(!!profileResult.data.employed)
-      setXp(dbJobs.length * XP.ADD_JOB)
+      setXp(calculateXp(dbJobs.length))
       setLoading(false)
     }
 

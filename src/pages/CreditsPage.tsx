@@ -66,6 +66,10 @@ export default function CreditsPage() {
                     <img
                       src={src}
                       alt={caption ?? `photo ${i + 1}`}
+                      width={448}
+                      height={320}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-40 object-cover object-top"
                     />
                   </div>
@@ -117,21 +121,18 @@ export default function CreditsPage() {
             <LinkCard
               href={LINKEDIN_URL}
               label="LINKEDIN"
-              icon="💼"
             />
 
             {/* Ko-fi */}
             <LinkCard
               href={KOFI_URL}
               label="BUY ME A COFFEE"
-              icon="☕"
             />
 
             {/* Portfolio */}
             <LinkCard
               href={PORTFOLIO_URL}
               label="MY PORTFOLIO"
-              icon="🗂"
             />
 
           </div>
@@ -173,11 +174,9 @@ function Section({
 function LinkCard({
   href,
   label,
-  icon,
 }: {
   href: string
   label: string
-  icon: string
 }) {
   return (
     <a
@@ -187,7 +186,6 @@ function LinkCard({
       onClick={playLinkBlip}
       className="flex flex-col items-center justify-center gap-3 px-4 py-6 border border-border hover:border-secondary group transition-none"
     >
-      <span className="text-3xl leading-none">{icon}</span>
       <span className="text-xs text-primary group-hover:text-secondary text-center">{label}</span>
     </a>
   )

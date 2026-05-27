@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
 import { fetchJobs, readCache } from '@/services/jobService'
 import type { Job } from '@/types'
-import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
+import { calculateXp } from '@/services/xpService'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -337,7 +337,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
   }, [jobs])
 
   // ── Rank ────────────────────────────────────────────────────────────────────
-  const xp = totalApps * XP.ADD_JOB
+  const xp = calculateXp(totalApps)
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

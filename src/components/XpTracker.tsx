@@ -1,19 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { playLevelUp } from '@/lib/sfx'
+import { getRankInfo } from '@/services/xpService'
 
-export function getRankInfo(xp: number) {
-  let rank = 1
-  for (let i = 1; i < RANK_THRESHOLDS.length; i++) {
-    if (xp >= RANK_THRESHOLDS[i]) rank = i
-    else break
-  }
-  const isMax = rank >= RANK_THRESHOLDS.length - 1
-  const currentFloor = RANK_THRESHOLDS[rank]
-  const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
-  const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
-  return { rank, title: RANK_TITLES[rank] ?? '', progress, xp, nextFloor, isMax }
-}
+export { getRankInfo }
 
 const avatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
 
