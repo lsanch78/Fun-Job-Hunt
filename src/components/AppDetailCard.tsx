@@ -306,6 +306,7 @@ interface AppDetailCardProps {
   jobId: string
   onClose: () => void
   onChange: (updated: Job) => void
+  fullScreen?: boolean
 }
 
 // Terminal palette — fixed regardless of app theme
@@ -322,7 +323,7 @@ const inputClass = 'bg-transparent outline-none text-lg w-full px-1 py-0.5 leadi
 const textareaClass = `${inputClass} resize-none`
 
 // ── AppDetailCard ─────────────────────────────────────────────────────────────
-export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDetailCardProps) {
+export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScreen = false }: AppDetailCardProps) {
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [page, setPage] = useState<1 | 2>(1)
@@ -429,6 +430,73 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange }: AppDet
 
   const hasPrevJob = localIdx > 0
   const hasNextJob = localIdx < jobs.length - 1
+
+  if (fullScreen) {
+    return (
+      <div className="crt-card fixed inset-0 z-[200] flex flex-col" style={{
+        animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1, end) 0.35s infinite',
+        fontFamily: '"VT323", monospace',
+        background: '#000',
+        border: '1px solid #2a2a2a',
+        color: '#39ff14',
+        textShadow: '0 0 4px rgba(57,255,20,0.25)',
+        boxShadow: '0 0 8px 1px rgba(57,255,20,0.35), inset 0 0 10px 2px rgba(57,255,20,0.06)',
+      }}>
+        {/* ── Top bar ── */}
+        <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
+          <button onClick={() => goJob(-1)} disabled={!hasPrevJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base" style={{ color: T.greenDim }} title="Previous application">◀</button>
+          <span className="text-base tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green }}>
+            {job.company || '—'}
+            {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
+          </span>
+          <button onClick={() => goJob(1)} disabled={!hasNextJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base" style={{ color: T.greenDim }} title="Next application">▶</button>
+          <span className="text-[13px] ml-2 select-none flex-shrink-0" style={{ color: T.greenDim }}>{page} / 2</span>
+          <button onClick={handleClose} className="w-10 h-10 text-lg flex items-center justify-center ml-1 flex-shrink-0 hover:opacity-60" style={{ color: T.greenDim }} title="Close (Esc)">✕</button>
+        </div>
+        {/* ── Body ── */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+          {page === 1 ? (
+            <>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Company</div>
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} value={job.company} maxLength={JOB_LIMITS.company} onChange={(e) => update('company', e.target.value)} placeholder="Company name" />
+              </div>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Job Title</div>
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} value={job.title} maxLength={JOB_LIMITS.title} onChange={(e) => update('title', e.target.value)} placeholder="Role / position" />
+              </div>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={4} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
+              </div>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Contacts</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={3} maxLength={JOB_LIMITS.contacts} value={job.contacts ?? ''} onChange={(e) => update('contacts', e.target.value)} placeholder="Recruiter, hiring manager, referral…" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm tracking-wide pb-2 select-none" style={{ color: T.greenDim, borderBottom: `1px solid ${T.border}` }}>
+                {job.company || '—'}{job.title ? ` — ${job.title}` : ''}
+              </div>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={14} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…', 'Culture impressions…', 'Source / how you found it…', 'Resume version used…', 'Anything else…'].join('\n')} />
+              </div>
+            </>
+          )}
+        </div>
+        {/* ── Page nav ── */}
+        <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
+          <button onClick={() => goPage(-1)} disabled={page === 1} className="text-[15px] px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, border: `1px solid ${T.border}` }}>← PREV</button>
+          <button onClick={handleSave} disabled={saveState === 'saving' || detailsLoading} className="text-[15px] px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80" style={{ color: saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim, border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}` }} title={saveState === 'error' && saveError ? saveError : 'Save detail fields to database'}>
+            {saveState === 'saving' ? '…' : saveState === 'saved' ? '✓ SAVED' : saveState === 'error' ? '✕ ERR' : 'SAVE'}
+          </button>
+          <button onClick={() => goPage(1)} disabled={page === 2} className="text-[15px] px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, border: `1px solid ${T.border}` }}>NEXT →</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     /* Backdrop */

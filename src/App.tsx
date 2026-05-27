@@ -14,6 +14,8 @@ import NavBar from '@/components/NavBar'
 import QuickCast from '@/components/QuickCast'
 import WorkdayBar from '@/components/WorkdayBar'
 import type { Session } from '@supabase/supabase-js'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import MobileJobLogPage from '@/pages/MobileJobLogPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -45,6 +47,17 @@ function ProtectedRoute({
   )
 }
 
+function JobLogRoute({ session }: { session: Session | null | undefined }) {
+  const isMobile = useIsMobile()
+  const userId = session?.user?.id ?? null
+  const userName =
+    (session?.user?.user_metadata?.['username'] as string | undefined) ??
+    session?.user?.email?.split('@')[0] ??
+    null
+  if (isMobile) return <MobileJobLogPage userId={userId} userName={userName} />
+  return <JobLogPage userId={userId} userName={userName} />
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
 
@@ -67,14 +80,7 @@ export default function App() {
             path="/jobs"
             element={
               <ProtectedRoute session={session}>
-                <JobLogPage
-                  userId={session?.user?.id ?? null}
-                  userName={
-                    (session?.user?.user_metadata?.['username'] as string | undefined) ??
-                    session?.user?.email?.split('@')[0] ??
-                    null
-                  }
-                />
+                <JobLogRoute session={session} />
               </ProtectedRoute>
             }
           />

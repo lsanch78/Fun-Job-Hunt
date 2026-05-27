@@ -747,7 +747,7 @@ export default function QuickCast() {
       <div
         ref={containerRef}
         data-tutorial="quickcast"
-        className="relative bg-bg border-t border-border px-6 pt-2 pb-3 flex flex-col items-center gap-2 shrink-0"
+        className="relative bg-bg border-t border-border px-6 pt-2 pb-3 hidden sm:flex sm:flex-col items-center gap-2 shrink-0"
       >
         {/* Label */}
         <span className="self-start text-[9px] text-dim font-pixel tracking-widest select-none">
