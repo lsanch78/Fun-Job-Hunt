@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import mammoth from 'mammoth'
+import DOMPurify from 'dompurify'
 import { playBookThud } from '@/lib/sfx'
 
 interface ResumeModalProps {
@@ -25,7 +26,7 @@ export default function ResumeModal({ url, fileName, slotColor, onClose, onRepla
     fetch(url)
       .then((r) => r.arrayBuffer())
       .then((buf) => mammoth.convertToHtml({ arrayBuffer: buf }))
-      .then((result) => { if (!cancelled) setDocxHtml(result.value) })
+      .then((result) => { if (!cancelled) setDocxHtml(DOMPurify.sanitize(result.value)) })
       .catch(() => { if (!cancelled) setDocxError(true) })
     return () => { cancelled = true }
   }, [url, isDocx])
