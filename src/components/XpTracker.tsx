@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
-import { isSfxMuted } from '@/lib/sfx'
+import { playLevelUp } from '@/lib/sfx'
 
 export function getRankInfo(xp: number) {
   let rank = 1
@@ -13,29 +13,6 @@ export function getRankInfo(xp: number) {
   const nextFloor = isMax ? currentFloor : RANK_THRESHOLDS[rank + 1]
   const progress = isMax ? 1 : (xp - currentFloor) / (nextFloor - currentFloor)
   return { rank, title: RANK_TITLES[rank] ?? '', progress, xp, nextFloor, isMax }
-}
-
-function playLevelUp() {
-  if (isSfxMuted()) return;
-  try {
-    const ctx = new AudioContext()
-    const notes = [523.25, 659.25, 783.99, 1046.5]
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.18
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t)
-      gain.gain.linearRampToValueAtTime(0.09, t + 0.04)
-      gain.gain.setValueAtTime(0.09, t + 0.18)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55)
-      osc.start(t)
-      osc.stop(t + 0.55)
-    })
-  } catch { /* AudioContext blocked */ }
 }
 
 const avatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']

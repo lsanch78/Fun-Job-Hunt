@@ -2,63 +2,8 @@ import { useState, useEffect } from 'react'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
-import { isSfxMuted } from '@/lib/sfx'
+import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker, { getRankInfo } from '@/components/XpTracker'
-
-// ── Sound: story page entry chime ─────────────────────────────────────────────
-function playStoryChime() {
-  if (isSfxMuted()) return;
-  try {
-    const ctx = new AudioContext()
-    const notes = [440.00, 329.63]
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.22
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t)
-      gain.gain.linearRampToValueAtTime(0.07, t + 0.04)
-      gain.gain.setValueAtTime(0.07, t + 0.18)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65)
-      osc.start(t)
-      osc.stop(t + 0.65)
-    })
-  } catch { /* AudioContext blocked */ }
-}
-
-// ── Fanfare sound (Web Audio API — no file needed) ────────────────────────────
-function playFanfare() {
-  if (isSfxMuted()) return;
-  try {
-    const ctx = new AudioContext()
-    // A short ascending trumpet-ish fanfare: C5 E5 G5 C6
-    const notes = [
-      { freq: 523.25, start: 0.00, dur: 0.18 },
-      { freq: 659.25, start: 0.16, dur: 0.18 },
-      { freq: 783.99, start: 0.30, dur: 0.18 },
-      { freq: 1046.5, start: 0.44, dur: 0.55 },
-    ]
-    notes.forEach(({ freq, start, dur }) => {
-      const osc  = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
-      gain.gain.setValueAtTime(0, ctx.currentTime + start)
-      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
-      osc.start(ctx.currentTime + start)
-      osc.stop(ctx.currentTime + start + dur)
-    })
-    setTimeout(() => ctx.close(), 1400)
-  } catch {
-    // AudioContext unavailable — silent fail
-  }
-}
 
 // ── S-path node positions ─────────────────────────────────────────────────────
 const NODE_COLS = 4

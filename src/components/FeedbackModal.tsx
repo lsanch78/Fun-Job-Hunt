@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { isSfxMuted } from '@/lib/sfx'
+import { playSubmitBlip, playCloseBlip } from '@/lib/sfx'
 import {
   FEEDBACK_TOPICS,
   MESSAGE_LIMIT,
@@ -77,42 +77,6 @@ const T = {
 const labelClass = 'text-[13px] tracking-widest uppercase mb-1 select-none'
 const inputClass = 'bg-transparent outline-none w-full px-1 py-0.5 leading-tight border-b'
 const textareaClass = `${inputClass} resize-none`
-
-function playSubmitBlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(440, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08)
-    gain.gain.setValueAtTime(0.06, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.15)
-  } catch { /* blocked */ }
-}
-
-function playCloseBlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(440, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.08)
-    gain.gain.setValueAtTime(0.04, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.12)
-  } catch { /* blocked */ }
-}
 
 interface FeedbackModalProps {
   userId: string

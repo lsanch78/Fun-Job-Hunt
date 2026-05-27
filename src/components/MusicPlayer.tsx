@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { isSfxMuted } from '@/lib/sfx'
+import { playMusicBlip } from '@/lib/sfx'
 import { Music } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -117,23 +117,6 @@ function loadYTApi(onReady: () => void) {
   document.head.appendChild(tag)
 }
 
-function playMusicBlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(440, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06)
-    gain.gain.setValueAtTime(0.08, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.12)
-  } catch { /* AudioContext blocked */ }
-}
 
 const inputCls = 'bg-bg border border-border text-primary text-xs px-2 py-1 outline-none focus:border-primary font-pixel placeholder-muted'
 

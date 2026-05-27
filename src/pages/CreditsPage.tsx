@@ -1,4 +1,4 @@
-import { isSfxMuted } from '@/lib/sfx'
+import { playCreditsChime, playLinkBlip } from '@/lib/sfx'
 
 // ── EDITABLE DATA ─────────────────────────────────────────────────────────────
 
@@ -15,54 +15,6 @@ const PHOTOS: { src: string; caption?: string }[] = [
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-function playCreditsChime() {
-  if (isSfxMuted()) return;
-  try {
-    const ctx = new AudioContext()
-    // Gentle ascending arpeggio — "level complete" vibe
-    const notes = [
-      { freq: 523.25, t: 0,    dur: 0.12, vol: 0.028 }, // C5
-      { freq: 659.25, t: 0.12, dur: 0.12, vol: 0.026 }, // E5
-      { freq: 783.99, t: 0.24, dur: 0.12, vol: 0.024 }, // G5
-      { freq: 1046.5, t: 0.36, dur: 0.25, vol: 0.020 }, // C6
-    ]
-    notes.forEach(({ freq, t, dur, vol }) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + t)
-      gain.gain.setValueAtTime(0, ctx.currentTime + t)
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.008)
-      gain.gain.setValueAtTime(vol, ctx.currentTime + t + dur - 0.015)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(ctx.currentTime + t)
-      osc.stop(ctx.currentTime + t + dur + 0.01)
-    })
-  } catch { /* AudioContext blocked */ }
-}
-
-function playLinkBlip() {
-  if (isSfxMuted()) return;
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(880, ctx.currentTime)
-    osc.frequency.linearRampToValueAtTime(1046.5, ctx.currentTime + 0.05)
-    gain.gain.setValueAtTime(0, ctx.currentTime)
-    gain.gain.linearRampToValueAtTime(0.025, ctx.currentTime + 0.006)
-    gain.gain.setValueAtTime(0.025, ctx.currentTime + 0.05)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.13)
-  } catch { /* AudioContext blocked */ }
-}
 
 import { useEffect, useRef, useState } from 'react'
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { isSfxMuted, playBootBlip, playExitBlip } from '@/lib/sfx'
+import { playBootBlip, playExitBlip, playTutorialPage as playPage } from '@/lib/sfx'
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -98,39 +98,6 @@ const STEPS: TutorialStep[] = [
     ],
   },
 ]
-
-// ── Sounds ────────────────────────────────────────────────────────────────────
-
-
-function playPage(dir: 'forward' | 'back' = 'forward') {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const freq = dir === 'forward' ? 660 : 440
-    const clickBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.018), ctx.sampleRate)
-    const cd = clickBuf.getChannelData(0)
-    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1
-    const src = ctx.createBufferSource()
-    src.buffer = clickBuf
-    const bp = ctx.createBiquadFilter()
-    bp.type = 'bandpass'
-    bp.frequency.value = 2400
-    const cg = ctx.createGain()
-    cg.gain.setValueAtTime(0.12, ctx.currentTime)
-    cg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.022)
-    src.connect(bp); bp.connect(cg); cg.connect(ctx.destination)
-    src.start(); src.stop(ctx.currentTime + 0.025)
-    const osc = ctx.createOscillator()
-    const og = ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(freq, ctx.currentTime + 0.018)
-    og.gain.setValueAtTime(0, ctx.currentTime + 0.018)
-    og.gain.linearRampToValueAtTime(0.028, ctx.currentTime + 0.024)
-    og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07)
-    osc.connect(og); og.connect(ctx.destination)
-    osc.start(ctx.currentTime + 0.018); osc.stop(ctx.currentTime + 0.08)
-  } catch { /* blocked */ }
-}
 
 
 

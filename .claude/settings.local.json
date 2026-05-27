@@ -39,7 +39,13 @@
       "Bash(npx jest:*)",
       "Bash(node --max-old-space-size=512 node_modules/.bin/jest:*)",
       "Bash(npx --no jest --testPathPattern=\"subscriptionService|SubscriptionContext\" --no-coverage --runInBand)",
-      "Bash(npx --no jest:*)"
+      "Bash(npx --no jest:*)",
+      "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Force | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"Folder\"}else{\"File\"}}} | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\src\" -Recurse -Force | Where-Object {!$_.PSIsContainer} | Select-Object FullName | ConvertTo-Json)",
+      "PowerShell($env:TEMP)"
     ]
   }
 }

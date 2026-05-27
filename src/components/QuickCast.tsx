@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { isSfxMuted } from '@/lib/sfx'
+import { playPageFlip, playSpellCast, playAiConsume, playAiDing } from '@/lib/sfx'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -42,120 +42,6 @@ import {
   type ResumeSlot,
   type ResumeSlotRecord,
 } from '@/services/resumeService'
-
-// ── Sounds ────────────────────────────────────────────────────────────────────
-
-function playPageFlip() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const hitDuration = 0.65
-    const spacing     = 0.10
-    const hitCount    = 3
-    const bufSize = Math.ceil(ctx.sampleRate * hitDuration)
-    const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
-    const nd = noiseBuf.getChannelData(0)
-    for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1
-
-    const volumes = [0.1, 0.07, 0.05]
-    for (let h = 0; h < hitCount; h++) {
-      const t0 = ctx.currentTime + h * spacing
-      const src = ctx.createBufferSource()
-      src.buffer = noiseBuf
-      src.playbackRate.value = 0.50 + h * 0.06
-      const hpf = ctx.createBiquadFilter()
-      hpf.type = 'highpass'
-      hpf.frequency.value = 300
-      const gain = ctx.createGain()
-      gain.gain.setValueAtTime(volumes[h], t0)
-      gain.gain.exponentialRampToValueAtTime(0.001, t0 + hitDuration)
-      src.connect(hpf)
-      hpf.connect(gain)
-      gain.connect(ctx.destination)
-      src.start(t0)
-      src.stop(t0 + hitDuration)
-    }
-  } catch { /* AudioContext blocked */ }
-}
-
-function playSpellCast() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const notes = [220, 277.18, 329.63, 440, 554.37, 659.25]
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.045
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0.07, t)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1)
-      osc.start(t)
-      osc.stop(t + 0.1)
-    })
-  } catch { /* AudioContext blocked */ }
-}
-
-function playAiConsume() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const dur = 0.9
-    const bufSize = Math.ceil(ctx.sampleRate * dur)
-    const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
-    const nd = noiseBuf.getChannelData(0)
-    for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1
-
-    const src = ctx.createBufferSource()
-    src.buffer = noiseBuf
-    src.playbackRate.value = 0.4
-
-    // Band-pass centered low — gives a "vacuum/sucking" character
-    const bpf = ctx.createBiquadFilter()
-    bpf.type = 'bandpass'
-    bpf.frequency.setValueAtTime(320, ctx.currentTime)
-    bpf.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + dur)
-    bpf.Q.value = 1.8
-
-    const gain = ctx.createGain()
-    gain.gain.setValueAtTime(0.0, ctx.currentTime)
-    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.08)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
-
-    src.connect(bpf)
-    bpf.connect(gain)
-    gain.connect(ctx.destination)
-    src.start(ctx.currentTime)
-    src.stop(ctx.currentTime + dur)
-  } catch { /* AudioContext blocked */ }
-}
-
-function playAiDing() {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    // Two sine partials for a bell-like quality
-    const partials: { freq: number; vol: number; decay: number }[] = [
-      { freq: 1046.5, vol: 0.12, decay: 0.9 },   // C6 fundamental
-      { freq: 2093.0, vol: 0.05, decay: 0.5 },   // C7 octave shimmer
-    ]
-    partials.forEach(({ freq, vol, decay }) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      gain.gain.setValueAtTime(vol, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + decay)
-    })
-  } catch { /* AudioContext blocked */ }
-}
 
 // ── AI ready animation — injected once ────────────────────────────────────────
 
