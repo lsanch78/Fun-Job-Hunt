@@ -1,5 +1,4 @@
-import React from 'react'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // ---------- Mocks ----------
@@ -84,7 +83,7 @@ jest.mock('pixelarticons/react', () => {
 // ---------- Imports ----------
 
 import QuickCast from '@/components/QuickCast'
-import { fetchLinks, createLink, deleteLink } from '@/services/quickCastService'
+import { fetchLinks, createLink } from '@/services/quickCastService'
 import { fetchModels } from '@/services/ollamaService'
 
 // ---------- Tests ----------

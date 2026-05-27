@@ -26,27 +26,6 @@ jest.mock('@/lib/supabase', () => ({
 import { supabase } from '@/lib/supabase'
 const mockSupabase = supabase as jest.Mocked<typeof supabase>
 
-// Helper to set up a fresh chain for each call
-function mockChain(result: unknown) {
-  const chain = makeChain()
-  // Resolve the chain at any terminal point
-  ;['select', 'insert', 'update', 'delete', 'single', 'order', 'eq'].forEach((m) => {
-    // Override the last call in a chain to resolve with result
-    chain[m] = jest.fn().mockReturnValue(
-      new Proxy(chain, {
-        get(target, prop: string) {
-          if (prop === 'then') {
-            return (resolve: (v: unknown) => void) => resolve(result)
-          }
-          return target[prop] ?? jest.fn().mockReturnThis()
-        },
-      }),
-    )
-  })
-  ;(mockSupabase.from as jest.Mock).mockReturnValue(chain)
-  return chain
-}
-
 // ---------- Tests ----------
 
 beforeEach(() => jest.clearAllMocks())
