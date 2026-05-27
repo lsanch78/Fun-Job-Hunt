@@ -261,15 +261,14 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Nav links */}
-        {NAV_LINKS.map(({ label, to }) => (
+        {/* Nav links — mobile: JOBS and CREDITS only */}
+        {NAV_LINKS.filter(({ to }) => to === '/jobs' || to === '/credits').map(({ label, to }) => (
           <NavLink
             key={to}
             to={to}
             onClick={() => {
               setDrawerOpen(false)
               if (to === '/jobs') playJobsBoot()
-              else if (to === '/stats') playStatsBlip()
               else if (to === '/credits') playCreditsBlip()
             }}
             className={({ isActive }) =>
@@ -296,18 +295,14 @@ export default function NavBar() {
           ))}
         </div>
 
-        {/* SFX + Music */}
-        <div className="px-4 py-3 border-b border-border flex flex-col gap-3">
+        {/* SFX */}
+        <div className="px-4 py-3 border-b border-border">
           <button
             onClick={() => setSfxMutedState(toggleSfxMuted())}
             className={`w-full text-left py-1 text-[10px] transition-none ${sfxMuted ? 'text-muted line-through' : 'text-primary'}`}
           >
             SFX {sfxMuted ? '(MUTED)' : '(ON)'}
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-muted text-[9px] tracking-widest">MUSIC</span>
-            <MusicPlayer />
-          </div>
         </div>
 
         {/* Tutorial + Feedback */}
@@ -383,8 +378,9 @@ export default function NavBar() {
 
       {/* ── Left: App name + nav links (desktop) ── */}
       <div className="flex items-center gap-6">
-        <NavLink to="/auth" onClick={playExitBlip} className="text-primary tracking-widest whitespace-nowrap hover:text-secondary">
+        <NavLink to="/auth" onClick={playExitBlip} className="text-primary tracking-widest whitespace-nowrap hover:text-secondary flex items-center gap-2">
           FJOBHUNT
+          <span className="sm:hidden text-muted text-[8px] tracking-widest">[MOBILE]</span>
         </NavLink>
 
         <div className="hidden sm:flex items-center gap-4">
