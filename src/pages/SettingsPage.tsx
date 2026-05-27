@@ -7,7 +7,7 @@ import { WORKDAY_KEYS } from '@/lib/workdayKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
 import { useSubscription } from '@/lib/SubscriptionContext'
-import { createCheckoutSession } from '@/services/subscriptionService'
+import { createCheckoutSession, openPortalSession } from '@/services/subscriptionService'
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -284,12 +284,24 @@ export default function SettingsPage() {
         {isSubscribed ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-primary px-1">
-              {'> '}Pro — active
-              {subscription?.current_period_end
-                ? ` until ${new Date(subscription.current_period_end).toLocaleDateString()}`
-                : ''}
+              {'> '}Pro —{' '}
+              {subscription?.cancel_at_period_end
+                ? `cancels ${new Date(subscription.current_period_end!).toLocaleDateString()}`
+                : `active until ${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : '—'}`
+              }
             </p>
+            {subscription?.cancel_at_period_end && (
+              <p className="text-[10px] text-yellow-500 px-1">
+                Your plan will not renew. You keep Pro access until the date above.
+              </p>
+            )}
             <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
+            <button
+              onClick={() => openPortalSession().catch(() => {})}
+              className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
+            >
+              {'  Manage / cancel subscription'}
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

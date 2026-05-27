@@ -61,26 +61,30 @@ Deno.serve(async (req) => {
         })
       }
 
-      // Map Stripe statuses to our DB statuses
-      const stripeStatus = subscription.status
+      // Read fields defensively — Stripe API version on the webhook endpoint
+      // may differ from the SDK version, so field locations can shift.
+      const subRaw = subscription as unknown as Record<string, unknown>
+      const stripeStatus = (subRaw['status'] as string) ?? subscription.status
+      console.log(`stripe-webhook: raw status=${stripeStatus} sub=${subscription.id} user=${userId}`)
+
       let status: 'free' | 'active' | 'canceled'
       if (stripeStatus === 'active' || stripeStatus === 'trialing') {
         status = 'active'
       } else if (stripeStatus === 'canceled' || stripeStatus === 'unpaid') {
         status = 'canceled'
       } else {
-        // incomplete, incomplete_expired, past_due — keep as free until resolved
         status = 'free'
       }
 
-      // In newer Stripe API versions current_period_end moved to items.data[0]
-      const subAny = subscription as unknown as Record<string, unknown>
+      // current_period_end moved to items.data[0] in newer Stripe API versions
       const periodEnd: number =
-        (subAny['current_period_end'] as number) ??
-        ((subAny['items'] as { data: { current_period_end: number }[] })?.data?.[0]?.current_period_end)
+        (subRaw['current_period_end'] as number) ??
+        ((subRaw['items'] as { data: { current_period_end: number }[] })?.data?.[0]?.current_period_end)
       const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000).toISOString() : null
 
-      console.log(`stripe-webhook: upserting user ${userId} status=${status} (stripe: ${stripeStatus})`)
+      const cancelAtPeriodEnd = (subRaw['cancel_at_period_end'] as boolean) ?? false
+
+      console.log(`stripe-webhook: upserting user=${userId} status=${status} (stripe=${stripeStatus}) period_end=${currentPeriodEnd} cancel_at_period_end=${cancelAtPeriodEnd}`)
 
       const { error } = await supabase.from('subscriptions').upsert({
         user_id: userId,
@@ -88,6 +92,7 @@ Deno.serve(async (req) => {
         stripe_subscription_id: subscription.id,
         status,
         current_period_end: currentPeriodEnd,
+        cancel_at_period_end: cancelAtPeriodEnd,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
 const CHECKOUT_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-checkout-session`
+const PORTAL_URL   = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-portal-session`
 
 export interface Subscription {
   user_id: string
@@ -8,6 +9,7 @@ export interface Subscription {
   stripe_subscription_id: string | null
   status: 'free' | 'active' | 'canceled'
   current_period_end: string | null
+  cancel_at_period_end: boolean
   updated_at: string
 }
 
@@ -45,6 +47,28 @@ export async function createCheckoutSession(): Promise<void> {
   if (!res.ok) {
     const json = await res.json().catch(() => ({})) as { error?: string }
     throw new Error(json.error ?? `Checkout failed: HTTP ${res.status}`)
+  }
+
+  const { url } = await res.json() as { url: string }
+  if (url) window.location.href = url
+}
+
+export async function openPortalSession(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+
+  const res = await fetch(PORTAL_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ return_url: window.location.origin }),
+  })
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(json.error ?? `Portal failed: HTTP ${res.status}`)
   }
 
   const { url } = await res.json() as { url: string }
