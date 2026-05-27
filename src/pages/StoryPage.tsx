@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
+import type { Job } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker from '@/components/XpTracker'
@@ -105,22 +106,65 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
 }
 
 // ── Cutscene ──────────────────────────────────────────────────────────────────
+const MIDGAME_RANK = 6
+const AI_BUMP_RANK = 5 // rank at which AI generations increase
+
+// Per-rank reward hints shown on the story map node
+const RANK_REWARDS: Partial<Record<number, string>> = {
+  [AI_BUMP_RANK]:    '✦ 20 AI uses/mo',
+  [MIDGAME_RANK]:    '▶ play cutscene',
+  7:                 '✦ 30 AI uses/mo',
+}
+
+function buildMidgameText(jobs: Job[]): string[] {
+  const total     = jobs.length
+  const applied   = jobs.filter(j => j.status === 'APPLIED').length
+  const screens   = jobs.filter(j => j.status === 'PHONE_SCREEN').length
+  const interviews= jobs.filter(j => j.status === 'INTERVIEW').length
+  const offers    = jobs.filter(j => j.status === 'OFFER').length
+  const rejected  = jobs.filter(j => j.status === 'REJECTED').length
+  const ghosted   = jobs.filter(j => j.status === 'GHOSTED').length
+
+  const totalLabel = total > 0 ? String(total) : 'dozens of'
+  const responseRate = total > 0
+    ? Math.round(((screens + interviews + offers) / total) * 100)
+    : null
+
+  return [
+    `You've sent ${totalLabel} applications into the void.`,
+    '',
+    ...(total > 0 ? [
+      'BY THE NUMBERS',
+      '',
+      ...(applied    > 0 ? [`${applied} still waiting`]          : []),
+      ...(screens    > 0 ? [`${screens} phone screen${screens  === 1 ? '' : 's'}`] : []),
+      ...(interviews > 0 ? [`${interviews} interview${interviews === 1 ? '' : 's'}`] : []),
+      ...(offers     > 0 ? [`${offers} offer${offers === 1 ? '' : 's'}`]             : []),
+      ...(rejected   > 0 ? [`${rejected} rejection${rejected   === 1 ? '' : 's'}`]  : []),
+      ...(ghosted    > 0 ? [`${ghosted} ghost${ghosted         === 1 ? '' : 'ed you'}` ] : []),
+      '',
+      ...(responseRate !== null ? [`${responseRate}% response rate`,''] : []),
+    ] : []),
+    'These numbers are not a reflection of your worth, they are a reflection of the work you\'re willing to put in.',
+    '— F Job Hunt —',
+  ]
+}
+
+const MIDGAME_SCROLL_DURATION = 38000
+
 const CREDITS_TEXT = [
   '— Fun Job Hunt —',
   '',
+  '',
+  'Original Music by Farewell Blu for Intro, Mid-game, and Victory themes',
+  '',
+  '',
   'FROM THE DEV',
   '',
-  'Hi! Thank you for using my app.',
+  'Hi! Congratulations on your successful job hunt!',
   '',
-  'The job hunt can feel cold.',
-  '',
-  'I worked food and beverage for 10 years before pursuing a software engineering degree at ASU.',
-  '',
-  'My biggest takeaway from that experience was:',
-  'A little bit of humanity can go a long way.',
-  '',
-  'I made this app to help me navigate my own first "office" job hunt out of college.',
-  '',
+  'I worked food and beverage for 10 years before pursuing a software engineering degree at ASU and my biggest takeaway from that experience was that a little bit of dignity in the process goes a long way.',
+  'I made this app to help me navigate my first "office" job hunting experience in a way that felt fun and rewarding.',
   'If it brought you joy in any capacity, please reach out. I\'m always happy to make a new friend!',
   '',
   'Thank you,',
@@ -146,6 +190,9 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   const [togglingEmployed, setTogglingEmployed] = useState(false)
   const [fanfare, setFanfare] = useState(false)
   const [cutscene, setCutscene] = useState(false)
+  const [midgameCutscene, setMidgameCutscene] = useState(false)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const midgameLines = buildMidgameText(jobs)
 
   useEffect(() => { playStoryChime() }, [])
 
@@ -160,6 +207,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       ])
       if (cancelled) return
       if (profileResult.data) setEmployed(!!profileResult.data.employed)
+      setJobs(dbJobs)
       setXp(calculateXp(dbJobs.length))
       setLoading(false)
     }
@@ -198,12 +246,32 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
   const { rank: currentRank, progress, isMax } = getRankInfo(xp)
 
+  function handleMidgameCutscene() {
+    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
+    setTimeout(() => setMidgameCutscene(true), 600)
+  }
+
   // When employed, treat every node as fully unlocked
   const effectiveRank = employed ? 12 : currentRank
   const effectiveProgress = employed ? 1 : progress
 
   return (
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
+
+      {/* Mid-game cutscene — fires once at rank 6 */}
+      {midgameCutscene && (
+        <Cutscene
+          lines={midgameLines}
+          audioSrc="/middle.mp3"
+          duration={MIDGAME_SCROLL_DURATION}
+          onComplete={() => {
+            setMidgameCutscene(false)
+            window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+          }}
+          continueLabel="KEEP GOING  →"
+          fadeIn
+        />
+      )}
 
       {/* Victory cutscene */}
       {cutscene && (
@@ -215,6 +283,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
           fadeIn
         />
       )}
+
 
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 shrink-0">
@@ -320,17 +389,33 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                     />
                   )}
 
-                  <div
-                    className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg}`}
-                    style={isGold ? { borderColor: '#f5c518' } : undefined}
-                  >
-                    <span
-                      className={`text-xl ${textColor}`}
-                      style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  {rank === MIDGAME_RANK && !locked ? (
+                    <button
+                      onClick={handleMidgameCutscene}
+                      className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg} hover:opacity-70 transition-none`}
+                      style={isGold ? { borderColor: '#f5c518' } : undefined}
+                      title="Play cutscene"
                     >
-                      {locked ? '▨' : avatarChar}
-                    </span>
-                  </div>
+                      <span
+                        className={`text-xl ${textColor}`}
+                        style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {avatarChar}
+                      </span>
+                    </button>
+                  ) : (
+                    <div
+                      className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg}`}
+                      style={isGold ? { borderColor: '#f5c518' } : undefined}
+                    >
+                      <span
+                        className={`text-xl ${textColor}`}
+                        style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {locked ? '▨' : avatarChar}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="absolute -top-1 -right-1 text-[9px] text-muted leading-none bg-bg px-0.5">
                     {rank}
@@ -359,6 +444,13 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                     {locked && rank < 11 && (
                       <div className="text-[9px] text-muted mt-0.5">
                         {RANK_THRESHOLDS[rank]} XP
+                      </div>
+                    )}
+
+                    {/* Reward hint — shown on locked and current nodes */}
+                    {(locked || isCurrent) && RANK_REWARDS[rank] && (
+                      <div className="text-[9px] text-secondary mt-0.5 opacity-70">
+                        {RANK_REWARDS[rank]}
                       </div>
                     )}
 

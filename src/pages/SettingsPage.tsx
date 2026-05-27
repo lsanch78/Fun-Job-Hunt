@@ -5,7 +5,7 @@ import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhost
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { WORKDAY_KEYS } from '@/lib/workdayKeys'
 import { supabase } from '@/lib/supabase'
-import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
+import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import type { Job } from '@/types'
@@ -294,7 +294,7 @@ export default function SettingsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Free tier: {AI_MONTHLY_LIMIT} AI generations/month
+              Free tier: {AI_MONTHLY_LIMIT_BASE}/mo → {AI_MONTHLY_LIMIT_RANK5}/mo at Rank 5 → {AI_MONTHLY_LIMIT_RANK7}/mo at Rank 7
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
               Pro: Unlimited AI generations
@@ -328,7 +328,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
+                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT_BASE}–${AI_MONTHLY_LIMIT_RANK7}/month`
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>

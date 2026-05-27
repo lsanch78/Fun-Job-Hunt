@@ -301,7 +301,7 @@ export default function MusicPlayer() {
     try { playerRef.current.setVolume(volume) } catch { /* ignore */ }
   }, [volume])
 
-  // Fade out on victory cutscene
+  // Fade out on cutscene start; fade back in on cutscene end
   useEffect(() => {
     function handleFade() {
       if (!playerRef.current) return
@@ -315,8 +315,25 @@ export default function MusicPlayer() {
         }
       }, 60)
     }
+
+    function handleResume() {
+      if (!playerRef.current) return
+      try { playerRef.current.setVolume(0) } catch { /* ignore */ }
+      try { playerRef.current.playVideo() } catch { /* ignore */ }
+      let v = 0
+      const interval = setInterval(() => {
+        v = Math.min(volume, v + 5)
+        try { playerRef.current!.setVolume(v) } catch { /* ignore */ }
+        if (v >= volume) clearInterval(interval)
+      }, 60)
+    }
+
     window.addEventListener('fjobhunt:music-fade', handleFade)
-    return () => window.removeEventListener('fjobhunt:music-fade', handleFade)
+    window.addEventListener('fjobhunt:music-resume', handleResume)
+    return () => {
+      window.removeEventListener('fjobhunt:music-fade', handleFade)
+      window.removeEventListener('fjobhunt:music-resume', handleResume)
+    }
   }, [volume])
 
   function addTrack() {

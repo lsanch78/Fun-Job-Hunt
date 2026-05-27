@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { isSfxMuted } from '@/lib/sfx'
+import { isSfxMuted, playCreditsBlip } from '@/lib/sfx'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ export default function Cutscene({
       {/* Continue button */}
       {scrollDone && (
         <button
-          onClick={onComplete}
+          onClick={() => { playCreditsBlip(); onComplete() }}
           className="absolute bottom-12 text-xs text-[#f5c518] border border-[#f5c518] px-6 py-3 hover:bg-[#f5c51822] transition-none z-20"
           style={{ animation: 'cutscene-pulse 2s ease-in-out infinite' }}
         >

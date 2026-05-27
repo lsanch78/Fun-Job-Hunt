@@ -2,7 +2,11 @@ import { supabase } from '@/lib/supabase'
 
 export type AiProvider = 'proxy' | 'openai' | 'anthropic'
 
-export const AI_MONTHLY_LIMIT = 5
+export const AI_MONTHLY_LIMIT_BASE   = 10  // Rank 1–4
+export const AI_MONTHLY_LIMIT_RANK5  = 20  // Rank 5–6
+export const AI_MONTHLY_LIMIT_RANK7  = 30  // Rank 7+
+/** Displayed in UI as the starting free tier */
+export const AI_MONTHLY_LIMIT = AI_MONTHLY_LIMIT_BASE
 
 export const OPENAI_MODELS = [
   'gpt-4o',
@@ -119,7 +123,12 @@ async function streamProxy(params: {
     })
     if (!res.ok || !res.body) {
       if (res.status === 429) {
-        onError(`Monthly limit reached (${AI_MONTHLY_LIMIT}/${AI_MONTHLY_LIMIT}). Add your own API key in Settings to continue.`)
+        let limit = AI_MONTHLY_LIMIT_BASE
+        try {
+          const json = await res.clone().json() as { limit?: number }
+          if (json.limit) limit = json.limit
+        } catch { /* ignore */ }
+        onError(`Monthly limit reached (${limit}/${limit}). Add your own API key in Settings to continue.`)
       } else {
         let msg = `AI: HTTP ${res.status}`
         try {

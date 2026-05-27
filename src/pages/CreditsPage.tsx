@@ -87,25 +87,18 @@ export default function CreditsPage() {
         {/* ── Story ── */}
         <Section title="FROM THE DEV" delay="delay-200" booted={booted}>
           <p className="body-text text-primary leading-relaxed mb-4">
-            Hi! <br></br> I care about you and want to thank you for taking the time to read this.
-          </p>
-          <p className="body-text text-primary leading-relaxed mb-4">
-            The professional world can feel cold.
-            I worked food and beverage for 10 years before pursuing a software engineering
-            degree at ASU. When I started applying to jobs I was completely behind my peers when
-            it came to speaking "professionally", writing resumes, interviewing, and wowing recruiters.
-            We are in the wild west of AI recruiting tools, people are submitting perfectly tailored resumes
-            to perfectly crafted job descriptions to get rejected by AI that is seeking the perfect candidate.
-            It's a little funny, we've essentially nullified AI's ability by using it everywhere.
+            Hello my name is Luis (I also go by Lui). I made this app as a fun side project to help me track my applications. It's my first real foray into publishing a webapp and I hope that you've enjoyed using it as much as I've enjoyed building it. I want to give a special thanks to the YouTube channels who put together such great music for me to work to. Please Remember to subscribe to them:
 
           </p>
           <p className="body-text text-primary leading-relaxed mb-4">
-            The bar is higher than it's ever been for new grads. It's difficult to measure your progress
-            while searching for jobs. So I made this app in order to help me better navigate this space by gamifying it.
+            In the wild west of AI, people are submitting perfectly tailored resumes
+            to perfect job descriptions to get rejected by the very same AI seeking a perfect candidate.
+            It's a little funny, I think some of us have completely lost the plot. I believe one of the greatest things
+            AI will teach us is to appreciate our imperfections.
+
           </p>
           <p className="body-text text-primary leading-relaxed mb-4">
-            This app is 100% free. If it helped you get employed or it brought you joy
-            in any capacity: I've provided my LinkedIn, Ko-Fi, and portfolio below. I'm
+            So here it is: an imperfect app and hopefully a helping hand. I'll continue working on it so long as I have the time and energy. If you want to support me, I've provided my LinkedIn, Ko-Fi, and portfolio below. I'm
             always happy to make new friends, so please reach out just to say hello!
           </p>
           <p className="body-text text-primary leading-relaxed">
