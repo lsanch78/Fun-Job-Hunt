@@ -62,7 +62,9 @@
       "PowerShell(Start-Process \"C:\\\\Users\\\\luiss\\\\AppData\\\\Local\\\\Temp\\\\architecture-review-20260527111439.html\")",
       "Bash(npx vitest *)",
       "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
-      "PowerShell(Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue)",
+      "Bash(Get-ChildItem -Path c:\\\\effjobhunt -Recurse -Directory -Depth 2)",
+      "Bash(Select-Object FullName)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

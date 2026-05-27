@@ -10,9 +10,9 @@ const LINKEDIN_URL = 'https://linkedin.com/in/luisbuenrostro'
 
 const MUSIC_CHANNELS: { name: string; href: string }[] = [
   { name: 'Zeryu Soul', href: 'https://www.youtube.com/@ZeryuSoul' },
-  { name: 'Fancy Fox', href: 'https://www.youtube.com/watch?v=2nM8kZuifeo' },
+  { name: 'Fancy Fox', href: 'https://www.youtube.com/@fancyfoxgaming9952' },
   { name: 'Visual Escape', href: 'https://www.youtube.com/@VisualEscape' },
-  { name: 'jungle wizard', href: 'https://www.youtube.com/@junglewizard' },
+  { name: 'jungle wizard', href: 'https://youtube.com/@junglewizards?si=XIOZk5ZmsGUyVAoq' },
   { name: 'Enzo OSRS', href: 'https://www.youtube.com/@EnzoOSRS' },
 ]
 
