@@ -12,6 +12,27 @@ interface TutorialStep {
   body: string[]       // terminal font paragraphs; index >0 = privacy/secondary note
 }
 
+const MOBILE_STEPS: TutorialStep[] = [
+  {
+    id: 'navbar',
+    title: 'WELCOME',
+    subtitle: 'mobile companion',
+    body: [
+      'Welcome to the mobile companion of FJobhunt. Use this to access your job history on the go or quickly log new applications you just applied to.',
+      'This is meant to be a companion to the full FJobhunt experience on desktop — for quick reference, jotting down notes for yourself, or tracking applications to edit later.',
+    ],
+  },
+  {
+    id: 'job-rows',
+    title: 'JOB LOG',
+    subtitle: 'tap · add · filter',
+    body: [
+      'Tap any row to open the full detail view. Use the + button to log a new application fast. The ⋮ menu on each row lets you delete entries.',
+      'Use the FILTER button to sort and filter by time range or status. Everything syncs automatically to your account.',
+    ],
+  },
+]
+
 const STEPS: TutorialStep[] = [
   {
     id: 'quickcast',
@@ -173,6 +194,7 @@ interface Props {
 }
 
 export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
+  const activeSteps = mobileMode ? MOBILE_STEPS : STEPS
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -183,7 +205,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
   // Read target element rect whenever step changes
   useEffect(() => {
     const id = setTimeout(() => {
-      const el = document.querySelector(`[data-tutorial="${STEPS[step].id}"]`)
+      const el = document.querySelector(`[data-tutorial="${activeSteps[step].id}"]`)
       setRect(el ? el.getBoundingClientRect() : null)
     }, 50)
     return () => clearTimeout(id)
@@ -192,7 +214,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
   // Re-read on resize
   useEffect(() => {
     function onResize() {
-      const el = document.querySelector(`[data-tutorial="${STEPS[step].id}"]`)
+      const el = document.querySelector(`[data-tutorial="${activeSteps[step].id}"]`)
       if (el) setRect(el.getBoundingClientRect())
     }
     window.addEventListener('resize', onResize)
@@ -218,7 +240,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
     try { localStorage.setItem(TUTORIAL_SEEN_KEY, 'true') } catch { /* ignore */ }
   }
   function handleNext() {
-    if (step < STEPS.length - 1) { playPage('forward'); setStep((s) => s + 1) }
+    if (step < activeSteps.length - 1) { playPage('forward'); setStep((s) => s + 1) }
     else handleDone()
   }
   function handleBack() {
@@ -242,7 +264,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
 
   const arrow = rect ? computeArrow(cardCx, cardCy, rect, cardW, cardH) : null
 
-  const current = STEPS[step]
+  const current = activeSteps[step]
 
   return (
     <>
@@ -348,7 +370,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
           </span>
           {/* Step dots */}
           <div className="flex items-center gap-1">
-            {STEPS.map((_, i) => (
+            {activeSteps.map((_, i) => (
               <span
                 key={i}
                 style={{
@@ -372,7 +394,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
         <div className="px-5 pt-4 pb-2 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
           {/* Step counter — pixel font, small */}
           <p className="font-pixel text-[7px] text-muted tracking-widest">
-            STEP {step + 1} / {STEPS.length}
+            STEP {step + 1} / {activeSteps.length}
           </p>
 
           {/* Title — pixel font */}
@@ -451,7 +473,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
                 padding: mobileMode ? '8px 16px' : '3px 9px',
               }}
             >
-              {step < STEPS.length - 1 ? 'NEXT ▶' : 'DONE ✓'}
+              {step < activeSteps.length - 1 ? 'NEXT ▶' : 'DONE ✓'}
             </button>
           </div>
         </div>
