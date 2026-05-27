@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
 import { fetchModels, streamCompletion, getAiProvider, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
+import { createCheckoutSession } from '@/services/subscriptionService'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
@@ -254,6 +255,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   const [showInfo,          setShowInfo]         = useState(false)
   const [provider,          setProvider]         = useState<AiProvider>(() => getAiProvider())
   const [usage,             setUsage]            = useState<{ count: number; limit: number } | null>(null)
+  const [limitHit,          setLimitHit]         = useState(false)
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLPreElement>(null)
@@ -357,6 +359,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
     const prompt = await assemblePrompt()
     setView('output')
     setOutput('')
+    setLimitHit(false)
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
@@ -371,6 +374,8 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
         if (getAiProvider() === 'proxy') fetchUsage().then(setUsage)
       },
       onError: (msg) => {
+        const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
+        setLimitHit(isLimit)
         setOutput((prev) => prev + `\n\n> ERROR: ${msg}`)
         setIsStreaming(false)
       },
@@ -719,6 +724,23 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
             </button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
           </div>
+          {limitHit && provider === 'proxy' && (
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: '8px' }}>
+              <div style={{ color: T.warn, fontFamily: '"VT323", monospace', fontSize: '13px', marginBottom: '6px' }}>
+                // UPGRADE TO PRO — unlimited AI + 3 resume slots
+              </div>
+              <button
+                onClick={() => createCheckoutSession().catch(() => {})}
+                style={{
+                  ...termBtn(true, T.warn),
+                  paddingLeft: '16px',
+                  paddingRight: '16px',
+                }}
+              >
+                UPGRADE — $8/month
+              </button>
+            </div>
+          )}
         </div>
       )}
 

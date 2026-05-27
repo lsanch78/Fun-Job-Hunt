@@ -55,10 +55,25 @@ Deno.serve(async (req) => {
 
   const usage = usageData as { allowed: boolean; count: number; limit: number }
   if (!usage.allowed) {
-    return new Response(
-      JSON.stringify({ error: 'Monthly limit reached', count: usage.count, limit: usage.limit }),
-      { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-    )
+    // Check if user has an active subscription — subscribers bypass the free limit
+    const now = new Date().toISOString()
+    const { data: subData } = await supabase
+      .from('subscriptions')
+      .select('status, current_period_end')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const isSubscribed =
+      subData?.status === 'active' &&
+      subData?.current_period_end != null &&
+      subData.current_period_end > now
+
+    if (!isSubscribed) {
+      return new Response(
+        JSON.stringify({ error: 'Monthly limit reached', count: usage.count, limit: usage.limit }),
+        { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      )
+    }
   }
 
   // ── Parse request body ────────────────────────────────────────────────────

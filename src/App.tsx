@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/lib/ThemeContext'
+import { SubscriptionProvider } from '@/lib/SubscriptionContext'
 import { supabase } from '@/lib/supabase'
 import AuthPage from '@/pages/AuthPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
@@ -71,6 +72,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <SubscriptionProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
@@ -127,6 +129,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </SubscriptionProvider>
     </ThemeProvider>
   )
 }

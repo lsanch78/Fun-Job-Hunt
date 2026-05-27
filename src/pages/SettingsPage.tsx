@@ -5,6 +5,8 @@ import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhost
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
+import { useSubscription } from '@/lib/SubscriptionContext'
+import { createCheckoutSession } from '@/services/subscriptionService'
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -35,6 +37,7 @@ function jobsToCSV(jobs: Job[]): string {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
+  const { isSubscribed, subscription } = useSubscription()
   const [exporting, setExporting] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -237,6 +240,36 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-sm mb-6 text-secondary">SUBSCRIPTION</h2>
+        {isSubscribed ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-primary px-1">
+              {'> '}Pro — active
+              {subscription?.current_period_end
+                ? ` until ${new Date(subscription.current_period_end).toLocaleDateString()}`
+                : ''}
+            </p>
+            <p className="text-[10px] text-muted px-1">3 resume slots · Unlimited AI generations</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-[10px] text-muted px-1 leading-relaxed">
+              Free tier: 1 resume slot · {AI_MONTHLY_LIMIT} AI generations/month
+            </p>
+            <p className="text-[10px] text-muted px-1 leading-relaxed">
+              Pro: 3 resume slots · Unlimited AI generations
+            </p>
+            <button
+              onClick={() => createCheckoutSession().catch(() => {})}
+              className="text-left text-xs px-4 py-3 border-2 border-secondary text-secondary hover:opacity-80 transition-none w-fit"
+            >
+              {'  Upgrade to Pro — $8/month'}
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="mt-12">
