@@ -50,7 +50,9 @@
       "Read(//c/Users/luiss/AppData/Local/Temp/**)",
       "PowerShell($ts = Get-Date -Format \"yyyyMMddHHmm\"; $path = \"C:\\\\Users\\\\luiss\\\\AppData\\\\Local\\\\Temp\\\\architecture-review-$ts.html\"; Write-Output $path)",
       "Bash(npx sharp-cli *)",
-      "Bash(cd /c/effjobhunt *)"
+      "Bash(cd /c/effjobhunt *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"
