@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges">
+  <!-- Background -->
+  <rect width="16" height="16" fill="#0f0f0f"/>
+  <!-- Pixel F — 4×7 glyph centered at x=6, y=4 -->
+  <!-- Row 0: ████ -->
+  <rect x="6" y="4" width="1" height="1" fill="#00ff88"/>
+  <rect x="7" y="4" width="1" height="1" fill="#00ff88"/>
+  <rect x="8" y="4" width="1" height="1" fill="#00ff88"/>
+  <rect x="9" y="4" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 1: █░░░ -->
+  <rect x="6" y="5" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 2: ███░ -->
+  <rect x="6" y="6" width="1" height="1" fill="#00ff88"/>
+  <rect x="7" y="6" width="1" height="1" fill="#00ff88"/>
+  <rect x="8" y="6" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 3: █░░░ -->
+  <rect x="6" y="7" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 4: █░░░ -->
+  <rect x="6" y="8" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 5: █░░░ -->
+  <rect x="6" y="9" width="1" height="1" fill="#00ff88"/>
+  <!-- Row 6: █░░░ -->
+  <rect x="6" y="10" width="1" height="1" fill="#00ff88"/>
+</svg>
