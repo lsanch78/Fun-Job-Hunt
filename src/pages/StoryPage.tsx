@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache, fetchJobs } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
-import { playStoryChime, playFanfare, isSfxMuted } from '@/lib/sfx'
+import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker from '@/components/XpTracker'
+import Cutscene from '@/components/Cutscene'
 import { calculateXp, getRankInfo } from '@/services/xpService'
 
 // ── S-path node positions ─────────────────────────────────────────────────────
@@ -104,191 +105,36 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
 }
 
 // ── Cutscene ──────────────────────────────────────────────────────────────────
-const VICTORY_LINES = [
-  '> QUEST COMPLETE.',
-  '',
-  'After countless applications...',
-  'Rejected. Ghosted. Forgotten.',
-  '',
-  'You kept going.',
-  '',
-  'Every cover letter.',
-  'Every follow-up email.',
-  'Every silent inbox.',
-  '',
-  'It was all leading here.',
-  '',
-  '> OFFER ACCEPTED.',
-  '',
-  '★  YOU GOT THE JOB.  ★',
-]
-
 const CREDITS_TEXT = [
   '— Fun Job Hunt —',
   '',
   'FROM THE DEV',
   '',
-  'Hi! I care about you and want to',
-  'thank you for taking the time',
-  'to read this.',
+  'Hi! Thank you for using my app.',
   '',
-  'The professional world can feel cold.',
+  'The job hunt can feel cold.',
   '',
-  'I worked food and beverage for 10 years',
-  'before pursuing a software engineering',
-  'degree at ASU.',
+  'I worked food and beverage for 10 years before pursuing a software engineering degree at ASU.',
   '',
-  'When I started applying to jobs I was',
-  'completely behind my peers when it came',
-  'to speaking "professionally",',
-  'writing resumes, interviewing,',
-  'and wowing recruiters.',
+  'My biggest takeaway from that experience was:',
+  'A little bit of humanity can go a long way.',
   '',
-  'We are in the wild west of AI recruiting.',
-  'People are submitting perfectly tailored',
-  'resumes to perfectly crafted job descriptions',
-  'to get rejected by AI seeking the',
-  'perfect candidate.',
+  'I made this app to help me navigate my own first "office" job hunt out of college.',
   '',
-  "It's a little funny.",
-  "We've essentially nullified AI's ability",
-  'by using it everywhere.',
-  '',
-  'The bar is higher than it\'s ever been',
-  'for new grads.',
-  '',
-  'So I made this app to help me navigate',
-  'this space by gamifying it.',
-  '',
-  'This app is 100% free.',
-  '',
-  'If it helped you get employed or',
-  'brought you joy in any capacity —',
-  'reach out. Always happy to make',
-  'new friends.',
+  'If it brought you joy in any capacity, please reach out. I\'m always happy to make a new friend!',
   '',
   'Thank you,',
-  'Luis',
-  '',
-  '',
-  'LINKS',
-  '',
-  'linkedin.com/in/luisbuenrostro',
-  'ko-fi.com/farewellblu',
-  'luisbuenrostro.dev',
+  'Luis'
 ]
 
 // Total scroll duration in ms — tune to match song intro
 const SCROLL_DURATION = 55000
 
-function VictoryCutscene({ onComplete }: { onComplete: () => void }) {
-  const [scrollDone, setScrollDone] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const navigate = useNavigate()
-
-  // Play mp3 on mount
-  useEffect(() => {
-    const audio = new Audio('/congratulations.mp3')
-    audio.volume = isSfxMuted() ? 0 : 0.8
-    audio.play().catch(() => {})
-    audioRef.current = audio
-    return () => { audio.pause(); audio.src = '' }
-  }, [])
-
-  // Show CONTINUE after scroll finishes
-  useEffect(() => {
-    const t = setTimeout(() => setScrollDone(true), SCROLL_DURATION - 6000)
-    return () => clearTimeout(t)
-  }, [])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black overflow-hidden flex flex-col items-center"
-      style={{ fontFamily: '"Press Start 2P", monospace' }}
-    >
-      {/* Top + bottom fade masks */}
-      <div className="absolute inset-x-0 top-0 h-32 z-10 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, black 40%, transparent)' }} />
-      <div className="absolute inset-x-0 bottom-0 h-32 z-10 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, black 40%, transparent)' }} />
-
-      {/* Scrolling text block */}
-      <div
-        className="w-full max-w-4xl flex flex-col gap-5 px-8"
-        style={{
-          animation: `creditsScroll ${SCROLL_DURATION}ms linear forwards`,
-          paddingTop: '100vh',
-          paddingBottom: '0',
-        }}
-      >
-        {/* Victory lines */}
-        {VICTORY_LINES.map((line, i) => (
-          <div
-            key={`v-${i}`}
-            className={[
-              'leading-relaxed text-center',
-              line === '★  YOU GOT THE JOB.  ★' ? 'text-[#f5c518] text-sm' : 'text-xs',
-              line.startsWith('>') ? 'text-green-400' : 'text-gray-300',
-              line === '' ? 'h-3' : '',
-            ].join(' ')}
-          >
-            {line}
-          </div>
-        ))}
-
-        {/* Divider */}
-        <div className="h-16" />
-
-        {/* Photos */}
-        <div className="grid grid-cols-3 gap-3">
-          {['/me1.webp', '/me2.webp', '/me3.webp'].map((src, i) => (
-            <div key={i} className="border border-gray-700 overflow-hidden">
-              <img
-                src={src}
-                alt={`photo ${i + 1}`}
-                className="w-full h-28 object-cover object-top"
-                loading="eager"
-              />
-            </div>
-          ))}
-        </div>
-
-        <div className="h-8" />
-
-        {/* Credits text */}
-        {CREDITS_TEXT.map((line, i) => (
-          <div
-            key={`c-${i}`}
-            className={[
-              'leading-relaxed text-center',
-              line === 'FROM THE DEV' || line === 'LINKS' ? 'text-[10px] text-secondary tracking-widest border-b border-gray-700 pb-2' : 'text-xs text-gray-300',
-              line === '' ? 'h-3' : '',
-              line.startsWith('linkedin') || line.startsWith('ko-fi') || line.startsWith('luis') ? 'text-green-400' : '',
-            ].join(' ')}
-          >
-            {line}
-          </div>
-        ))}
-      </div>
-
-      {/* CONTINUE appears after scroll */}
-      {scrollDone && (
-        <button
-          onClick={() => { onComplete(); navigate('/credits') }}
-          className="absolute bottom-12 text-xs text-[#f5c518] border border-[#f5c518] px-6 py-3 hover:bg-[#f5c51822] transition-none z-20"
-          style={{ animation: 'fanfare-pulse 2s ease-in-out infinite' }}
-        >
-          CONTINUE  →
-        </button>
-      )}
-    </div>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
 
 export default function StoryPage({ userId }: { userId: string | null }) {
+  const navigate = useNavigate()
   const [xp, setXp] = useState(() => {
     const cached = userId ? readCache(userId) : []
     return calculateXp(cached.length)
@@ -299,7 +145,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   })
   const [togglingEmployed, setTogglingEmployed] = useState(false)
   const [fanfare, setFanfare] = useState(false)
-  const [fading, setFading]   = useState(false)
   const [cutscene, setCutscene] = useState(false)
 
   useEffect(() => { playStoryChime() }, [])
@@ -341,17 +186,14 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     await supabase.from('profiles').update({ employed: true }).eq('id', userId)
     setTogglingEmployed(false)
     setEmployed(true)
-    // Let the fanfare play out, then fade music + screen to black, then show cutscene
-    setTimeout(() => {
-      setFading(true)
-      window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    }, 800)
+    // Let the fanfare play out, then fade music out and show cutscene
+    setTimeout(() => window.dispatchEvent(new CustomEvent('fjobhunt:music-fade')), 800)
     setTimeout(() => setCutscene(true), 1400)
   }
 
   function handleCutsceneComplete() {
     setCutscene(false)
-    setFading(false)
+    navigate('/credits')
   }
 
   const { rank: currentRank, progress, isMax } = getRankInfo(xp)
@@ -363,16 +205,16 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   return (
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
 
-      {/* Fade-to-black overlay */}
-      {fading && !cutscene && (
-        <div
-          className="fixed inset-0 z-40 bg-black pointer-events-none"
-          style={{ animation: 'fadeInBlack 2s ease-in forwards' }}
+      {/* Victory cutscene */}
+      {cutscene && (
+        <Cutscene
+          lines={CREDITS_TEXT}
+          audioSrc="/congratulations.mp3"
+          duration={SCROLL_DURATION}
+          onComplete={handleCutsceneComplete}
+          fadeIn
         />
       )}
-
-      {/* Victory cutscene */}
-      {cutscene && <VictoryCutscene onComplete={handleCutsceneComplete} />}
 
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 shrink-0">

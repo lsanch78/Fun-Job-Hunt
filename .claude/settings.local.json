@@ -52,7 +52,11 @@
       "Bash(npx sharp-cli *)",
       "Bash(cd /c/effjobhunt *)",
       "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Directory)",
-      "Bash(Select-Object -ExpandProperty Name)"
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(ffmpeg -i public/middle.wav public/middle.mp3)",
+      "PowerShell(ffmpeg -i public/middle.wav public/middle.mp3)",
+      "PowerShell(winget install ffmpeg)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\Microsoft\\\\WinGet\\\\Links\\\\ffmpeg.exe\" -i \"c:\\\\effjobhunt\\\\public\\\\middle.wav\" \"c:\\\\effjobhunt\\\\public\\\\middle.mp3\")"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

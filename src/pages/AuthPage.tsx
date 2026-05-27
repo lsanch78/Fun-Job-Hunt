@@ -18,7 +18,8 @@ export default function AuthPage() {
   const [loading,       setLoading]       = useState(false)
   const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
   const [soundOn,       setSoundOn]       = useState(() => localStorage.getItem('fjobhunt:auth_sound') === '1')
-  const stopHumRef = useRef<(() => void) | null>(null)
+  const stopHumRef  = useRef<(() => void) | null>(null)
+  const introRef    = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -38,26 +39,34 @@ export default function AuthPage() {
     return stop
   }, [])
 
-  // Stop hum on unmount
+  // Stop hum + intro on unmount
   useEffect(() => {
-    return () => { stopHumRef.current?.() }
+    return () => {
+      stopHumRef.current?.()
+      if (introRef.current) { introRef.current.pause(); introRef.current.src = '' }
+    }
   }, [])
 
   function toggleSound() {
     if (soundOn) {
       stopHumRef.current?.()
       stopHumRef.current = null
+      if (introRef.current) { introRef.current.pause(); introRef.current.src = ''; introRef.current = null }
       setSoundOn(false)
       localStorage.setItem('fjobhunt:auth_sound', '0')
     } else {
       stopHumRef.current = startTerminalHum()
+      const audio = new Audio('/intro.mp3')
+      audio.volume = 0.8
+      audio.play().catch(() => {})
+      introRef.current = audio
       setSoundOn(true)
       localStorage.setItem('fjobhunt:auth_sound', '1')
     }
   }
 
   function proceedFromTitle() {
-    // Start hum here (first user gesture) if preference is on and not already running
+    // Start hum + intro here (first user gesture) if preference is on and not already running
     if (soundOn && !stopHumRef.current) {
       stopHumRef.current = startTerminalHum()
     }
