@@ -41,10 +41,6 @@ jest.mock('@/services/resumeTextService', () => ({
   getResumeText: jest.fn().mockResolvedValue(null),
 }))
 
-jest.mock('@/services/ollamaService', () => ({
-  fetchModels: jest.fn().mockResolvedValue({ status: 'not_connected', models: [] }),
-  streamCompletion: jest.fn(),
-}))
 
 jest.mock('@/services/aiService', () => ({
   getAiProvider: jest.fn(() => 'proxy'),
@@ -64,6 +60,10 @@ jest.mock('@/services/aiSettingsService', () => ({
 
 jest.mock('@/lib/sfx', () => ({
   isSfxMuted: jest.fn(() => true),
+  playPageFlip: jest.fn(),
+  playSpellCast: jest.fn(),
+  playAiConsume: jest.fn(),
+  playAiDing: jest.fn(),
 }))
 
 jest.mock('@/lib/SubscriptionContext', () => ({
@@ -105,7 +105,6 @@ jest.mock('pixelarticons/react', () => {
 
 import QuickCast from '@/components/QuickCast'
 import { fetchLinks, createLink } from '@/services/quickCastService'
-import { fetchModels } from '@/services/ollamaService'
 
 // ---------- Tests ----------
 
@@ -113,7 +112,6 @@ beforeEach(() => {
   localStorage.clear()
   jest.clearAllMocks()
   ;(fetchLinks as jest.Mock).mockResolvedValue([])
-  ;(fetchModels as jest.Mock).mockResolvedValue({ status: 'not_connected', models: [] })
 })
 
 describe('QuickCast — smoke test', () => {
@@ -208,12 +206,9 @@ describe('QuickCast — resume slots', () => {
   })
 })
 
-describe('QuickCast — Ollama status', () => {
-  it('does not show AI connected indicator when Ollama is not connected', async () => {
-    ;(fetchModels as jest.Mock).mockResolvedValue({ status: 'not_connected', models: [] })
+describe('QuickCast — AI status', () => {
+  it('renders without crashing when AI provider is proxy (default)', async () => {
     await act(async () => { render(<QuickCast />) })
-    // Check that the AI button doesn't have a "connected" indicator
-    // (implementation detail: relies on data-testid or aria)
     expect(document.body).not.toBeEmptyDOMElement()
   })
 })

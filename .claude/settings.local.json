@@ -59,7 +59,8 @@
       "PowerShell(& \"$env:LOCALAPPDATA\\\\Microsoft\\\\WinGet\\\\Links\\\\ffmpeg.exe\" -i \"c:\\\\effjobhunt\\\\public\\\\middle.wav\" \"c:\\\\effjobhunt\\\\public\\\\middle.mp3\")",
       "PowerShell($timestamp = Get-Date -Format \"yyyyMMddHHmmss\"; Write-Output \"architecture-review-$timestamp.html\")",
       "WebFetch(domain:www.youtube.com)",
-      "PowerShell(Start-Process \"C:\\\\Users\\\\luiss\\\\AppData\\\\Local\\\\Temp\\\\architecture-review-20260527111439.html\")"
+      "PowerShell(Start-Process \"C:\\\\Users\\\\luiss\\\\AppData\\\\Local\\\\Temp\\\\architecture-review-20260527111439.html\")",
+      "Bash(npx vitest *)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"
