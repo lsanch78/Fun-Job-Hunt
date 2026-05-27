@@ -64,7 +64,8 @@
       "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
       "PowerShell(Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue)",
       "Bash(Get-ChildItem -Path c:\\\\effjobhunt -Recurse -Directory -Depth 2)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\src\" -Directory)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"
