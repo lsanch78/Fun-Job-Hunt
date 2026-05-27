@@ -4,7 +4,7 @@ import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { supabase } from '@/lib/supabase'
-import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT } from '@/services/aiSettingsService'
+import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -44,27 +44,19 @@ export default function SettingsPage() {
   const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
   const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
 
-  const [aiLoading,          setAiLoading]          = useState(false)
-  const [aiSaving,           setAiSaving]           = useState(false)
-  const [coverLetterPrompt,  setCoverLetterPrompt]  = useState<string>(DEFAULT_PROMPTS.cover_letter)
-  const [whyGoodFitPrompt,   setWhyGoodFitPrompt]   = useState<string>(DEFAULT_PROMPTS.why_good_fit)
-  const [customPrompt,       setCustomPrompt]       = useState<string>(DEFAULT_PROMPTS.custom)
-  const [userId,             setUserId]             = useState<string | null>(null)
+  const [userId,        setUserId]        = useState<string | null>(null)
+  const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
+  const [aiApiKey,      setAiApiKeyState]  = useState<string>(() => getAiApiKey())
+  const [apiKeyVisible, setApiKeyVisible]  = useState(false)
+  const [apiKeySaved,   setApiKeySaved]    = useState(false)
+  const [aiUsage,       setAiUsage]        = useState<{ count: number; limit: number } | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
-      setAiLoading(true)
-      fetchAiSettings(user.id).then((settings) => {
-        if (settings) {
-          if (settings.cover_letter_prompt) setCoverLetterPrompt(settings.cover_letter_prompt)
-          if (settings.why_good_fit_prompt) setWhyGoodFitPrompt(settings.why_good_fit_prompt)
-          if (settings.custom_prompt) setCustomPrompt(settings.custom_prompt)
-        }
-        setAiLoading(false)
-      })
     })
+    if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
   }, [])
 
   function handleGhostToggle() {
@@ -79,16 +71,17 @@ export default function SettingsPage() {
     writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
   }
 
-  async function handleSaveAiSettings() {
-    if (!userId) return
-    setAiSaving(true)
-    await upsertAiSettings({ user_id: userId, cover_letter_prompt: coverLetterPrompt, why_good_fit_prompt: whyGoodFitPrompt, custom_prompt: customPrompt })
-    setAiSaving(false)
+  function handleProviderChange(p: AiProvider) {
+    setAiProviderState(p)
+    setAiProvider(p)
+    if (p === 'proxy') fetchUsage().then(setAiUsage)
+    else setAiUsage(null)
   }
 
-  function handleResetAiSettings() {
-    setCoverLetterPrompt(DEFAULT_PROMPTS.cover_letter)
-    setWhyGoodFitPrompt(DEFAULT_PROMPTS.why_good_fit)
+  function handleSaveApiKey() {
+    setAiApiKey(aiApiKey)
+    setApiKeySaved(true)
+    setTimeout(() => setApiKeySaved(false), 2000)
   }
 
   async function handleReset() {
@@ -249,50 +242,67 @@ export default function SettingsPage() {
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">AI ASSISTANT</h2>
 
-        {aiLoading ? (
-          <p className="text-muted text-xs">LOADING...</p>
-        ) : (
-          <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
+          {/* ── Provider selector ── */}
+          <div className="flex flex-col gap-2">
+            <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
             <div className="flex flex-col gap-2">
-              <label className="text-muted text-[10px] tracking-widest">COVER LETTER SYSTEM PROMPT</label>
-              <textarea
-                rows={6}
-                maxLength={AI_PROMPT_LIMIT}
-                value={coverLetterPrompt}
-                onChange={(e) => setCoverLetterPrompt(e.target.value)}
-                className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"
-              />
+              {(['proxy', 'ollama', 'openai', 'anthropic'] as AiProvider[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleProviderChange(p)}
+                  className={`text-left text-xs px-4 py-3 border-2 transition-none ${
+                    aiProvider === p
+                      ? 'border-primary text-primary'
+                      : 'border-muted text-muted hover:border-secondary hover:text-secondary'
+                  }`}
+                >
+                  {aiProvider === p ? '> ' : '  '}
+                  {p === 'proxy'      ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
+                    : p === 'ollama' ? 'Ollama (local)'
+                    : p === 'openai' ? 'OpenAI (your key)'
+                    :                  'Anthropic (your key)'}
+                </button>
+              ))}
             </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-muted text-[10px] tracking-widest">WHY GOOD FIT SYSTEM PROMPT</label>
-              <textarea
-                rows={6}
-                maxLength={AI_PROMPT_LIMIT}
-                value={whyGoodFitPrompt}
-                onChange={(e) => setWhyGoodFitPrompt(e.target.value)}
-                className="bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary resize-none leading-relaxed placeholder-muted w-full"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveAiSettings}
-                disabled={aiSaving}
-                className="text-left text-xs px-4 py-3 border-2 border-primary text-primary hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-              >
-                {aiSaving ? '  Saving…' : '  Save AI Settings'}
-              </button>
-              <button
-                onClick={handleResetAiSettings}
-                disabled={aiSaving}
-                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-              >
-                {'  Reset to Defaults'}
-              </button>
-            </div>
+            {aiProvider === 'proxy' && aiUsage && (
+              <p className="text-[10px] text-muted px-1">
+                {aiUsage.count}/{aiUsage.limit} generations used this month
+              </p>
+            )}
           </div>
-        )}
+
+          {/* ── API key (BYOK providers only) ── */}
+          {aiProvider !== 'ollama' && aiProvider !== 'proxy' && (
+            <div className="flex flex-col gap-2">
+              <label className="text-muted text-[10px] tracking-widest">API KEY</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type={apiKeyVisible ? 'text' : 'password'}
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKeyState(e.target.value)}
+                  placeholder={aiProvider === 'openai' ? 'sk-...' : 'sk-ant-...'}
+                  className="flex-1 bg-transparent border border-muted text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-primary placeholder-muted"
+                />
+                <button
+                  onClick={() => setApiKeyVisible((v) => !v)}
+                  className="text-xs px-3 py-2 border border-muted text-muted hover:border-secondary hover:text-secondary transition-none"
+                >
+                  {apiKeyVisible ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+              <p className="text-[10px] text-muted leading-relaxed px-1">
+                Your API key is stored locally in your browser and never sent to our servers.
+              </p>
+              <button
+                onClick={handleSaveApiKey}
+                className="text-left text-xs px-4 py-3 border-2 border-primary text-primary hover:opacity-80 transition-none w-fit"
+              >
+                {apiKeySaved ? '  Saved!' : '  Save API Key'}
+              </button>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )

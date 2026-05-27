@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabase'
 import ResumeModal from '@/components/ResumeModal'
 import AiPanel from '@/components/AiPanel'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
-import { fetchModels, streamCompletion } from '@/services/ollamaService'
+import { fetchModels, streamCompletion } from '@/services/aiService'
 import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
 import {
   fetchLinks as dbFetchLinks,

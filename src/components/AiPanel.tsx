@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
-import { fetchModels, streamCompletion } from '@/services/ollamaService'
+import { fetchModels, streamCompletion, getAiProvider, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
@@ -252,6 +252,8 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   const [copied,            setCopied]           = useState(false)
   const [aiSettings,        setAiSettings]       = useState<AiSettings | null>(null)
   const [showInfo,          setShowInfo]         = useState(false)
+  const [provider,          setProvider]         = useState<AiProvider>(() => getAiProvider())
+  const [usage,             setUsage]            = useState<{ count: number; limit: number } | null>(null)
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLPreElement>(null)
@@ -260,11 +262,14 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   useEffect(() => {
     playBootBlip()
 
+    const p = getAiProvider()
+    setProvider(p)
     fetchModels().then(({ status: s, models: m }) => {
       setStatus(s)
       setModels(m)
       if (m.length > 0) setSelectedModel(m[0])
     })
+    if (p === 'proxy') fetchUsage().then(setUsage)
 
     fetchAiSettings(userId).then(setAiSettings)
 
@@ -361,7 +366,10 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
       prompt,
       signal: controller.signal,
       onToken: (token) => setOutput((prev) => prev + token),
-      onDone: () => setIsStreaming(false),
+      onDone: () => {
+        setIsStreaming(false)
+        if (getAiProvider() === 'proxy') fetchUsage().then(setUsage)
+      },
       onError: (msg) => {
         setOutput((prev) => prev + `\n\n> ERROR: ${msg}`)
         setIsStreaming(false)
@@ -395,6 +403,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
     playExitBlip()
     onClose()
   }
+
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const canGenerate =
@@ -445,7 +454,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           )}
           {status === 'not_connected' && (
             <span style={{ color: T.greenDim, fontSize: '13px' }}>
-              <span style={{ color: T.warn }}>○</span> NOT DETECTED
+              <span style={{ color: T.warn }}>○</span> {provider === 'ollama' ? 'NOT DETECTED' : 'NO API KEY'}
             </span>
           )}
           <button
@@ -467,6 +476,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
       {view === 'form' && (
         <div className="flex flex-col gap-4 px-4 py-3 overflow-y-auto" style={{ maxHeight: '70vh' }}>
 
+          {/* Provider */}
           {/* Model */}
           <div>
             <div style={labelStyle}>Model</div>
@@ -645,7 +655,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
             )}
 
             {/* Generate / Cancel */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
@@ -660,6 +670,11 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
                 GENERATE
               </button>
               <button onClick={handleClose} style={termBtn(false)}>CANCEL</button>
+              {provider === 'proxy' && usage && (
+                <span style={{ color: usage.count >= AI_MONTHLY_LIMIT ? T.warn : T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                  {usage.count}/{usage.limit} uses left this month
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -732,7 +747,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
             }}
           >
             <span style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: '13px', letterSpacing: '0.1em' }}>
-              // OLLAMA INFO
+              // {provider === 'ollama' ? 'OLLAMA INFO' : provider === 'openai' ? 'OPENAI INFO' : 'ANTHROPIC INFO'}
             </span>
             <button
               onClick={() => setShowInfo(false)}
@@ -743,20 +758,31 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           </div>
           {/* Dialog body */}
           <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1 }}>
-            <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
-              {status === 'not_connected' ? OLLAMA_INFO_NOT_CONNECTED : OLLAMA_INFO_CONNECTED}
-            </pre>
-            <div style={{ marginTop: '16px', fontFamily: '"VT323", monospace', fontSize: '13px', color: T.greenDim }}>
-              For more information on how to set up,{' '}
-              <a
-                href="https://docs.ollama.com/quickstart"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: T.green, textDecoration: 'underline', cursor: 'pointer' }}
-              >
-                click here
-              </a>
-            </div>
+            {provider === 'ollama' ? (
+              <>
+                <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+                  {status === 'not_connected' ? OLLAMA_INFO_NOT_CONNECTED : OLLAMA_INFO_CONNECTED}
+                </pre>
+                <div style={{ marginTop: '16px', fontFamily: '"VT323", monospace', fontSize: '13px', color: T.greenDim }}>
+                  For more information on how to set up,{' '}
+                  <a
+                    href="https://docs.ollama.com/quickstart"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: T.green, textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    click here
+                  </a>
+                </div>
+              </>
+            ) : (
+              <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+                {status === 'not_connected'
+                  ? `> No API key configured.\n>\n> Go to Settings → AI ASSISTANT\n> and enter your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.\n>\n> Your key is stored locally in\n> your browser only — never sent\n> to our servers.`
+                  : `> ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} connected.\n>\n> Your API key is stored locally\n> in your browser and never sent\n> to our servers.\n>\n> Select a model above and\n> start generating.`
+                }
+              </pre>
+            )}
           </div>
           {/* Dialog footer */}
           <div style={{ padding: '8px 14px', borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>

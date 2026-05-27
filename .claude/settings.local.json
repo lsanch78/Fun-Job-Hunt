@@ -26,7 +26,15 @@
       "Bash(ls:*)",
       "Bash(node -e:*)",
       "PowerShell(Get-ChildItem \"C:\\\\effjobhunt\\\\node_modules\\\\pixelarticons\\\\react\\\\\" | Select-Object -First 30 | ForEach-Object { $_.Name })",
-      "PowerShell(Get-ChildItem \"C:\\\\effjobhunt\\\\node_modules\\\\pixelarticons\\\\react\\\\\" | Where-Object { $_.Name -match '^\\(Chat|Message|Bubble|Comment|Feedback\\)' } | ForEach-Object { $_.Name })"
+      "PowerShell(Get-ChildItem \"C:\\\\effjobhunt\\\\node_modules\\\\pixelarticons\\\\react\\\\\" | Where-Object { $_.Name -match '^\\(Chat|Message|Bubble|Comment|Feedback\\)' } | ForEach-Object { $_.Name })",
+      "Bash(Get-ChildItem -Path C:\\\\effjobhunt -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-List FullName)",
+      "Bash(Get-ChildItem -Path C:\\\\effjobhunt -Recurse -Name -Include *.jsx, *.tsx, *.js, *.ts, *.css, *.scss, *.config.*)",
+      "Bash(dir /s /b)",
+      "Bash(xargs wc -l)",
+      "Bash(git stash *)",
+      "Bash(supabase functions deploy:*)"
     ]
   }
 }
