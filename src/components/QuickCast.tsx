@@ -21,7 +21,6 @@ import { Send } from 'pixelarticons/react'
 import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/SubscriptionContext'
-import { createCheckoutSession } from '@/services/subscriptionService'
 import ResumeModal from '@/components/ResumeModal'
 import AiPanel from '@/components/AiPanel'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
@@ -909,12 +908,11 @@ export default function QuickCast() {
                   <div key={slot} className="relative flex flex-col items-center gap-0.5">
                     <div className="relative group">
                       <button
-                        onClick={() => createCheckoutSession().catch(() => {})}
-                        className="w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none border transition-none select-none cursor-pointer border-border text-muted opacity-50 hover:opacity-70"
+                        className="w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none border transition-none select-none cursor-default border-border text-muted opacity-50"
                         title={`Resume ${slot.toUpperCase()} — Pro only`}
                       >
                         <FileText width={32} height={32} />
-                        <span className="font-pixel text-[7px] tracking-widest leading-none">🔒 {slot.toUpperCase()}</span>
+                        <span className="font-pixel text-[7px] tracking-widest leading-none">{slot.toUpperCase()}</span>
                       </button>
                       <div className={[
                         'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',

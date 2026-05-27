@@ -318,7 +318,7 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
             <div className="flex flex-col gap-2">
-              {(['proxy', 'ollama', 'openai', 'anthropic'] as AiProvider[]).map((p) => (
+              {(['proxy', 'openai', 'anthropic'] as AiProvider[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => handleProviderChange(p)}
@@ -329,8 +329,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'      ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
-                    : p === 'ollama' ? 'Ollama (local)'
+                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>
@@ -344,7 +343,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── API key (BYOK providers only) ── */}
-          {aiProvider !== 'ollama' && aiProvider !== 'proxy' && (
+          {aiProvider !== 'proxy' && (
             <div className="flex flex-col gap-2">
               <label className="text-muted text-[10px] tracking-widest">API KEY</label>
               <div className="flex items-center gap-2">

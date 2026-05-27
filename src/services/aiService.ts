@@ -1,10 +1,6 @@
-import {
-  fetchModels as ollamaFetchModels,
-  streamCompletion as ollamaStreamCompletion,
-} from './ollamaService'
 import { supabase } from '@/lib/supabase'
 
-export type AiProvider = 'proxy' | 'ollama' | 'openai' | 'anthropic'
+export type AiProvider = 'proxy' | 'openai' | 'anthropic'
 
 export const AI_MONTHLY_LIMIT = 5
 
@@ -33,7 +29,7 @@ const FUNCTION_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/ai-ge
 export function getAiProvider(): AiProvider {
   try {
     const val = localStorage.getItem(PROVIDER_KEY)
-    if (val === 'openai' || val === 'anthropic' || val === 'ollama' || val === 'proxy') return val
+    if (val === 'openai' || val === 'anthropic' || val === 'proxy') return val
   } catch { /* ignore */ }
   return 'proxy'
 }
@@ -73,7 +69,6 @@ export async function fetchModels(): Promise<{
   models: string[]
 }> {
   const provider = getAiProvider()
-  if (provider === 'ollama') return ollamaFetchModels()
   if (provider === 'proxy') return { status: 'connected', models: ['claude-haiku-4-5'] }
   const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS
   const apiKey = getAiApiKey()
@@ -93,7 +88,6 @@ export async function streamCompletion(params: {
   signal?: AbortSignal
 }): Promise<void> {
   const provider = getAiProvider()
-  if (provider === 'ollama')    return ollamaStreamCompletion(params)
   if (provider === 'proxy')     return streamProxy(params)
   if (provider === 'openai')    return streamOpenAI(params)
   return streamAnthropic(params)

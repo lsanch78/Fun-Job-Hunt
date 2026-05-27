@@ -86,68 +86,9 @@ const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
-// ── Ollama info tooltip content ───────────────────────────────────────────────
-const OLLAMA_INFO_CONNECTED = `WHY OLLAMA?
-
-Ollama runs AI models locally on your machine.
-Your resume and job data never leave your device.
-No API keys. No usage costs. No data harvesting.
-
-BEST PRACTICES:
-
-• Use a capable model — llama3, mistral, or gemma2
-  are solid choices for writing tasks.
-
-• Bigger context = better output. Models with 8B+
-  parameters handle long resumes + JDs well.
-
-• Keep Ollama running in the background before
-  opening this panel (ollama serve).
-
-MINIMUM REQUIREMENTS:
-
-• RAM:  8 GB (16 GB recommended for 7B+ models)
-• GPU:  Optional but speeds up generation 5–10×
-• Disk: ~4–8 GB per model
-• OS:   macOS, Linux, or Windows (WSL2)
-
-GETTING STARTED:
-
-  1. Install → ollama.com
-  2. Pull a model → ollama pull llama3
-  3. Serve → ollama serve
-  4. Return here and generate!`
-
-const OLLAMA_INFO_NOT_CONNECTED = `> Ollama not running.
->
-> STEP 1 — Install Ollama
->   Visit ollama.com and download
->   the installer for your OS.
->   (macOS, Linux, Windows WSL2)
->
-> STEP 2 — Pull a model
->   Open a terminal and run:
->   ollama pull llama3
->
->   Good alternatives:
->   ollama pull mistral
->   ollama pull gemma2
->
-> STEP 3 — Start the server
->   ollama serve
->   (keep this terminal open)
->
-> STEP 4 — Return here
->   Refresh the panel and your
->   models will appear above.
->
-> Runs AI locally — your data
-> never leaves your device.
-> No API keys. No usage costs.`
-
 // ── Types ─────────────────────────────────────────────────────────────────────
-type OllamaStatus = 'checking' | 'connected' | 'not_connected'
-type PanelView    = 'form' | 'output'
+type ConnectionStatus = 'checking' | 'connected' | 'not_connected'
+type PanelView        = 'form' | 'output'
 type QuickKey     = 'cover_letter' | 'why_good_fit' | 'custom'
 
 interface AiPanelProps {
@@ -239,7 +180,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   const { isSubscribed } = useSubscription()
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 
-  const [status,            setStatus]           = useState<OllamaStatus>('checking')
+  const [status,            setStatus]           = useState<ConnectionStatus>('checking')
   const [models,            setModels]           = useState<string[]>([])
   const [selectedModel,     setSelectedModel]    = useState<string>('')
   const [selectedSlots,     setSelectedSlots]    = useState<ResumeSlot[]>(() => loadSlotPref(userId, occupiedSlots))
@@ -461,7 +402,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           )}
           {status === 'not_connected' && (
             <span style={{ color: T.greenDim, fontSize: '13px' }}>
-              <span style={{ color: T.warn }}>○</span> {provider === 'ollama' ? 'NOT DETECTED' : 'NO API KEY'}
+              <span style={{ color: T.warn }}>○</span> NO API KEY
             </span>
           )}
           <button
@@ -678,13 +619,21 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
               </button>
               <button onClick={handleClose} style={termBtn(false)}>CANCEL</button>
               {provider === 'proxy' && (
-                <span style={{ color: T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
-                  {isSubscribed
-                    ? 'Pro - Unlimited Use'
-                    : usage
-                      ? `${usage.count}/${usage.limit} uses left this month`
-                      : null}
-                </span>
+                isSubscribed ? (
+                  <span style={{ color: T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                    Pro - Unlimited Use
+                  </span>
+                ) : usage ? (
+                  <span style={{ fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                    <span style={{ color: T.greenDim }}>{usage.count}/{usage.limit} uses left this month, </span>
+                    <span
+                      onClick={() => createCheckoutSession().catch(() => {})}
+                      style={{ color: T.warn, cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      upgrade to premium for unlimited use.
+                    </span>
+                  </span>
+                ) : null
               )}
             </div>
           </div>
@@ -775,7 +724,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
             }}
           >
             <span style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: '13px', letterSpacing: '0.1em' }}>
-              // {provider === 'ollama' ? 'OLLAMA INFO' : provider === 'openai' ? 'OPENAI INFO' : 'ANTHROPIC INFO'}
+              // {provider === 'openai' ? 'OPENAI INFO' : provider === 'anthropic' ? 'ANTHROPIC INFO' : 'AI INFO'}
             </span>
             <button
               onClick={() => setShowInfo(false)}
@@ -786,31 +735,14 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           </div>
           {/* Dialog body */}
           <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1 }}>
-            {provider === 'ollama' ? (
-              <>
-                <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
-                  {status === 'not_connected' ? OLLAMA_INFO_NOT_CONNECTED : OLLAMA_INFO_CONNECTED}
-                </pre>
-                <div style={{ marginTop: '16px', fontFamily: '"VT323", monospace', fontSize: '13px', color: T.greenDim }}>
-                  For more information on how to set up,{' '}
-                  <a
-                    href="https://docs.ollama.com/quickstart"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: T.green, textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    click here
-                  </a>
-                </div>
-              </>
-            ) : (
-              <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
-                {status === 'not_connected'
-                  ? `> No API key configured.\n>\n> Go to Settings → AI ASSISTANT\n> and enter your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.\n>\n> Your key is stored locally in\n> your browser only — never sent\n> to our servers.`
+            <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+              {status === 'not_connected'
+                ? `> No API key configured.\n>\n> Go to Settings → AI ASSISTANT\n> and enter your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.\n>\n> Your key is stored locally in\n> your browser only — never sent\n> to our servers.`
+                : provider === 'proxy'
+                  ? `> Claude connected (managed).\n>\n> You have a monthly free tier.\n> Upgrade to Pro for unlimited use.`
                   : `> ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} connected.\n>\n> Your API key is stored locally\n> in your browser and never sent\n> to our servers.\n>\n> Select a model above and\n> start generating.`
-                }
-              </pre>
-            )}
+              }
+            </pre>
           </div>
           {/* Dialog footer */}
           <div style={{ padding: '8px 14px', borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>

@@ -82,11 +82,10 @@ const STEPS: TutorialStep[] = [
   {
     id: 'ai-assistant',
     title: 'AI ASSISTANT',
-    subtitle: 'ollama · local ai',
+    subtitle: 'claude haiku · ready to use',
     body: [
-      'The AI button opens a local resume assistant powered by Ollama. Ask it to tailor your resume, write cover letter bullets, or prep interview answers — all running on your own machine, nothing sent to the cloud.',
-      'NOTE: Requires Ollama installed and running locally. Visit ollama.com to get started. Once running, the button shows ● ON. Model and prompt behaviour can be configured in Settings.',
-      'PRO TIP: Configure prompt settings to your liking, copy a job description, then right-click this button for fast generation referencing your resume in the background.',
+      'The AI button opens a resume assistant powered by Claude Haiku — fast, capable, and perfect for resume tailoring, cover letter bullets, and interview prep. Everybody gets 5 free uses a month, no setup required.',
+      'PRO TIP: Premium users get unlimited use for 8$/month. Tech savvy? Add your own ChatGPT or Claude API key in Settings to choose your model and stretch your dollar further.',
     ],
   },
   {
