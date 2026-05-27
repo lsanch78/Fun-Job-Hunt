@@ -265,7 +265,7 @@ export default function MobileJobList({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="SEARCH..."
-          className="flex-1 bg-transparent outline-none font-pixel text-[10px] text-primary placeholder-muted border-b border-border py-1"
+          className="flex-1 min-w-0 bg-transparent outline-none font-pixel text-[10px] text-primary placeholder-muted border-b border-border py-1"
           style={{ fontSize: '16px' }}
         />
         <button
