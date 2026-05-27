@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { isSfxMuted } from '@/lib/sfx'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -379,6 +380,9 @@ function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: Res
 // ── QuickCast ─────────────────────────────────────────────────────────────────
 
 export default function QuickCast() {
+  const isMobile = useIsMobile()
+  const iconSize = isMobile ? 20 : 44
+
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>(loadLinks)
   const [userId,       setUserId]       = useState<string | null>(null)
@@ -729,7 +733,7 @@ export default function QuickCast() {
     'outline-none focus:border-primary font-pixel placeholder-muted w-full'
 
   const hotbarBtnCls = (active: boolean, extra = '') => [
-    'w-20 h-20 flex items-center justify-center leading-none',
+    'w-11 h-11 sm:w-20 sm:h-20 flex items-center justify-center leading-none',
     'border transition-none cursor-pointer select-none',
     active
       ? 'border-primary text-primary'
@@ -747,18 +751,18 @@ export default function QuickCast() {
       <div
         ref={containerRef}
         data-tutorial="quickcast"
-        className="relative bg-bg border-t border-border px-6 pt-2 pb-3 hidden sm:flex sm:flex-col items-center gap-2 shrink-0"
+        className="relative bg-bg border-t border-border px-3 pt-1.5 pb-2 sm:px-6 sm:pt-2 sm:pb-3 flex flex-col items-center gap-1 sm:gap-2 shrink-0"
       >
-        {/* Label */}
-        <span className="self-start text-[9px] text-dim font-pixel tracking-widest select-none">
+        {/* Label — desktop only */}
+        <span className="hidden sm:inline self-start text-[9px] text-dim font-pixel tracking-widest select-none">
           QUICK CAST
         </span>
 
-        {/* Main hotbar row — three zones: links | resumes | + */}
-        <div className="flex items-end gap-6 w-full justify-center">
+        {/* Main hotbar row — three zones: links | resumes | AI; horizontally scrollable on mobile */}
+        <div className="flex items-end gap-3 sm:gap-6 w-full justify-center overflow-x-auto">
 
           {/* ── Left zone: link slots ── */}
-          <div className="flex items-center gap-1.5 relative">
+          <div className="flex items-center gap-1 sm:gap-1.5 relative shrink-0">
             {links.map((slot) => (
               <div key={slot.id} className="relative group">
                 <button
@@ -768,7 +772,7 @@ export default function QuickCast() {
                   className={hotbarBtnCls(copiedId === slot.id)}
                   title={slot.label || slot.url}
                 >
-                  {renderIcon(slot.icon, 44)}
+                  {renderIcon(slot.icon, iconSize)}
                 </button>
                 {/* Tooltip */}
                 <div className={[
@@ -890,7 +894,7 @@ export default function QuickCast() {
           </div>
 
           {/* ── Center zone: resume slots (A, B, C) ── */}
-          <div className="flex items-end gap-1.5">
+          <div className="flex items-end gap-1 sm:gap-1.5 shrink-0">
             {RESUME_SLOTS.map((slot) => {
               const record   = resumeSlots[slot]
               const colors   = SLOT_COLORS[slot]
@@ -931,7 +935,7 @@ export default function QuickCast() {
                       }}
                       disabled={isUploading || isLoading}
                       className={[
-                        'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
+                        'w-11 h-11 sm:w-20 sm:h-20 flex flex-col items-center justify-center gap-0.5 sm:gap-1 leading-none',
                         'border transition-none select-none cursor-pointer',
                         (isUploading || isLoading) ? 'opacity-50 cursor-not-allowed' : '',
                       ].join(' ')}
@@ -943,9 +947,12 @@ export default function QuickCast() {
                         ? `${record!.name} — click to preview, right-click to rename`
                         : `Upload Resume ${slot.toUpperCase()}`}
                     >
-                      <FileText width={32} height={32} />
-                      <span className="font-pixel text-[7px] tracking-widest leading-none">
+                      <FileText width={isMobile ? 14 : 32} height={isMobile ? 14 : 32} />
+                      <span className="font-pixel text-[7px] tracking-widest leading-none hidden sm:block">
                         {isUploading || isLoading ? '...' : hasFile ? record!.name.slice(0, 10) : slot.toUpperCase()}
+                      </span>
+                      <span className="font-pixel text-[6px] leading-none sm:hidden">
+                        {isUploading || isLoading ? '…' : slot.toUpperCase()}
                       </span>
                     </button>
 
@@ -974,7 +981,7 @@ export default function QuickCast() {
           </div>
 
           {/* ── Right zone: AI assistant ── */}
-          <div className="relative flex flex-col items-center" ref={aiMenuRef}>
+          <div className="relative flex flex-col items-center shrink-0" ref={aiMenuRef}>
             <button
               data-tutorial="ai-assistant"
               onClick={() => {
@@ -987,7 +994,7 @@ export default function QuickCast() {
                 setAiMenuOpen((prev) => !prev)
               }}
               className={[
-                'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
+                'w-11 h-11 sm:w-20 sm:h-20 flex flex-col items-center justify-center gap-0.5 sm:gap-1 leading-none',
                 'border transition-none select-none cursor-pointer',
                 aiPanelOpen
                   ? 'border-primary text-primary'
@@ -997,11 +1004,11 @@ export default function QuickCast() {
               ].join(' ')}
               title={aiGenerating ? 'Generating…' : aiResult ? 'Click to view result · Right-click for quick generate' : 'AI Resume Assistant · Right-click for quick generate'}
             >
-              <span className="font-pixel leading-none font-bold tracking-tight" style={{ fontSize: 24 }}>
+              <span className="font-pixel leading-none font-bold tracking-tight" style={{ fontSize: isMobile ? 12 : 24 }}>
                 AI
               </span>
               <span
-                className="font-pixel text-[7px] tracking-widest leading-none"
+                className="font-pixel text-[6px] sm:text-[7px] tracking-widest leading-none hidden sm:block"
                 style={{
                   color: aiGenerating
                     ? '#22c55e'

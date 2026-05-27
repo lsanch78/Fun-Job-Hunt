@@ -254,7 +254,7 @@ export default function MobileJobLogPage({
       {/* FAB — log new application */}
       <button
         onClick={() => { setAddOpen(true); setAddError(null) }}
-        className="fixed bottom-16 right-4 z-[180] w-12 h-12 bg-primary text-bg font-pixel text-2xl flex items-center justify-center border-2 border-bg"
+        className="fixed bottom-[100px] right-4 z-[180] w-12 h-12 bg-primary text-bg font-pixel text-2xl flex items-center justify-center border-2 border-bg"
         title="Log new application"
         aria-label="Add new job"
       >
