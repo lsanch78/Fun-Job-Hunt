@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { isSfxMuted, playBootBlip, playExitBlip } from '@/lib/sfx'
-import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -170,10 +169,10 @@ const SPOTLIGHT_PAD = 6
 
 interface Props {
   onDone: () => void
+  mobileMode?: boolean
 }
 
-export default function TutorialOverlay({ onDone }: Props) {
-  const isMobile = useIsMobile()
+export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -232,8 +231,8 @@ export default function TutorialOverlay({ onDone }: Props) {
   const vh = window.innerHeight
 
   // Responsive card dimensions
-  const cardW = isMobile ? Math.min(vw - 24, 360) : 638
-  const cardH = isMobile ? Math.min(vh - 80, 460) : 488
+  const cardW = mobileMode ? Math.min(vw - 24, 360) : 638
+  const cardH = mobileMode ? Math.min(vh - 80, 460) : 488
 
   // Card is always centered
   const cardLeft = (vw - cardW) / 2
@@ -419,7 +418,7 @@ export default function TutorialOverlay({ onDone }: Props) {
             style={{
               color: 'var(--color-muted)',
               border: '1px solid var(--color-border)',
-              padding: isMobile ? '8px 14px' : '3px 7px',
+              padding: mobileMode ? '8px 14px' : '3px 7px',
             }}
           >
             SKIP
@@ -437,7 +436,7 @@ export default function TutorialOverlay({ onDone }: Props) {
                 style={{
                   color: 'var(--color-muted)',
                   border: '1px solid var(--color-border)',
-                  padding: isMobile ? '8px 14px' : '3px 7px',
+                  padding: mobileMode ? '8px 14px' : '3px 7px',
                 }}
               >
                 ◀ BACK
@@ -449,7 +448,7 @@ export default function TutorialOverlay({ onDone }: Props) {
               style={{
                 color: 'var(--color-bg)',
                 background: 'var(--color-primary)',
-                padding: isMobile ? '8px 16px' : '3px 9px',
+                padding: mobileMode ? '8px 16px' : '3px 9px',
               }}
             >
               {step < STEPS.length - 1 ? 'NEXT ▶' : 'DONE ✓'}

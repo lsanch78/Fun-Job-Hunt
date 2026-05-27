@@ -319,7 +319,7 @@ export default function MobileJobLogPage({
 
       {/* Tutorial overlay */}
       {showTutorial && (
-        <TutorialOverlay onDone={() => setShowTutorial(false)} />
+        <TutorialOverlay onDone={() => setShowTutorial(false)} mobileMode />
       )}
     </div>
   )
