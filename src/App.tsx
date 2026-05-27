@@ -18,7 +18,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
 import { Analytics } from '@vercel/analytics/react'
-import { injectSpeedInsights } from '@vercel/speed-insights'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -85,7 +85,6 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
 
   useEffect(() => {
-    injectSpeedInsights()
     prefetchCreditsPhotos()
   }, [])
 
@@ -156,6 +155,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Analytics />
+        <SpeedInsights />
       </BrowserRouter>
       </SubscriptionProvider>
     </ThemeProvider>

@@ -21,3 +21,6 @@ Thumbs.db
 .idea/
 
 .vercel
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
