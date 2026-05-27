@@ -8,6 +8,14 @@ const PORTFOLIO_URL = 'https://luisbuenrostro.dev'
 
 const LINKEDIN_URL = 'https://linkedin.com/in/luisbuenrostro'
 
+const MUSIC_CHANNELS: { name: string; href: string }[] = [
+  { name: 'Zeryu Soul', href: 'https://www.youtube.com/@ZeryuSoul' },
+  { name: 'Fancy Fox', href: 'https://www.youtube.com/watch?v=2nM8kZuifeo' },
+  { name: 'Visual Escape', href: 'https://www.youtube.com/@VisualEscape' },
+  { name: 'jungle wizard', href: 'https://www.youtube.com/@junglewizard' },
+  { name: 'Enzo OSRS', href: 'https://www.youtube.com/@EnzoOSRS' },
+]
+
 const PHOTOS: { src: string; caption?: string }[] = [
   { src: '/me1.webp' },
   { src: '/me2.webp' },
@@ -87,7 +95,7 @@ export default function CreditsPage() {
         {/* ── Story ── */}
         <Section title="FROM THE DEV" delay="delay-200" booted={booted}>
           <p className="body-text text-primary leading-relaxed mb-4">
-            Hello my name is Luis (I also go by Lui). I made this app as a fun side project to help me track my applications. It's my first real foray into publishing a webapp and I hope that you've enjoyed using it as much as I've enjoyed building it. I want to give a special thanks to the YouTube channels who put together such great music for me to work to. Please Remember to subscribe to them:
+            Hello my name is Luis (I also go by Lui). I made this app as a fun side project to help me track my applications. It's my first real foray into publishing a webapp and I hope that you've enjoyed using it as much as I've enjoyed building it. I want to give a special thanks to the YouTube channels who put together such great music for me to work to. Please Remember to subscribe to them below!
 
           </p>
           <p className="body-text text-primary leading-relaxed mb-4">
@@ -106,8 +114,20 @@ export default function CreditsPage() {
           </p>
         </Section>
 
+        {/* ── Music Credits ── */}
+        <Section title="MUSIC" delay="delay-300" booted={booted}>
+          <p className="body-text text-primary leading-relaxed mb-4">
+            Big thanks to these YouTube channels for the tunes. Please subscribe!
+          </p>
+          <div className="grid grid-cols-3 gap-4">
+            {MUSIC_CHANNELS.map(({ name, href }) => (
+              <LinkCard key={name} href={href} label={name} />
+            ))}
+          </div>
+        </Section>
+
         {/* ── Links ── */}
-        <Section title="LINKS" delay="delay-300" booted={booted}>
+        <Section title="LINKS" delay="delay-400" booted={booted}>
           <div className="grid grid-cols-3 gap-4">
 
             {/* LinkedIn */}

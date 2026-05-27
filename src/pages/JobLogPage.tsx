@@ -6,7 +6,8 @@ import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
 import { calculateXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
-import { readCache, writeCache, fetchJobs, insertJob, updateJob, updateJobDetails, deleteJobs, runAutoGhost, JOB_LIMITS, JOB_CAP } from '@/services/jobService'
+import { JOB_LIMITS, JOB_CAP } from '@/services/jobService'
+import { useJobList } from '@/hooks/useJobList'
 import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
@@ -16,20 +17,6 @@ interface JobRowHandle {
   focusFirstInput(): void
 }
 
-function emptyJob(): Job {
-  return {
-    id: crypto.randomUUID(),
-    company: '',
-    title: '',
-    status: 'APPLIED',
-    postingUrl: '',
-    applicationDate: (() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })(),
-    rating: 0,
-    salary: '',
-    committed: false,
-    saving: false,
-  }
-}
 
 const STATUS_OPTIONS: JobStatus[] = [
   'APPLIED', 'PHONE_SCREEN', 'INTERVIEW', 'OFFER', 'REJECTED', 'GHOSTED', 'WITHDRAWN',
@@ -1154,10 +1141,19 @@ function getDailyMessage(name: string): string {
 export default function JobLogPage({ userId, userName }: { userId: string | null; userName: string | null }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [jobs, setJobs] = useState<Job[]>(() => {
-    const cached = userId ? readCache(userId) : []
-    return [emptyJob(), ...cached]
-  })
+
+  // ── Job list state — all mutations go through the hook ──────────────────────
+  const {
+    jobs,
+    committedCount,
+    onDraftChange,
+    onCommit,
+    updateJobDetails,
+    deleteJobs,
+    pendingFocusIdRef,
+  } = useJobList(userId)
+
+  // ── UI-only state (rendering concerns, not job-list state) ──────────────────
   const [popups, setPopups] = useState<XpPopup[]>([])
   const [search, setSearch] = useState('')
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
@@ -1179,57 +1175,18 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const isResizingRef = useRef(false)
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
-  const committedCountRef = useRef(0)
   const rowHandlesRef = useRef<Map<string, JobRowHandle>>(new Map())
-  const pendingFocusIdRef = useRef<string | null>(null)
-  const updateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const lastCheckedIdxRef = useRef<number | null>(null)
 
-  // Auto-focus newly created draft rows
+  // Auto-focus newly created draft rows (pendingFocusIdRef is written by the hook)
   useEffect(() => {
     if (pendingFocusIdRef.current) {
       rowHandlesRef.current.get(pendingFocusIdRef.current)?.focusFirstInput()
       pendingFocusIdRef.current = null
     }
-  }, [jobs])
+  }, [jobs]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mount: seed from cache already done in useState; hydrate from DB in background
-  useEffect(() => {
-    if (!userId) return
-    let cancelled = false
-
-    async function init() {
-      // Set initial committedCount from whatever the cache seeded
-      committedCountRef.current = jobs.filter((j) => j.committed).length
-
-      // Hydrate from DB in background
-      let dbJobs = await fetchJobs(userId!)
-      if (cancelled) return
-
-      // Auto-ghost stale entries (no-op if setting is disabled)
-      dbJobs = await runAutoGhost(dbJobs)
-      if (cancelled) return
-
-      setJobs((prev) => {
-        const draft = prev.find((j) => !j.committed) ?? emptyJob()
-        const merged = dbJobs.length > 0 ? [draft, ...dbJobs] : prev
-        return merged
-      })
-      writeCache(userId!, dbJobs)
-      committedCountRef.current = dbJobs.length
-    }
-
-    init()
-    return () => { cancelled = true }
-  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Cleanup: cancel pending debounced update timers on unmount
-  useEffect(() => {
-    return () => {
-      updateTimers.current.forEach((t) => clearTimeout(t))
-      updateTimers.current.clear()
-    }
-  }, [])
+  // ── XP popup ─────────────────────────────────────────────────────────────────
 
   function spawnPopup(mega: boolean, x: number, y: number, label?: string) {
     const id = ++popupCounter.current
@@ -1237,71 +1194,41 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     setTimeout(() => setPopups((prev) => prev.filter((p) => p.id !== id)), 1400)
   }
 
+  // ── Draft-change handler — adds workday punch-in signal on top of hook ───────
+
   function handleDraftChange(draft: Job) {
-    // Notify WorkdayBar that the user is actively working on a job row
+    // Signal WorkdayBar that the user is actively typing in a job row.
+    // This is a rendering/interaction concern; mobile intentionally omits it.
     window.dispatchEvent(new Event('fjobhunt:job-input'))
-
-    setJobs((prev) => {
-      const idx = prev.findIndex((j) => j.id === draft.id)
-      if (idx === -1) return prev
-      const next = [...prev]
-      next[idx] = draft
-      // Write cache immediately for edits to committed rows
-      if (draft.committed && userId) writeCache(userId, next)
-      return next
-    })
-
-    // Debounced DB update for committed rows only
-    if (draft.committed && userId) {
-      const existing = updateTimers.current.get(draft.id)
-      if (existing) clearTimeout(existing)
-      const timer = setTimeout(() => {
-        updateTimers.current.delete(draft.id)
-        updateJob(draft)
-      }, 500)
-      updateTimers.current.set(draft.id, timer)
-    }
+    onDraftChange(draft)
   }
 
+  // ── Commit handler — hook owns state; page owns pixel position + sound ───────
+
   function handleCommit(committed: Job, rowEl: HTMLTableRowElement | null) {
-    if (committedCountRef.current >= JOB_CAP) {
-      const rect = rowEl?.getBoundingClientRect()
-      const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
-      const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2
-      spawnPopup(false, x, y, `✕ ${JOB_CAP} APP LIMIT — export or delete old entries`)
-      return
-    }
-    committedCountRef.current += 1
-    const mega = committedCountRef.current % 10 === 0
     const rect = rowEl?.getBoundingClientRect()
     const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
     const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+
+    const newCount = onCommit(committed, rowEl)
+
+    if (newCount === null) {
+      // Job cap reached — hook did nothing; show error popup
+      spawnPopup(false, x, y, `✕ ${JOB_CAP} APP LIMIT — export or delete old entries`)
+      return
+    }
+
+    const mega = newCount % 10 === 0
     playThud(mega)
     spawnPopup(mega, x, y)
-
-    const newJob = emptyJob()
-    // Eagerly mark as committed + saving before the DB insert resolves
-    const savingRow: Job = { ...committed, committed: true, saving: true }
-
-    setJobs((prev) => {
-      // Remove the committed draft, put a fresh draft at index 0, insert committed job at index 1
-      const without = prev.filter((j) => j.id !== committed.id)
-      const next = [newJob, savingRow, ...without.filter((j) => j.committed)]
-      pendingFocusIdRef.current = newJob.id
-      if (userId) writeCache(userId, next)
-      return next
-    })
-
-    if (userId) {
-      insertJob(savingRow, userId).then(() => {
-        // Flip spinner → checkmark regardless of error (silent failure per spec)
-        setJobs((prev) => prev.map((j) => j.id === committed.id ? { ...j, saving: false } : j))
-      })
-    }
   }
 
-  const committedCount = jobs.filter((j) => j.committed).length
-  const todayStr = (() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })()
+  // ── Derived display values ───────────────────────────────────────────────────
+
+  const todayStr = (() => {
+    const d = new Date()
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+  })()
   const todayCount = jobs.filter((j) => j.committed && j.applicationDate === todayStr).length
 
   function handleTimeRange(r: TimeRange) {
@@ -1372,12 +1299,6 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     const ids = [...selected]
     playTrash(ids.length)
     await deleteJobs(ids)
-    setJobs((prev) => {
-      const next = prev.filter((j) => !selected.has(j.id))
-      if (userId) writeCache(userId, next.filter((j) => j.committed))
-      return next
-    })
-    committedCountRef.current = Math.max(0, committedCountRef.current - ids.length)
     setSelected(new Set())
     setDeleteMode(false)
   }

@@ -1,42 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { Job, JobStatus } from '@/types'
-import {
-  readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs,
-  runAutoGhost, JOB_CAP,
-} from '@/services/jobService'
+import type { JobStatus } from '@/types'
 import AppDetailCard from '@/components/AppDetailCard'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
 import MobileScratchPad from '@/components/MobileScratchPad'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
+import { useJobList } from '@/hooks/useJobList'
 
-// ── Shared helpers (mirrors JobLogPage, not exported from there) ──────────────
+// ── Shared filter helpers ─────────────────────────────────────────────────────
 type SortField = 'company' | 'date' | 'status'
-
-function emptyJob(): Job {
-  return {
-    id: crypto.randomUUID(),
-    company: '',
-    title: '',
-    status: 'APPLIED',
-    postingUrl: '',
-    applicationDate: (() => {
-      const d = new Date()
-      return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
-    })(),
-    rating: 0,
-    salary: '',
-    committed: true,
-    saving: false,
-  }
-}
 
 const STATUS_ORDER: Record<JobStatus, number> = {
   OFFER: 0, INTERVIEW: 1, PHONE_SCREEN: 2, APPLIED: 3, WITHDRAWN: 4, REJECTED: 5, GHOSTED: 6,
 }
 
-function applyFilters(jobs: Job[], search: string, hidden: Set<JobStatus>, sort: SortState | null): Job[] {
+function applyFilters(jobs: import('@/types').Job[], search: string, hidden: Set<JobStatus>, sort: SortState | null): import('@/types').Job[] {
   const q = search.trim().toLowerCase()
   let visible = jobs.filter((j) => {
     if (hidden.has(j.status)) return false
@@ -77,7 +56,11 @@ export default function MobileJobLogPage({
   userName?: string | null
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [jobs, setJobs] = useState<Job[]>(() => userId ? readCache(userId) : [])
+
+  // ── Job list state — all mutations go through the hook ──────────────────────
+  const { jobs, onDraftChange, addJob, deleteJobs } = useJobList(userId)
+
+  // ── UI-only state ───────────────────────────────────────────────────────────
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortState | null>(null)
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
@@ -96,13 +79,6 @@ export default function MobileJobLogPage({
   const [newTitle, setNewTitle] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-
-  const updateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => { updateTimers.current.forEach((t) => clearTimeout(t)); updateTimers.current.clear() }
-  }, [])
 
   // Broadcast tutorial active state to NavBar
   useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
@@ -126,20 +102,6 @@ export default function MobileJobLogPage({
     return () => { unregisterTutorialTrigger() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load from cache then hydrate from DB
-  useEffect(() => {
-    if (!userId) return
-    let cancelled = false
-    fetchJobs(userId).then(async (dbJobs) => {
-      if (cancelled) return
-      const ghosted = await runAutoGhost(dbJobs)
-      if (cancelled) return
-      setJobs(ghosted)
-      writeCache(userId, ghosted)
-    })
-    return () => { cancelled = true }
-  }, [userId])
-
   // Scroll body lock when quick-add overlay is open
   useEffect(() => {
     if (addOpen) document.body.style.overflow = 'hidden'
@@ -147,50 +109,27 @@ export default function MobileJobLogPage({
     return () => { document.body.style.overflow = '' }
   }, [addOpen])
 
-  function handleJobChange(updated: Job) {
-    setJobs((prev) => prev.map((j) => j.id === updated.id ? updated : j))
-    if (userId) {
-      const existing = updateTimers.current.get(updated.id)
-      if (existing) clearTimeout(existing)
-      const timer = setTimeout(() => {
-        updateTimers.current.delete(updated.id)
-        updateJob(updated)
-      }, 500)
-      updateTimers.current.set(updated.id, timer)
-    }
-  }
-
   async function handleAdd() {
-    if (!newCompany.trim() || !userId || adding) return
+    if (!newCompany.trim() || adding) return
     setAdding(true)
     setAddError(null)
-    const job: Job = { ...emptyJob(), company: newCompany.trim(), title: newTitle.trim() }
-    const { error } = await insertJob(job, userId)
+    const { error } = await addJob(newCompany, newTitle)
     if (error) {
-      setAddError(error === 'job_cap_reached' ? `Job cap reached (${JOB_CAP})` : error)
+      setAddError(error)
       setAdding(false)
       return
     }
-    setJobs((prev) => {
-      const next = [job, ...prev]
-      writeCache(userId, next)
-      return next
-    })
+    // Find the newly added job (it's prepended to jobs by the hook) to open its detail card
+    const newJobId = jobs[0]?.id ?? null
     setNewCompany('')
     setNewTitle('')
     setAddOpen(false)
     setAdding(false)
-    // Open detail card so the user can fill in description/contacts/notes
-    setDetailJobId(job.id)
+    if (newJobId) setDetailJobId(newJobId)
   }
 
   async function handleDeleteJob(id: string) {
     await deleteJobs([id])
-    setJobs((prev) => {
-      const next = prev.filter((j) => j.id !== id)
-      if (userId) writeCache(userId, next)
-      return next
-    })
   }
 
   function handleTimeRange(r: TimeRange) {
@@ -214,9 +153,10 @@ export default function MobileJobLogPage({
     })
   }
 
-  // Filter/sort/paginate
+  // Filter/sort/paginate — committed jobs only on mobile (no draft row in the list)
+  const committedJobs = jobs.filter((j) => j.committed)
   const cutoff = getTimeRangeCutoff(timeRange)
-  const rangeJobs = jobs.filter((j) => {
+  const rangeJobs = committedJobs.filter((j) => {
     if (cutoff === null) return true
     if (timeRange === 'today') return j.applicationDate === cutoff
     return j.applicationDate >= cutoff
@@ -329,7 +269,7 @@ export default function MobileJobLogPage({
           jobs={jobs}
           jobId={detailJobId}
           onClose={() => setDetailJobId(null)}
-          onChange={handleJobChange}
+          onChange={onDraftChange}
           fullScreen
         />
       )}
