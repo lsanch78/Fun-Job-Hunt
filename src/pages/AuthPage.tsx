@@ -293,6 +293,11 @@ export default function AuthPage() {
           </button>
         )}
 
+        {/* Mobile disclaimer */}
+        <p className="sm:hidden absolute bottom-8 left-0 right-0 text-center text-muted font-pixel tracking-widest" style={{ fontSize: '8px' }}>
+          [ BEST EXPERIENCED ON DESKTOP ]
+        </p>
+
         {/* Stats ticker — absolutely positioned at top third */}
         <div
           className="absolute left-0 right-0 overflow-hidden py-2 bg-bg"
