@@ -682,7 +682,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           {limitHit && provider === 'proxy' && (
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: '8px' }}>
               <div style={{ color: T.warn, fontFamily: '"VT323", monospace', fontSize: '13px', marginBottom: '6px' }}>
-                // UPGRADE TO PRO — unlimited AI + 3 resume slots
+                // UPGRADE TO PRO — unlimited AI
               </div>
               <button
                 onClick={() => createCheckoutSession().catch(() => {})}

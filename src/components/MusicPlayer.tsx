@@ -301,6 +301,24 @@ export default function MusicPlayer() {
     try { playerRef.current.setVolume(volume) } catch { /* ignore */ }
   }, [volume])
 
+  // Fade out on victory cutscene
+  useEffect(() => {
+    function handleFade() {
+      if (!playerRef.current) return
+      let v = volume
+      const interval = setInterval(() => {
+        v = Math.max(0, v - 5)
+        try { playerRef.current!.setVolume(v) } catch { /* ignore */ }
+        if (v === 0) {
+          clearInterval(interval)
+          try { playerRef.current!.pauseVideo() } catch { /* ignore */ }
+        }
+      }, 60)
+    }
+    window.addEventListener('fjobhunt:music-fade', handleFade)
+    return () => window.removeEventListener('fjobhunt:music-fade', handleFade)
+  }, [volume])
+
   function addTrack() {
     setInputError(null)
     if (tracks.length >= MAX_TRACKS) { setInputError(`Queue limit reached (${MAX_TRACKS} tracks max). Remove some tracks to add more.`); return }

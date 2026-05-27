@@ -20,7 +20,6 @@ import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
-import { useSubscription } from '@/lib/SubscriptionContext'
 import ResumeModal from '@/components/ResumeModal'
 import AiPanel from '@/components/AiPanel'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
@@ -266,8 +265,6 @@ function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: Res
 // ── QuickCast ─────────────────────────────────────────────────────────────────
 
 export default function QuickCast() {
-  const { isSubscribed } = useSubscription()
-
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>(loadLinks)
   const [userId,       setUserId]       = useState<string | null>(null)
@@ -787,32 +784,6 @@ export default function QuickCast() {
               const isUploading = uploadingSlot === slot
               const isLoading   = loadingSlot === slot
               const isEditOpen  = editingSlot === slot
-              const isLocked    = (slot === 'b' || slot === 'c') && !isSubscribed
-
-              if (isLocked) {
-                return (
-                  <div key={slot} className="relative flex flex-col items-center gap-0.5">
-                    <div className="relative group">
-                      <button
-                        className="w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none border transition-none select-none cursor-default border-border text-muted opacity-50"
-                        title={`Resume ${slot.toUpperCase()} — Pro only`}
-                      >
-                        <FileText width={32} height={32} />
-                        <span className="font-pixel text-[7px] tracking-widest leading-none">{slot.toUpperCase()}</span>
-                      </button>
-                      <div className={[
-                        'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-                        'bg-surface border border-border font-pixel text-[8px] text-primary',
-                        'px-2 py-1 whitespace-nowrap pointer-events-none z-50',
-                        'opacity-0 group-hover:opacity-100 transition-none',
-                      ].join(' ')}>
-                        PRO — UPGRADE TO UNLOCK
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-
               return (
                 <div key={slot} className="relative flex flex-col items-center gap-0.5">
                   {/* Name popover */}

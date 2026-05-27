@@ -47,11 +47,11 @@ export default function CreditsPage() {
           </p>
           <div className="flex items-center gap-2 mb-10">
             <span
-              className="inline-block w-2 h-2 rounded-full bg-warning"
+              className="inline-block w-2 h-2 rounded-full bg-secondary"
               style={{ animation: 'blink 1.2s step-start infinite' }}
             />
             <span className="text-xs text-primary tracking-widest">
-              STATUS: <span className="text-warning">UNEMPLOYED</span>
+              STATUS: <span className="text-secondary">OPEN TO OPPORTUNITIES</span>
             </span>
           </div>
         </div>

@@ -200,12 +200,11 @@ describe('QuickCast — existing links', () => {
 })
 
 describe('QuickCast — resume slots', () => {
-  it('renders slot A unlocked and slots B and C locked for free users', async () => {
+  it('renders all three resume slots (A, B, C) for all users', async () => {
     await act(async () => { render(<QuickCast />) })
     expect(screen.getByText('A')).toBeInTheDocument()
-    // B and C render as locked upgrade buttons for free users
-    expect(screen.getByTitle('Resume B — Pro only')).toBeInTheDocument()
-    expect(screen.getByTitle('Resume C — Pro only')).toBeInTheDocument()
+    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.getByText('C')).toBeInTheDocument()
   })
 })
 

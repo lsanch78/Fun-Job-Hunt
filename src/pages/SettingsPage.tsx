@@ -289,15 +289,15 @@ export default function SettingsPage() {
                 ? ` until ${new Date(subscription.current_period_end).toLocaleDateString()}`
                 : ''}
             </p>
-            <p className="text-[10px] text-muted px-1">3 resume slots · Unlimited AI generations</p>
+            <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Free tier: 1 resume slot · {AI_MONTHLY_LIMIT} AI generations/month
+              Free tier: {AI_MONTHLY_LIMIT} AI generations/month
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Pro: 3 resume slots · Unlimited AI generations
+              Pro: Unlimited AI generations
             </p>
             <button
               onClick={() => createCheckoutSession().catch(() => {})}
