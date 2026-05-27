@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
@@ -37,11 +37,12 @@ function jobsToCSV(jobs: Job[]): string {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
-  const { isSubscribed, subscription } = useSubscription()
+  const { isSubscribed, subscription, refresh } = useSubscription()
   const [exporting, setExporting] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [resetDone, setResetDone] = useState(false)
+  const [checkoutPending, setCheckoutPending] = useState(false)
 
   const initialGhost = readAutoGhostSetting()
   const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
@@ -54,6 +55,8 @@ export default function SettingsPage() {
   const [apiKeySaved,   setApiKeySaved]    = useState(false)
   const [aiUsage,       setAiUsage]        = useState<{ count: number; limit: number } | null>(null)
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
@@ -61,6 +64,38 @@ export default function SettingsPage() {
     })
     if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
   }, [])
+
+  // After Stripe redirects back with ?checkout=success, poll until the
+  // webhook has updated the subscription row, then clear the query param.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') !== 'success') return
+
+    setCheckoutPending(true)
+    let attempts = 0
+    pollRef.current = setInterval(async () => {
+      await refresh()
+      attempts++
+      // refresh() updates context; isSubscribed will reflect new value on next render
+      // We stop after 15 attempts (~30s) to avoid polling forever
+      if (attempts >= 15) {
+        clearInterval(pollRef.current!)
+        setCheckoutPending(false)
+      }
+    }, 2000)
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Once subscription becomes active, stop polling and clean up the URL
+  useEffect(() => {
+    if (isSubscribed && checkoutPending) {
+      if (pollRef.current) clearInterval(pollRef.current)
+      setCheckoutPending(false)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [isSubscribed, checkoutPending])
 
   function handleGhostToggle() {
     const next = !ghostEnabled
@@ -244,6 +279,9 @@ export default function SettingsPage() {
 
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">SUBSCRIPTION</h2>
+        {checkoutPending && !isSubscribed && (
+          <p className="text-xs text-secondary px-1 mb-3">Confirming payment...</p>
+        )}
         {isSubscribed ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-primary px-1">

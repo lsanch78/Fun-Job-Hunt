@@ -46,6 +46,17 @@ jest.mock('@/services/ollamaService', () => ({
   streamCompletion: jest.fn(),
 }))
 
+jest.mock('@/services/aiService', () => ({
+  getAiProvider: jest.fn(() => 'proxy'),
+  setAiProvider: jest.fn(),
+  getAiApiKey: jest.fn(() => ''),
+  setAiApiKey: jest.fn(),
+  fetchUsage: jest.fn().mockResolvedValue({ count: 0, limit: 20 }),
+  fetchModels: jest.fn().mockResolvedValue([]),
+  streamCompletion: jest.fn(),
+  AI_MONTHLY_LIMIT: 20,
+}))
+
 jest.mock('@/services/aiSettingsService', () => ({
   fetchAiSettings: jest.fn().mockResolvedValue(null),
   DEFAULT_PROMPTS: { cover_letter: '', why_good_fit: '', custom: '' },
@@ -53,6 +64,16 @@ jest.mock('@/services/aiSettingsService', () => ({
 
 jest.mock('@/lib/sfx', () => ({
   isSfxMuted: jest.fn(() => true),
+}))
+
+jest.mock('@/lib/SubscriptionContext', () => ({
+  useSubscription: jest.fn(() => ({ isSubscribed: false, subscription: null, loading: false, refresh: jest.fn() })),
+}))
+
+jest.mock('@/services/subscriptionService', () => ({
+  isSubscribed: jest.fn(() => false),
+  fetchSubscription: jest.fn().mockResolvedValue(null),
+  createCheckoutSession: jest.fn().mockResolvedValue(undefined),
 }))
 
 // Mock child components that would require heavy setup
@@ -179,11 +200,12 @@ describe('QuickCast — existing links', () => {
 })
 
 describe('QuickCast — resume slots', () => {
-  it('renders three resume slot buttons (A, B, C)', async () => {
+  it('renders slot A unlocked and slots B and C locked for free users', async () => {
     await act(async () => { render(<QuickCast />) })
     expect(screen.getByText('A')).toBeInTheDocument()
-    expect(screen.getByText('B')).toBeInTheDocument()
-    expect(screen.getByText('C')).toBeInTheDocument()
+    // B and C render as locked upgrade buttons for free users
+    expect(screen.getByTitle('Resume B — Pro only')).toBeInTheDocument()
+    expect(screen.getByTitle('Resume C — Pro only')).toBeInTheDocument()
   })
 })
 

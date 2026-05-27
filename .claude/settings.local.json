@@ -34,7 +34,12 @@
       "Bash(dir /s /b)",
       "Bash(xargs wc -l)",
       "Bash(git stash *)",
-      "Bash(supabase functions deploy:*)"
+      "Bash(supabase functions deploy:*)",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(npx jest:*)",
+      "Bash(node --max-old-space-size=512 node_modules/.bin/jest:*)",
+      "Bash(npx --no jest --testPathPattern=\"subscriptionService|SubscriptionContext\" --no-coverage --runInBand)",
+      "Bash(npx --no jest:*)"
     ]
   }
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
-import { fetchModels, streamCompletion, getAiProvider, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
+import { fetchModels, streamCompletion, getAiProvider, fetchUsage, type AiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
+import { useSubscription } from '@/lib/SubscriptionContext'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
@@ -235,6 +236,7 @@ function saveResumeText(userId: string, text: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }: AiPanelProps) {
+  const { isSubscribed } = useSubscription()
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 
   const [status,            setStatus]           = useState<OllamaStatus>('checking')
@@ -675,9 +677,13 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
                 GENERATE
               </button>
               <button onClick={handleClose} style={termBtn(false)}>CANCEL</button>
-              {provider === 'proxy' && usage && (
-                <span style={{ color: usage.count >= AI_MONTHLY_LIMIT ? T.warn : T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
-                  {usage.count}/{usage.limit} uses left this month
+              {provider === 'proxy' && (
+                <span style={{ color: T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                  {isSubscribed
+                    ? 'Pro - Unlimited Use'
+                    : usage
+                      ? `${usage.count}/${usage.limit} uses left this month`
+                      : null}
                 </span>
               )}
             </div>
