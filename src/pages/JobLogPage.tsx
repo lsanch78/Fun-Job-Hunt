@@ -752,27 +752,18 @@ function SyncBadge({ status }: { status: 'synced' | 'syncing' | null }) {
 }
 
 // ── Scratch pad ───────────────────────────────────────────────────────────────
-const SCRATCH_PAD_KEY    = 'fjobhunt:scratchpad'
-const SCRATCH_LIST_KEY   = 'fjobhunt:scratchlist'
 const SCRATCH_TAB_KEY    = 'fjobhunt:scratchtab'
 const SCRATCH_HEIGHT_KEY = 'fjobhunt:scratchheight'
 const SCRATCH_OPEN_KEY   = 'fjobhunt:scratchopen'
+
+const scratchPadKey  = (uid: string) => `fjobhunt:scratchpad:${uid}`
+const scratchListKey = (uid: string) => `fjobhunt:scratchlist:${uid}`
 
 const SCRATCH_MIN_H = 120
 const SCRATCH_MAX_H = 600
 const SCRATCH_DEF_H = 220
 
 interface CheckItem { id: string; text: string; done: boolean }
-
-function readList(): CheckItem[] {
-  try {
-    const raw = localStorage.getItem(SCRATCH_LIST_KEY)
-    return raw ? (JSON.parse(raw) as CheckItem[]) : []
-  } catch { return [] }
-}
-function saveList(items: CheckItem[]) {
-  try { localStorage.setItem(SCRATCH_LIST_KEY, JSON.stringify(items)) } catch { /* noop */ }
-}
 
 function ScratchPad({ userId }: { userId: string | null }) {
   const [open, setOpen] = useState<boolean>(() => {
@@ -784,10 +775,8 @@ function ScratchPad({ userId }: { userId: string | null }) {
   const [height, setHeight] = useState<number>(() => {
     try { return Number(localStorage.getItem(SCRATCH_HEIGHT_KEY)) || SCRATCH_DEF_H } catch { return SCRATCH_DEF_H }
   })
-  const [text, setText] = useState(() => {
-    try { return localStorage.getItem(SCRATCH_PAD_KEY) ?? '' } catch { return '' }
-  })
-  const [items, setItems] = useState<CheckItem[]>(readList)
+  const [text, setText] = useState('')
+  const [items, setItems] = useState<CheckItem[]>([])
   const [newItem, setNewItem] = useState('')
 
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced')
@@ -802,18 +791,25 @@ function ScratchPad({ userId }: { userId: string | null }) {
   // Hydrate from DB on mount
   useEffect(() => {
     if (!userId) return
+    // Seed from localStorage immediately so the pad isn't blank while the DB fetch is in flight
+    try {
+      const cachedText = localStorage.getItem(scratchPadKey(userId))
+      if (cachedText) setText(cachedText)
+      const cachedList = localStorage.getItem(scratchListKey(userId))
+      if (cachedList) setItems(JSON.parse(cachedList) as CheckItem[])
+    } catch { /* noop */ }
     setSyncStatus('syncing')
     fetchScratchPad(userId).then((rec) => {
       if (rec) {
         if (rec.notes) {
           setText(rec.notes)
-          try { localStorage.setItem(SCRATCH_PAD_KEY, rec.notes) } catch { /* noop */ }
+          try { localStorage.setItem(scratchPadKey(userId), rec.notes) } catch { /* noop */ }
         }
         if (rec.list) {
           try {
             const parsed = JSON.parse(rec.list) as CheckItem[]
             setItems(parsed)
-            saveList(parsed)
+            try { localStorage.setItem(scratchListKey(userId), JSON.stringify(parsed)) } catch { /* noop */ }
           } catch { /* noop */ }
         }
       }
@@ -844,7 +840,7 @@ function ScratchPad({ userId }: { userId: string | null }) {
   }
 
   function persistText(val: string) {
-    try { localStorage.setItem(SCRATCH_PAD_KEY, val) } catch { /* noop */ }
+    if (userId) try { localStorage.setItem(scratchPadKey(userId), val) } catch { /* noop */ }
     if (!userId) return
     setSyncStatus('syncing')
     if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
@@ -855,7 +851,7 @@ function ScratchPad({ userId }: { userId: string | null }) {
   }
 
   function persistItems(next: CheckItem[]) {
-    saveList(next)
+    if (userId) try { localStorage.setItem(scratchListKey(userId), JSON.stringify(next)) } catch { /* noop */ }
     if (!userId) return
     setSyncStatus('syncing')
     if (saveListTimer.current) clearTimeout(saveListTimer.current)
