@@ -282,7 +282,7 @@ export default function MobileJobList({
       </div>
 
       {/* Job rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div data-tutorial="job-rows" className="flex-1 overflow-y-auto">
         {jobs.length === 0 ? (
           <div className="flex items-center justify-center h-32">
             <span className="font-pixel text-[10px] text-muted">NO ENTRIES</span>

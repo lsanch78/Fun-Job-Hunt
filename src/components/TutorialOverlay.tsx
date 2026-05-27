@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { isSfxMuted, playBootBlip, playExitBlip } from '@/lib/sfx'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -116,16 +117,13 @@ function playPage(dir: 'forward' | 'back' = 'forward') {
 
 // ── Arrow geometry ────────────────────────────────────────────────────────────
 
-// Fixed card dimensions
-const CARD_W = 638
-const CARD_H = 488
-
 // Given the card center and the spotlight rect midpoint, compute:
 // - start point on the card edge (closest edge)
 // - end point near the spotlight rect (with gap)
 function computeArrow(
   cardCx: number, cardCy: number,
   rect: DOMRect,
+  cardW: number, cardH: number,
 ): { x1: number; y1: number; x2: number; y2: number } | null {
   const PAD = 10
   const targetCx = rect.left + rect.width / 2
@@ -135,8 +133,8 @@ function computeArrow(
   const dy = targetCy - cardCy
 
   // Card half-dims
-  const hw = CARD_W / 2
-  const hh = CARD_H / 2
+  const hw = cardW / 2
+  const hh = cardH / 2
 
   // Find intersection of ray from card center to target with card border
   let x1: number, y1: number
@@ -175,6 +173,7 @@ interface Props {
 }
 
 export default function TutorialOverlay({ onDone }: Props) {
+  const isMobile = useIsMobile()
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -232,13 +231,17 @@ export default function TutorialOverlay({ onDone }: Props) {
   const vw = window.innerWidth
   const vh = window.innerHeight
 
-  // Card is always centered
-  const cardLeft = (vw - CARD_W) / 2
-  const cardTop  = (vh - CARD_H) / 2
-  const cardCx   = cardLeft + CARD_W / 2
-  const cardCy   = cardTop  + CARD_H / 2
+  // Responsive card dimensions
+  const cardW = isMobile ? Math.min(vw - 24, 360) : 638
+  const cardH = isMobile ? Math.min(vh - 80, 460) : 488
 
-  const arrow = rect ? computeArrow(cardCx, cardCy, rect) : null
+  // Card is always centered
+  const cardLeft = (vw - cardW) / 2
+  const cardTop  = (vh - cardH) / 2
+  const cardCx   = cardLeft + cardW / 2
+  const cardCy   = cardTop  + cardH / 2
+
+  const arrow = rect ? computeArrow(cardCx, cardCy, rect, cardW, cardH) : null
 
   const current = STEPS[step]
 
@@ -264,7 +267,7 @@ export default function TutorialOverlay({ onDone }: Props) {
               />
             )}
             {/* Card hole — keep card area unmasked so card is always visible */}
-            <rect x={cardLeft} y={cardTop} width={CARD_W} height={CARD_H} fill="black" />
+            <rect x={cardLeft} y={cardTop} width={cardW} height={cardH} fill="black" />
           </mask>
         </defs>
 
@@ -326,8 +329,8 @@ export default function TutorialOverlay({ onDone }: Props) {
         className="fixed flex flex-col"
         style={{
           zIndex: 10000,
-          width:  CARD_W,
-          height: CARD_H,
+          width:  cardW,
+          height: cardH,
           top:    cardTop,
           left:   cardLeft,
           background: 'var(--color-bg)',
@@ -367,7 +370,7 @@ export default function TutorialOverlay({ onDone }: Props) {
         </div>
 
         {/* Body */}
-        <div className="px-5 pt-4 pb-2 flex flex-col gap-3 flex-1 min-h-0">
+        <div className="px-5 pt-4 pb-2 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
           {/* Step counter — pixel font, small */}
           <p className="font-pixel text-[7px] text-muted tracking-widest">
             STEP {step + 1} / {STEPS.length}
@@ -416,7 +419,7 @@ export default function TutorialOverlay({ onDone }: Props) {
             style={{
               color: 'var(--color-muted)',
               border: '1px solid var(--color-border)',
-              padding: '3px 7px',
+              padding: isMobile ? '8px 14px' : '3px 7px',
             }}
           >
             SKIP
@@ -434,7 +437,7 @@ export default function TutorialOverlay({ onDone }: Props) {
                 style={{
                   color: 'var(--color-muted)',
                   border: '1px solid var(--color-border)',
-                  padding: '3px 7px',
+                  padding: isMobile ? '8px 14px' : '3px 7px',
                 }}
               >
                 ◀ BACK
@@ -446,7 +449,7 @@ export default function TutorialOverlay({ onDone }: Props) {
               style={{
                 color: 'var(--color-bg)',
                 background: 'var(--color-primary)',
-                padding: '3px 9px',
+                padding: isMobile ? '8px 16px' : '3px 9px',
               }}
             >
               {step < STEPS.length - 1 ? 'NEXT ▶' : 'DONE ✓'}

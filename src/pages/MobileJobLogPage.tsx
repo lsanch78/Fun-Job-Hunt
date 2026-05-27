@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { Job, JobStatus } from '@/types'
 import {
   readCache, writeCache, fetchJobs, insertJob, updateJob, deleteJobs,
@@ -6,6 +7,8 @@ import {
 } from '@/services/jobService'
 import AppDetailCard from '@/components/AppDetailCard'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
+import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
+import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 
 // ── Shared helpers (mirrors JobLogPage, not exported from there) ──────────────
 type SortField = 'company' | 'date' | 'status'
@@ -72,6 +75,7 @@ export default function MobileJobLogPage({
   userId: string | null
   userName?: string | null
 }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [jobs, setJobs] = useState<Job[]>(() => userId ? readCache(userId) : [])
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortState | null>(null)
@@ -82,6 +86,7 @@ export default function MobileJobLogPage({
   })
   const [page, setPage] = useState(1)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  const [showTutorial, setShowTutorial] = useState(false)
 
   // Quick-add overlay state
   const [addOpen, setAddOpen] = useState(false)
@@ -96,6 +101,28 @@ export default function MobileJobLogPage({
   useEffect(() => {
     return () => { updateTimers.current.forEach((t) => clearTimeout(t)); updateTimers.current.clear() }
   }, [])
+
+  // Broadcast tutorial active state to NavBar
+  useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
+
+  // Open tutorial if navigated here with ?tutorial=1
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setShowTutorial(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Register tutorial trigger + auto-show on first visit
+  useEffect(() => {
+    registerTutorialTrigger(() => setShowTutorial(true))
+    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY) === 'true' } catch { return false } })()
+    if (!seen) {
+      const id = setTimeout(() => setShowTutorial(true), 800)
+      return () => { clearTimeout(id); unregisterTutorialTrigger() }
+    }
+    return () => { unregisterTutorialTrigger() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load from cache then hydrate from DB
   useEffect(() => {
@@ -288,6 +315,11 @@ export default function MobileJobLogPage({
           onChange={handleJobChange}
           fullScreen
         />
+      )}
+
+      {/* Tutorial overlay */}
+      {showTutorial && (
+        <TutorialOverlay onDone={() => setShowTutorial(false)} />
       )}
     </div>
   )
