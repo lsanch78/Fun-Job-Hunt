@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
+    "dompurify": "^3.4.7",
     "mammoth": "^1.12.0",
     "pdfjs-dist": "^5.7.284",
     "pixelarticons": "^2.1.1",
@@ -23,6 +24,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/dompurify": "^3.0.5",
     "@types/jest": "^30.0.0",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.2",
