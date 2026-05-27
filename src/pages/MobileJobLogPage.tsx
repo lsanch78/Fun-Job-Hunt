@@ -7,6 +7,7 @@ import {
 } from '@/services/jobService'
 import AppDetailCard from '@/components/AppDetailCard'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
+import MobileScratchPad from '@/components/MobileScratchPad'
 import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 
@@ -87,6 +88,7 @@ export default function MobileJobLogPage({
   const [page, setPage] = useState(1)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
+  const [showScratchPad, setShowScratchPad] = useState(false)
 
   // Quick-add overlay state
   const [addOpen, setAddOpen] = useState(false)
@@ -251,6 +253,21 @@ export default function MobileJobLogPage({
         totalCount={filteredJobs.length}
       />
 
+      {/* FAB — scratchpad */}
+      <button
+        onClick={() => setShowScratchPad(true)}
+        className="fixed bottom-[124px] right-4 z-[180] w-12 h-12 bg-surface text-primary flex items-center justify-center border-2 border-primary"
+        title="Open scratchpad"
+        aria-label="Open scratchpad"
+      >
+        <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1.5" y="1.5" width="9" height="9" rx="0.5" />
+          <line x1="3.5" y1="4" x2="8.5" y2="4" />
+          <line x1="3.5" y1="6" x2="8.5" y2="6" />
+          <line x1="3.5" y1="8" x2="6.5" y2="8" />
+        </svg>
+      </button>
+
       {/* FAB — log new application */}
       <button
         onClick={() => { setAddOpen(true); setAddError(null) }}
@@ -315,6 +332,11 @@ export default function MobileJobLogPage({
           onChange={handleJobChange}
           fullScreen
         />
+      )}
+
+      {/* Scratchpad overlay */}
+      {showScratchPad && (
+        <MobileScratchPad userId={userId} onClose={() => setShowScratchPad(false)} />
       )}
 
       {/* Tutorial overlay */}
