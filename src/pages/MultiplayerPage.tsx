@@ -5,8 +5,10 @@ import AppDetailCard from '@/components/AppDetailCard'
 import SearchBar from '@/components/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
-  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,
+  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact,
 } from '@/services/contactService'
+import { playDeleteBump, playTrash } from '@/lib/sfx'
+import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -20,6 +22,8 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [search, setSearch] = useState('')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  const [deleteMode, setDeleteMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -91,6 +95,28 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
     setJobsByContact(updated)
   }
 
+  function toggleDeleteMode() {
+    setDeleteMode((prev) => { if (!prev) playDeleteBump(); return !prev })
+    setSelected(new Set())
+  }
+
+  function handleToggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function handleDelete() {
+    const ids = [...selected]
+    playTrash(ids.length)
+    await Promise.all(ids.map((id) => deleteContact(id)))
+    setContacts((prev) => prev.filter((c) => !ids.includes(c.id)))
+    setSelected(new Set())
+    setDeleteMode(false)
+  }
+
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
     { key: 'status', label: 'STATUS' },
     { key: 'name',   label: 'NAME' },
@@ -135,6 +161,27 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-1 ml-auto">
+          {deleteMode && selected.size > 0 && (
+            <button
+              onClick={handleDelete}
+              className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:border-secondary hover:text-secondary transition-none"
+            >
+              DELETE {selected.size} CONTACT{selected.size !== 1 ? 'S' : ''}
+            </button>
+          )}
+          <button
+            onClick={toggleDeleteMode}
+            className={`text-[10px] px-2 py-0.5 border transition-none flex items-center gap-1 ${
+              deleteMode
+                ? 'border-warning text-warning hover:border-secondary hover:text-secondary'
+                : 'border-border text-muted hover:border-secondary hover:text-secondary'
+            }`}
+            title={deleteMode ? 'Cancel' : 'Delete mode'}
+          >
+            {deleteMode ? 'X' : <Trash width={12} height={12} />}
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
@@ -165,6 +212,9 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             onOpenDetail={setDetailContactId}
             jobsByContact={jobsByContact}
             onOpenJob={setDetailJobId}
+            deleteMode={deleteMode}
+            selected={selected}
+            onToggle={handleToggle}
           />
         )}
 

@@ -230,15 +230,29 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
-function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle }: {
   contact: Contact
   apps?: AppLink[]
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenJob?: (jobId: string) => void
+  deleteMode?: boolean
+  checked?: boolean
+  onToggle?: (id: string) => void
 }) {
   return (
     <tr className="border-b border-border hover:bg-surface/50 transition-colors">
+      {/* Delete checkbox */}
+      {deleteMode && (
+        <td className="px-2 py-1 w-6">
+          <input
+            type="checkbox"
+            checked={!!checked}
+            onChange={() => onToggle?.(contact.id)}
+            className="accent-warning cursor-pointer"
+          />
+        </td>
+      )}
       {/* Terminal icon */}
       <td className="px-2 py-1 w-6">
         <button
@@ -331,9 +345,12 @@ interface ContactListProps {
   jobsByContact?: Record<string, AppLink[]>
   onOpenJob?: (jobId: string) => void
   mobile?: boolean
+  deleteMode?: boolean
+  selected?: Set<string>
+  onToggle?: (id: string) => void
 }
 
-export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -359,6 +376,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-border text-primary text-left select-none">
+            {deleteMode && <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
@@ -369,7 +387,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
         </thead>
         <tbody>
           {sorted.map((c) => (
-            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} />
+            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} />
           ))}
         </tbody>
       </table>
