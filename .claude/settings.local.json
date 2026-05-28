@@ -68,7 +68,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\src\" -Directory)",
       "Bash(gh pr *)",
       "Bash(git checkout *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

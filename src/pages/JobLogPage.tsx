@@ -142,6 +142,7 @@ function StatusCell({
     <td className="px-2 py-1 min-w-[120px]">
       <select
         tabIndex={-1}
+        aria-label="Application status"
         className={`${mutedSelect} ${STATUS_COLORS[status]}`}
         value={status}
         onChange={(e) => onStatusChange(e.target.value as JobStatus)}
@@ -186,6 +187,7 @@ function DateCell({ value, onChange }: { value: string; onChange: (v: string) =>
           ref={inputRef}
           tabIndex={-1}
           type="date"
+          aria-hidden="true"
           className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
           value={value}
           onChange={(e) => { onChange(e.target.value); setEditing(false) }}
@@ -441,6 +443,7 @@ const JobRow = forwardRef<JobRowHandle, {
           onClick={committed ? onOpenDetail : undefined}
           className={`flex-shrink-0 transition-colors ${committed ? 'text-muted hover:text-secondary cursor-pointer' : 'text-muted/30 cursor-default'}`}
           title={committed ? 'View application details' : undefined}
+          aria-label={committed ? 'View application details' : 'Application not yet logged'}
         >
           <Terminal width={22} height={22} />
         </button>
@@ -1524,8 +1527,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           </colgroup>
           <thead>
             <tr className="border-b border-border text-primary text-left select-none">
-              {deleteMode && <th className="px-2 py-2" />}
-              <th className="px-2 py-2 w-6" />
+              {deleteMode && <th className="px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
+              <th className="px-2 py-2 w-6" scope="col"><span className="sr-only">Details</span></th>
               {colConfig.filter((c) => c.visible).map((col) => (
                 <th
                   key={col.key}
@@ -1597,7 +1600,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                 </th>
               ))}
               {/* Commit-hint col */}
-              <th className="px-2 py-2 w-8" />
+              <th className="px-2 py-2 w-8" scope="col"><span className="sr-only">Save status</span></th>
             </tr>
           </thead>
           <tbody>

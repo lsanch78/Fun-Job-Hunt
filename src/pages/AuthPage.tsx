@@ -4,8 +4,32 @@ import { supabase } from '@/lib/supabase'
 import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
 import { startTerminalHum, playAuthBlip as playBlip } from '@/lib/sfx'
 
-type Screen = 'title' | 'email' | 'sent'
+type Screen = 'title' | 'email' | 'code'
 type AuthError = string | null
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: Record<string, unknown>) => void
+          prompt: () => void
+          cancel: () => void
+        }
+      }
+    }
+  }
+}
+
+async function generateNonce(): Promise<[string, string]> {
+  const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+  const encoded = new TextEncoder().encode(nonce)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
+  const hashedNonce = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+  return [nonce, hashedNonce]
+}
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -14,12 +38,14 @@ export default function AuthPage() {
   const [returningName, setReturningName] = useState<string | null>(null)
   const [email,         setEmail]         = useState('')
   const [stayLoggedIn,  setStayLoggedIn]  = useState(true)
+  const [otp,           setOtp]           = useState('')
   const [error,         setError]         = useState<AuthError>(null)
   const [loading,       setLoading]       = useState(false)
   const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
   const [soundOn,       setSoundOn]       = useState(() => localStorage.getItem('fjobhunt:auth_sound') === '1')
   const stopHumRef  = useRef<(() => void) | null>(null)
   const introRef    = useRef<HTMLAudioElement | null>(null)
+  const nonceRef    = useRef<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -43,8 +69,60 @@ export default function AuthPage() {
     return () => {
       stopHumRef.current?.()
       if (introRef.current) { introRef.current.pause(); introRef.current.src = '' }
+      window.google?.accounts.id.cancel()
     }
   }, [])
+
+  // Load Google GSI script and initialize One Tap when on the email screen
+  useEffect(() => {
+    if (screen !== 'email') return
+
+    const clientId = import.meta.env['VITE_GOOGLE_CLIENT_ID'] as string | undefined
+    if (!clientId) return
+
+    async function initOneTap() {
+      const [nonce, hashedNonce] = await generateNonce()
+      nonceRef.current = nonce
+
+      const scriptId = 'gsi-script'
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement('script')
+        script.id = scriptId
+        script.src = 'https://accounts.google.com/gsi/client'
+        script.async = true
+        script.defer = true
+        script.onload = () => setupOneTap(hashedNonce)
+        document.head.appendChild(script)
+      } else {
+        setupOneTap(hashedNonce)
+      }
+    }
+
+    function setupOneTap(hashedNonce: string) {
+      window.google?.accounts.id.initialize({
+        client_id: import.meta.env['VITE_GOOGLE_CLIENT_ID'],
+        callback: handleOneTapResponse,
+        nonce: hashedNonce,
+        use_fedcm_for_prompt: true,
+      })
+      window.google?.accounts.id.prompt()
+    }
+
+    initOneTap()
+  }, [screen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleOneTapResponse(response: { credential: string }) {
+    setError(null)
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential,
+      nonce: nonceRef.current ?? undefined,
+    })
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    navigate('/')
+  }
 
   function toggleSound() {
     if (soundOn) {
@@ -65,7 +143,6 @@ export default function AuthPage() {
   }
 
   function proceedFromTitle() {
-    // Start hum + intro here (first user gesture) if preference is on and not already running
     if (soundOn && !stopHumRef.current) {
       stopHumRef.current = startTerminalHum()
     }
@@ -89,7 +166,7 @@ export default function AuthPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  async function handleSendMagicLink(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -97,52 +174,42 @@ export default function AuthPage() {
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: window.location.origin + '/',
         data: { stayLoggedIn },
       },
     })
     setLoading(false)
     if (error) { setError(error.message); return }
-    setScreen('sent')
+    setScreen('code')
   }
 
-  async function handleOAuth(provider: 'google') {
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault()
     setError(null)
     setLoading(true)
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    })
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    navigate('/')
+  }
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
+  // Fallback: full-page redirect for browsers where One Tap is blocked
+  async function handleOAuthRedirect() {
+    setError(null)
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
         redirectTo: window.location.origin + '/auth/callback',
-        skipBrowserRedirect: true,
       },
     })
-
-    if (error || !data.url) {
-      setError(error?.message ?? 'OAuth failed')
+    if (error) {
+      setError(error.message)
       setLoading(false)
-      return
     }
-
-    const popup = window.open(data.url, 'oauth_popup', 'width=500,height=600,left=400,top=200')
-
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        listener.subscription.unsubscribe()
-        popup?.close()
-        setLoading(false)
-        navigate('/')
-      }
-    })
-
-    // Fallback: if user closes popup manually
-    const pollClosed = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(pollClosed)
-        listener.subscription.unsubscribe()
-        setLoading(false)
-      }
-    }, 500)
   }
 
   // ── Title screen ─────────────────────────────────────────────────────────────
@@ -161,7 +228,6 @@ export default function AuthPage() {
         ]
       : ['LOADING STATS...']
 
-    // Duplicate items so the scroll feels seamless
     const ticker = [...marqueeItems, ...marqueeItems].join('   ·   ')
 
     return (
@@ -228,28 +294,45 @@ export default function AuthPage() {
     )
   }
 
-  // ── Sent confirmation screen ──────────────────────────────────────────────────
-  if (screen === 'sent') {
+  // ── Code entry screen ─────────────────────────────────────────────────────────
+  if (screen === 'code') {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center font-pixel scanlines px-4">
         <div className="w-full max-w-sm">
+          <button
+            className="text-muted text-xs mb-8 hover:text-primary"
+            onClick={() => { setError(null); setOtp(''); setScreen('email') }}
+          >
+            &lt; BACK
+          </button>
+
           <h1 className="text-primary text-lg mb-2 tracking-widest">CHECK YOUR EMAIL</h1>
           <div className="border-b border-border mb-6" />
 
-          <p className="text-muted text-xs mb-4 leading-5">
-            MAGIC LINK SENT TO
-          </p>
-          <p className="text-primary text-xs mb-8 leading-5">{email.toUpperCase()}</p>
-          <p className="text-muted text-xs leading-5">
-            CLICK THE LINK IN YOUR EMAIL TO SIGN IN. YOU CAN CLOSE THIS TAB.
+          <p className="text-muted text-xs mb-6 leading-5">
+            ENTER THE 6-DIGIT CODE SENT TO{' '}
+            <span className="text-primary">{email.toUpperCase()}</span>
           </p>
 
-          <button
-            className="text-secondary text-xs mt-8 hover:text-primary"
-            onClick={() => { setError(null); setScreen('email') }}
-          >
-            &lt; SEND TO A DIFFERENT ADDRESS
-          </button>
+          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+            <Field
+              label="CODE"
+              type="text"
+              value={otp}
+              onChange={setOtp}
+              autoFocus
+            />
+
+            {error && <p className="text-red-500 text-xs leading-5">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
+            >
+              {loading ? 'VERIFYING...' : 'VERIFY CODE'}
+            </button>
+          </form>
         </div>
       </div>
     )
@@ -273,7 +356,7 @@ export default function AuthPage() {
         {/* OAuth */}
         <div className="flex flex-col gap-3 mb-8">
           <button
-            onClick={() => handleOAuth('google')}
+            onClick={handleOAuthRedirect}
             disabled={loading}
             className="w-full border border-border text-muted text-xs py-3 px-4 text-left hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
           >
@@ -287,8 +370,8 @@ export default function AuthPage() {
           <div className="flex-1 border-t border-border" />
         </div>
 
-        {/* Magic link email */}
-        <form onSubmit={handleSendMagicLink} className="flex flex-col gap-4">
+        {/* OTP email */}
+        <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
           <Field
             label="EMAIL"
             type="email"
@@ -314,7 +397,7 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full bg-primary text-bg text-xs py-3 mt-2 hover:opacity-90 disabled:opacity-40"
           >
-            {loading ? 'SENDING...' : 'SEND MAGIC LINK'}
+            {loading ? 'SENDING...' : 'SEND CODE'}
           </button>
         </form>
 

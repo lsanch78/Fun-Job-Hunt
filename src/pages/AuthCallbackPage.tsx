@@ -1,20 +1,15 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
-/**
- * Supabase OAuth popup callback page.
- * Supabase exchanges the `code` param automatically on load via its internal
- * detectSessionInUrl logic. We just need this page to exist so the popup lands
- * here, the session is written to localStorage, and the parent window's
- * onAuthStateChange fires. Then we close the popup.
- */
 export default function AuthCallbackPage() {
+  const navigate = useNavigate()
+
   useEffect(() => {
     supabase.auth.getSession().then(() => {
-      // Session is now set — close the popup so the parent can take over
-      window.close()
+      navigate('/', { replace: true })
     })
-  }, [])
+  }, [navigate])
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center font-pixel scanlines">

@@ -64,7 +64,7 @@ if (typeof document !== 'undefined' && !document.getElementById('qc-ai-ready-sty
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LINKS_KEY  = 'fjobhunt:quickcast:links'
+const LINKS_KEY  = (userId: string) => `fjobhunt:quickcast:links:${userId}`
 const MAX_SLOTS  = 8
 
 // Resume slot color palette — works across all themes
@@ -139,9 +139,9 @@ function renderIcon(key: string, size: number) {
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
-function loadLinks(): QuickCastSlot[] {
+function loadLinks(userId: string): QuickCastSlot[] {
   try {
-    const raw = localStorage.getItem(LINKS_KEY)
+    const raw = localStorage.getItem(LINKS_KEY(userId))
     if (raw) {
       const parsed = JSON.parse(raw) as QuickCastSlot[]
       if (Array.isArray(parsed)) return parsed.slice(0, MAX_SLOTS)
@@ -150,8 +150,8 @@ function loadLinks(): QuickCastSlot[] {
   return []
 }
 
-function saveLinks(links: QuickCastSlot[]): void {
-  try { localStorage.setItem(LINKS_KEY, JSON.stringify(links)) } catch { /* ignore */ }
+function saveLinks(userId: string, links: QuickCastSlot[]): void {
+  try { localStorage.setItem(LINKS_KEY(userId), JSON.stringify(links)) } catch { /* ignore */ }
 }
 
 // ── Icon picker sub-component ─────────────────────────────────────────────────
@@ -266,7 +266,7 @@ function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: Res
 
 export default function QuickCast() {
   // Link slots
-  const [links,        setLinks]        = useState<QuickCastSlot[]>(loadLinks)
+  const [links,        setLinks]        = useState<QuickCastSlot[]>([])
   const [userId,       setUserId]       = useState<string | null>(null)
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
@@ -307,6 +307,7 @@ export default function QuickCast() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
+      setLinks(loadLinks(user.id))
       dbFetchLinks(user.id).then((rows) => {
         if (rows.length > 0) {
           setLinks(rows.map((r) => ({ id: r.id, label: r.label, url: r.url, icon: r.icon })))
@@ -332,7 +333,7 @@ export default function QuickCast() {
   }, [])
 
   // Persist links to localStorage whenever they change
-  useEffect(() => { saveLinks(links) }, [links])
+  useEffect(() => { if (userId) saveLinks(userId, links) }, [userId, links])
 
   // Generating dots animation
   useEffect(() => {
