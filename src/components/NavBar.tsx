@@ -13,10 +13,12 @@ import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfile
 const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 
 const THEME_LABELS: Record<Theme, string> = {
-  terminal: 'TERMINAL',
-  nes:      'NES RPG',
-  gameboy:  'GAME BOY',
-  arcade:   'ARCADE',
+  terminal:     'TERMINAL',
+  nes:          'NES RPG',
+  gameboy:      'GAME BOY',
+  arcade:       'ARCADE',
+  highcontrast: 'HIGH CONTRAST',
+  custom:       'CUSTOM',
 }
 
 const NAV_LINKS = [

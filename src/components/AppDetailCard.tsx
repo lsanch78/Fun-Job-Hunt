@@ -2,67 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import type { Job } from '@/types'
 import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
+import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
-// ── Boot animation — injected once ───────────────────────────────────────────
-const BOOT_STYLE = `
-@keyframes console-boot {
-  0%   { opacity: 0; transform: scaleY(0.04) scaleX(0.98); filter: brightness(4); }
-  40%  { opacity: 1; transform: scaleY(1.08) scaleX(1);    filter: brightness(1.2); }
-  60%  { opacity: 1; transform: scaleY(0.97) scaleX(1);    filter: brightness(1); }
-  80%  { opacity: 1; transform: scaleY(1.01) scaleX(1);    filter: brightness(1); }
-  100% { opacity: 1; transform: scaleY(1)    scaleX(1);    filter: brightness(1); }
-}
-@keyframes crt-flicker {
-  0%   { filter: brightness(1)    opacity(1); }
-  18%  { filter: brightness(1)    opacity(1); }
-  19%  { filter: brightness(0.94) opacity(0.97); }
-  20%  { filter: brightness(1)    opacity(1); }
-  45%  { filter: brightness(1)    opacity(1); }
-  46%  { filter: brightness(0.97) opacity(0.98); }
-  47%  { filter: brightness(1.02) opacity(1); }
-  48%  { filter: brightness(1)    opacity(1); }
-  72%  { filter: brightness(1)    opacity(1); }
-  73%  { filter: brightness(0.96) opacity(0.98); }
-  74%  { filter: brightness(1)    opacity(1); }
-  100% { filter: brightness(1)    opacity(1); }
-}
-.crt-card {
-  position: relative;
-  overflow: hidden;
-}
-/* CRT glass highlight — convex bulge reflection */
-.crt-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 38%, rgba(57,255,20,0.04) 0%, rgba(255,255,255,0.015) 35%, transparent 65%);
-  pointer-events: none;
-  z-index: 10;
-  border-radius: inherit;
-}
-/* Scanlines */
-.crt-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
-  );
-  pointer-events: none;
-  z-index: 11;
-  border-radius: inherit;
-}
-`
-if (typeof document !== 'undefined' && !document.getElementById('console-boot-keyframes')) {
-  const el = document.createElement('style')
-  el.id = 'console-boot-keyframes'
-  el.textContent = BOOT_STYLE
-  document.head.appendChild(el)
-}
+ensureCrtStyles()
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AppDetailCardProps {
@@ -72,19 +14,6 @@ interface AppDetailCardProps {
   onChange: (updated: Job) => void
   fullScreen?: boolean
 }
-
-// Terminal palette — fixed regardless of app theme
-const T = {
-  green:     '#39ff14',
-  greenDim:  '#23a80d',
-  border:    '#2a2a2a',
-  borderHi:  '#39ff14',
-}
-
-// ── Field components ──────────────────────────────────────────────────────────
-const labelClass = 'text-[13px] tracking-widest uppercase mb-1 select-none'
-const inputClass = 'bg-transparent outline-none text-lg w-full px-1 py-0.5 leading-tight border-b'
-const textareaClass = `${inputClass} resize-none`
 
 // ── AppDetailCard ─────────────────────────────────────────────────────────────
 export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScreen = false }: AppDetailCardProps) {
@@ -111,14 +40,18 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
     return stopHum
   }, [])
 
-  // Escape to close
+  // Keyboard navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') handleClose()
+      if (e.key === 'Escape') { handleClose(); return }
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return
+      if (e.key === 'ArrowRight') { e.preventDefault(); goPage(1) }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); goPage(-1) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, page])
 
   // Reset to page 1 when navigating jobs
   useEffect(() => {
@@ -203,60 +136,61 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
         background: '#000',
         border: '1px solid #2a2a2a',
         color: '#39ff14',
-        textShadow: '0 0 4px rgba(57,255,20,0.25)',
+        textShadow: crtTextShadow,
         boxShadow: '0 0 8px 1px rgba(57,255,20,0.35), inset 0 0 10px 2px rgba(57,255,20,0.06)',
       }}>
         {/* ── Top bar ── */}
         <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-          <button onClick={() => goJob(-1)} disabled={!hasPrevJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base" style={{ color: T.greenDim }} title="Previous application">◀</button>
-          <span className="text-base tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green }}>
+          <button onClick={() => goJob(-1)} disabled={!hasPrevJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Previous application">◀</button>
+          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
           </span>
-          <button onClick={() => goJob(1)} disabled={!hasNextJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base" style={{ color: T.greenDim }} title="Next application">▶</button>
-          <span className="text-[13px] ml-2 select-none flex-shrink-0" style={{ color: T.greenDim }}>{page} / 2</span>
-          <button onClick={handleClose} className="w-10 h-10 text-lg flex items-center justify-center ml-1 flex-shrink-0 hover:opacity-60" style={{ color: T.greenDim }} title="Close (Esc)">✕</button>
+          <button onClick={() => goJob(1)} disabled={!hasNextJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Next application">▶</button>
+          <span className="ml-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>{page} / 2</span>
+          <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center ml-1 flex-shrink-0 hover:opacity-60" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Close (Esc)">✕</button>
         </div>
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-          {page === 1 ? (
-            <>
+          {page === 1 && (
+            <div className="flex-1 flex flex-col min-h-0 gap-4">
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Company</div>
-                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} value={job.company} maxLength={JOB_LIMITS.company} onChange={(e) => update('company', e.target.value)} placeholder="Company name" />
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.company} maxLength={JOB_LIMITS.company} onChange={(e) => update('company', e.target.value)} placeholder="Company name" />
               </div>
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Job Title</div>
-                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} value={job.title} maxLength={JOB_LIMITS.title} onChange={(e) => update('title', e.target.value)} placeholder="Role / position" />
-              </div>
-              <div>
-                <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
-                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={4} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.title} maxLength={JOB_LIMITS.title} onChange={(e) => update('title', e.target.value)} placeholder="Role / position" />
               </div>
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Contacts</div>
-                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={3} maxLength={JOB_LIMITS.contacts} value={job.contacts ?? ''} onChange={(e) => update('contacts', e.target.value)} placeholder="Recruiter, hiring manager, referral…" />
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} rows={3} maxLength={JOB_LIMITS.contacts} value={job.contacts ?? ''} onChange={(e) => update('contacts', e.target.value)} placeholder="Recruiter, hiring manager, referral…" />
               </div>
-            </>
-          ) : (
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…', 'Culture impressions…', 'Source / how you found it…', 'Resume version used…', 'Anything else…'].join('\n')} />
+              </div>
+            </div>
+          )}
+          {page === 2 && (
             <>
-              <div className="text-sm tracking-wide pb-2 select-none" style={{ color: T.greenDim, borderBottom: `1px solid ${T.border}` }}>
+              <div className="tracking-wide pb-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, borderBottom: `1px solid ${T.border}` }}>
                 {job.company || '—'}{job.title ? ` — ${job.title}` : ''}
               </div>
-              <div>
-                <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
-                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: '16px' }} rows={14} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…', 'Culture impressions…', 'Source / how you found it…', 'Resume version used…', 'Anything else…'].join('\n')} />
+              <div className="flex-1 flex flex-col">
+                <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1 }} rows={16} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
               </div>
             </>
           )}
         </div>
         {/* ── Page nav ── */}
         <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
-          <button onClick={() => goPage(-1)} disabled={page === 1} className="text-[15px] px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, border: `1px solid ${T.border}` }}>← PREV</button>
-          <button onClick={handleSave} disabled={saveState === 'saving' || detailsLoading} className="text-[15px] px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80" style={{ color: saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim, border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}` }} title={saveState === 'error' && saveError ? saveError : 'Save detail fields to database'}>
+          <button onClick={() => goPage(-1)} disabled={page === 1} className="px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>← PREV</button>
+          <button onClick={handleSave} disabled={saveState === 'saving' || detailsLoading} className="px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80" style={{ fontSize: CRT_FONT.btn, color: saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim, border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}` }} title={saveState === 'error' && saveError ? saveError : 'Save detail fields to database'}>
             {saveState === 'saving' ? '…' : saveState === 'saved' ? '✓ SAVED' : saveState === 'error' ? '✕ ERR' : 'SAVE'}
           </button>
-          <button onClick={() => goPage(1)} disabled={page === 2} className="text-[15px] px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, border: `1px solid ${T.border}` }}>NEXT →</button>
+          <button onClick={() => goPage(1)} disabled={page === 2} className="px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>NEXT →</button>
         </div>
       </div>
     )
@@ -272,28 +206,19 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
       {/* Card */}
       <div
         ref={cardRef}
-        className="crt-card flex flex-col w-[650px] max-w-[90vw] max-h-[85vh]"
+        className="crt-card flex flex-col w-[750px] max-w-[90vw]"
         style={{
+          height: 'min(92vh, 780px)',
           animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1, end) 0.35s infinite',
           fontFamily: '"VT323", monospace',
           background: '#000',
           border: '1px solid #2a2a2a',
           color: '#39ff14',
           borderRadius: '12px',
-          textShadow: '0 0 4px rgba(57,255,20,0.25)',
-          // Subtle 3D warp: card bows outward slightly like a convex CRT screen
+          textShadow: crtTextShadow,
           transform: 'rotateX(2deg) rotateY(0deg)',
           transformStyle: 'preserve-3d',
-          boxShadow: [
-            // tight outer ring to separate from backdrop
-            '0 0 0 1px #111',
-            // phosphor border glow
-            '0 0 8px 1px rgba(57,255,20,0.35)',
-            '0 0 28px 4px rgba(57,255,20,0.15)',
-            // heavy inset vignette — corners dark, center bright, sells the bulge
-            'inset 0 0 60px 30px rgba(0,0,0,0.70)',
-            'inset 0 0 10px 2px rgba(57,255,20,0.06)',
-          ].join(', '),
+          boxShadow: crtBoxShadow,
         }}
       >
         {/* ── Top bar ── */}
@@ -302,15 +227,15 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
           <button
             onClick={() => goJob(-1)}
             disabled={!hasPrevJob}
-            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base"
-            style={{ color: T.greenDim }}
+            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn }}
             title="Previous application"
           >
             ◀
           </button>
 
           {/* Title */}
-          <span className="text-base tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green }}>
+          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
           </span>
@@ -318,113 +243,93 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
           <button
             onClick={() => goJob(1)}
             disabled={!hasNextJob}
-            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1 text-base"
-            style={{ color: T.greenDim }}
+            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn }}
             title="Next application"
           >
             ▶
           </button>
 
           {/* Page indicator */}
-          <span className="text-[13px] ml-2 select-none flex-shrink-0" style={{ color: T.greenDim }}>
+          <span className="ml-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>
             {page} / 2
           </span>
 
           {/* Close */}
           <button
             onClick={handleClose}
-            className="text-base ml-2 leading-none flex-shrink-0 hover:opacity-60"
-            style={{ color: T.greenDim }}
+            className="ml-2 leading-none flex-shrink-0 hover:opacity-60"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn }}
             title="Close (Esc)"
           >
             ✕
           </button>
         </div>
 
-        {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-          {page === 1 ? (
-            <>
-              {/* Company */}
+        {/* ── Body — fixed height so all pages are the same size ── */}
+        <div className="flex-1 flex flex-col overflow-y-auto px-4 py-4 gap-4">
+          {page === 1 && (
+            <div className="flex-1 flex flex-col min-h-0 gap-4">
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Company</div>
-                <input
-                  className={inputClass}
-                  style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
-                  value={job.company}
-                  maxLength={JOB_LIMITS.company}
-                  onChange={(e) => update('company', e.target.value)}
-                  placeholder="Company name"
-                />
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.company} maxLength={JOB_LIMITS.company} onChange={(e) => update('company', e.target.value)} placeholder="Company name" />
               </div>
-
-              {/* Title */}
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Job Title</div>
-                <input
-                  className={inputClass}
-                  style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
-                  value={job.title}
-                  maxLength={JOB_LIMITS.title}
-                  onChange={(e) => update('title', e.target.value)}
-                  placeholder="Role / position"
-                />
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.title} maxLength={JOB_LIMITS.title} onChange={(e) => update('title', e.target.value)} placeholder="Role / position" />
               </div>
-
-              {/* Description */}
               <div>
-                <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
-                <textarea
-                  className={textareaClass}
-                  style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
-                  rows={4}
-                  maxLength={JOB_LIMITS.description}
-                  value={job.description ?? ''}
-                  onChange={(e) => update('description', e.target.value)}
-                  placeholder="Paste or summarize the job description…"
-                />
+                <div className={labelClass} style={{ color: T.greenDim }}>URL</div>
+                <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.postingUrl} maxLength={JOB_LIMITS.postingUrl} onChange={(e) => update('postingUrl', e.target.value)} placeholder="https://…" />
               </div>
-
-              {/* Contacts */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className={labelClass} style={{ color: T.greenDim }}>Status</div>
+                  <select
+                    className="bg-transparent outline-none w-full px-1 py-0.5 leading-tight border-b appearance-none cursor-pointer"
+                    style={{ color: T.green, borderColor: T.border, fontSize: CRT_FONT.body }}
+                    value={job.status}
+                    onChange={(e) => update('status', e.target.value as import('@/types').JobStatus)}
+                  >
+                    {(['APPLIED','PHONE_SCREEN','INTERVIEW','OFFER','REJECTED','GHOSTED','WITHDRAWN'] as const).map((s) => (
+                      <option key={s} value={s} style={{ background: T.bg, color: T.green }}>{s.replace('_', ' ')}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <div className={labelClass} style={{ color: T.greenDim }}>Date Applied</div>
+                  <input type="date" className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, colorScheme: 'dark' }} value={job.applicationDate} onChange={(e) => update('applicationDate', e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <div className={labelClass} style={{ color: T.greenDim }}>Rating (0–5)</div>
+                <div className="flex gap-2 mt-1">
+                  {[0,1,2,3,4,5].map((n) => (
+                    <button key={n} onClick={() => update('rating', n)} style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.body, color: job.rating === n ? T.bg : T.greenDim, background: job.rating === n ? T.green : 'transparent', border: `1px solid ${job.rating === n ? T.green : T.border}`, padding: '0 8px', cursor: 'pointer' }}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <div className={labelClass} style={{ color: T.greenDim }}>Contacts</div>
-                <textarea
-                  className={textareaClass}
-                  style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
-                  rows={3}
-                  maxLength={JOB_LIMITS.contacts}
-                  value={job.contacts ?? ''}
-                  onChange={(e) => update('contacts', e.target.value)}
-                  placeholder="Recruiter, hiring manager, referral…"
-                />
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} rows={2} maxLength={JOB_LIMITS.contacts} value={job.contacts ?? ''} onChange={(e) => update('contacts', e.target.value)} placeholder="Recruiter, hiring manager, referral…" />
               </div>
-            </>
-          ) : (
-            <>
-              {/* Context header */}
-              <div className="text-sm tracking-wide pb-2 select-none" style={{ color: T.greenDim, borderBottom: `1px solid ${T.border}` }}>
-                {job.company || '—'}
-                {job.title ? ` — ${job.title}` : ''}
-              </div>
-
-              {/* Notes */}
-              <div>
+              <div className="flex-1 flex flex-col min-h-0">
                 <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
-                <textarea
-                  className={textareaClass}
-                  style={{ color: T.green, borderColor: T.border, caretColor: T.green }}
-                  rows={14}
-                  maxLength={JOB_LIMITS.notes}
-                  value={job.notes ?? ''}
-                  onChange={(e) => update('notes', e.target.value)}
-                  placeholder={[
-                    'Interview rounds…',
-                    'Culture impressions…',
-                    'Source / how you found it…',
-                    'Resume version used…',
-                    'Anything else…',
-                  ].join('\n')}
-                />
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…','Culture impressions…','Source / how you found it…','Resume version used…','Anything else…'].join('\n')} />
+              </div>
+            </div>
+          )}
+
+          {page === 2 && (
+            <>
+              <div className="tracking-wide pb-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, borderBottom: `1px solid ${T.border}` }}>
+                {job.company || '—'}{job.title ? ` — ${job.title}` : ''}
+              </div>
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
+                <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
               </div>
             </>
           )}
@@ -435,18 +340,18 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
           <button
             onClick={() => goPage(-1)}
             disabled={page === 1}
-            className="text-[15px] px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
-            style={{ color: T.greenDim, border: `1px solid ${T.border}` }}
+            className="px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}
           >
             ← PREV
           </button>
 
-          {/* Save button */}
           <button
             onClick={handleSave}
             disabled={saveState === 'saving' || detailsLoading}
-            className="text-[15px] px-3 py-0.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80"
+            className="px-3 py-0.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80"
             style={{
+              fontSize: CRT_FONT.btn,
               color:  saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim,
               border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}`,
             }}
@@ -458,8 +363,8 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
           <button
             onClick={() => goPage(1)}
             disabled={page === 2}
-            className="text-[15px] px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
-            style={{ color: T.greenDim, border: `1px solid ${T.border}` }}
+            className="px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}
           >
             NEXT →
           </button>

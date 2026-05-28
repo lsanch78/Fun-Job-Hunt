@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
 import { fetchModels, streamCompletion, getAiProvider, fetchUsage, type AiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
@@ -6,74 +7,10 @@ import { useSubscription } from '@/lib/SubscriptionContext'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
+import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
-// ── CRT styles — injected once, mirrors AppDetailCard ────────────────────────
-const CRT_STYLE = `
-@keyframes ai-console-boot {
-  0%   { opacity: 0; transform: scaleY(0.04) scaleX(0.98); filter: brightness(4); }
-  40%  { opacity: 1; transform: scaleY(1.08) scaleX(1);    filter: brightness(1.2); }
-  60%  { opacity: 1; transform: scaleY(0.97) scaleX(1);    filter: brightness(1); }
-  80%  { opacity: 1; transform: scaleY(1.01) scaleX(1);    filter: brightness(1); }
-  100% { opacity: 1; transform: scaleY(1)    scaleX(1);    filter: brightness(1); }
-}
-@keyframes ai-crt-flicker {
-  0%   { filter: brightness(1)    opacity(1); }
-  18%  { filter: brightness(1)    opacity(1); }
-  19%  { filter: brightness(0.94) opacity(0.97); }
-  20%  { filter: brightness(1)    opacity(1); }
-  45%  { filter: brightness(1)    opacity(1); }
-  46%  { filter: brightness(0.97) opacity(0.98); }
-  47%  { filter: brightness(1.02) opacity(1); }
-  48%  { filter: brightness(1)    opacity(1); }
-  72%  { filter: brightness(1)    opacity(1); }
-  73%  { filter: brightness(0.96) opacity(0.98); }
-  74%  { filter: brightness(1)    opacity(1); }
-  100% { filter: brightness(1)    opacity(1); }
-}
-.ai-crt-panel {
-  position: relative;
-  overflow: hidden;
-}
-.ai-crt-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 38%, rgba(57,255,20,0.04) 0%, rgba(255,255,255,0.015) 35%, transparent 65%);
-  pointer-events: none;
-  z-index: 10;
-  border-radius: inherit;
-}
-.ai-crt-panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.18) 2px,
-    rgba(0,0,0,0.18) 4px
-  );
-  pointer-events: none;
-  z-index: 11;
-  border-radius: inherit;
-}
-`
-if (typeof document !== 'undefined' && !document.getElementById('ai-crt-keyframes')) {
-  const el = document.createElement('style')
-  el.id = 'ai-crt-keyframes'
-  el.textContent = CRT_STYLE
-  document.head.appendChild(el)
-}
+ensureCrtStyles()
 
-// ── Terminal palette — fixed, mirrors AppDetailCard ───────────────────────────
-const T = {
-  green:    '#39ff14',
-  greenDim: '#23a80d',
-  border:   '#2a2a2a',
-  warn:     '#ff9900',
-  bg:       '#000',
-}
 
 // ── Slot accent colors (mirrors QuickCast) ────────────────────────────────────
 const SLOT_COLORS: Record<ResumeSlot, string> = {
@@ -107,7 +44,7 @@ const termInput: React.CSSProperties = {
   caretColor: T.green,
   outline: 'none',
   fontFamily: '"VT323", monospace',
-  fontSize: '15px',
+  fontSize: CRT_FONT.body,
   width: '100%',
   padding: '2px 4px',
   resize: 'none' as const,
@@ -126,7 +63,7 @@ function termBtn(active: boolean, color?: string): React.CSSProperties {
   const c = color ?? (active ? T.green : T.greenDim)
   return {
     fontFamily: '"VT323", monospace',
-    fontSize: '14px',
+    fontSize: CRT_FONT.btn,
     color: active ? T.bg : c,
     background: active ? c : 'transparent',
     border: `1px solid ${active ? c : T.border}`,
@@ -139,7 +76,7 @@ function termBtn(active: boolean, color?: string): React.CSSProperties {
 const labelStyle: React.CSSProperties = {
   color: T.greenDim,
   fontFamily: '"VT323", monospace',
-  fontSize: '13px',
+  fontSize: CRT_FONT.label,
   letterSpacing: '0.1em',
   textTransform: 'uppercase',
   marginBottom: '2px',
@@ -199,9 +136,11 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   const [provider,          setProvider]         = useState<AiProvider>(() => getAiProvider())
   const [usage,             setUsage]            = useState<{ count: number; limit: number } | null>(null)
   const [limitHit,          setLimitHit]         = useState(false)
+  const [ctxMenu,           setCtxMenu]          = useState<{ key: QuickKey; x: number; y: number } | null>(null)
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLPreElement>(null)
+  const ctxMenuRef = useRef<HTMLDivElement>(null)
 
   // ── Mount ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -240,6 +179,18 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [showInfo, editingQuick, view])
 
+  // Dismiss context menu on outside click
+  useEffect(() => {
+    if (!ctxMenu) return
+    function onDown(e: MouseEvent) {
+      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) {
+        setCtxMenu(null)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [ctxMenu])
+
   // Auto-scroll output as it streams
   useEffect(() => {
     if (outputRef.current) {
@@ -270,10 +221,6 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
     setPromptText(quickPromptText(key))
   }
 
-  function openGear(key: QuickKey) {
-    setDraftPrompt(quickPromptText(key))
-    setEditingQuick(key)
-  }
 
   function saveGear() {
     if (!editingQuick) return
@@ -376,22 +323,16 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
-      className="ai-crt-panel flex flex-col w-[525px]"
+      className="crt-card flex flex-col w-[620px]"
       style={{
-        animation: 'ai-console-boot 0.3s ease-out forwards, ai-crt-flicker 8s steps(1,end) 0.3s infinite',
+        animation: 'console-boot 0.3s ease-out forwards, crt-flicker 8s steps(1,end) 0.3s infinite',
         fontFamily: '"VT323", monospace',
         background: T.bg,
         border: `1px solid ${T.border}`,
         color: T.green,
         borderRadius: '8px',
-        textShadow: '0 0 4px rgba(57,255,20,0.25)',
-        boxShadow: [
-          '0 0 0 1px #111',
-          '0 0 8px 1px rgba(57,255,20,0.35)',
-          '0 0 28px 4px rgba(57,255,20,0.15)',
-          'inset 0 0 60px 30px rgba(0,0,0,0.70)',
-          'inset 0 0 10px 2px rgba(57,255,20,0.06)',
-        ].join(', '),
+        textShadow: crtTextShadow,
+        boxShadow: crtBoxShadow,
       }}
     >
       {/* Header */}
@@ -399,34 +340,34 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
         className="flex items-center justify-between px-4 py-2 flex-shrink-0"
         style={{ borderBottom: `1px solid ${T.border}` }}
       >
-        <span style={{ color: T.green, fontSize: '16px', letterSpacing: '0.08em' }}>
+        <span style={{ color: T.green, fontSize: CRT_FONT.sub, letterSpacing: '0.08em' }}>
           // AI RESUME ASSISTANT
         </span>
         <div className="flex items-center gap-3">
           {status === 'checking' && (
-            <span className="animate-pulse" style={{ color: T.greenDim, fontSize: '13px' }}>
+            <span className="animate-pulse" style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
               ○ CHECKING...
             </span>
           )}
           {status === 'connected' && (
-            <span style={{ color: T.greenDim, fontSize: '13px' }}>
+            <span style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
               <span style={{ color: T.green }}>●</span> CONNECTED
             </span>
           )}
           {status === 'not_connected' && (
-            <span style={{ color: T.greenDim, fontSize: '13px' }}>
+            <span style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
               <span style={{ color: T.warn }}>○</span> NO API KEY
             </span>
           )}
           <button
             onClick={() => setShowInfo(true)}
-            style={{ color: T.greenDim, fontSize: '13px', lineHeight: 1, background: 'none', border: `1px solid ${T.border}`, cursor: 'pointer', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"VT323", monospace' }}
+            style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, lineHeight: 1, background: 'none', border: `1px solid ${T.border}`, cursor: 'pointer', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"VT323", monospace' }}
           >
             ?
           </button>
           <button
             onClick={handleClose}
-            style={{ color: T.greenDim, fontSize: '16px', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
+            style={{ color: T.greenDim, fontSize: CRT_FONT.btn, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
           >
             ✕
           </button>
@@ -464,7 +405,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           <div>
             <div style={labelStyle}>Reference Resumes</div>
             {occupiedSlots.length === 0 ? (
-              <div style={{ color: T.warn, fontSize: '13px', lineHeight: '1.6' }}>
+              <div style={{ color: T.warn, fontSize: CRT_FONT.label, lineHeight: '1.6' }}>
                 <p>&gt; No resumes uploaded yet.</p>
                 <p>&gt; Look below at the <span style={{ color: T.green }}>Quick Cast</span> and upload</p>
                 <p>&gt; up to 3 resumes (A, B, C) so AI can reference your resume.</p>
@@ -479,7 +420,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
                       onClick={() => toggleSlot(slot)}
                       style={{
                         fontFamily: '"VT323", monospace',
-                        fontSize: '14px',
+                        fontSize: CRT_FONT.btn,
                         color: active ? T.bg : SLOT_COLORS[slot],
                         background: active ? SLOT_COLORS[slot] : 'transparent',
                         border: `1px solid ${active ? SLOT_COLORS[slot] : T.border}`,
@@ -510,7 +451,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
                   placeholder="Paste or type your resume info here..."
                   style={{ ...termTextarea, marginTop: '6px', display: 'block' }}
                 />
-                <div style={{ color: resumeTextInput.length >= 8000 ? T.warn : T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', textAlign: 'right', marginTop: '2px' }}>
+                <div style={{ color: resumeTextInput.length >= 8000 ? T.warn : T.greenDim, fontSize: CRT_FONT.btn, fontFamily: '"VT323", monospace', textAlign: 'right', marginTop: '2px' }}>
                   {resumeTextInput.length} / 8000
                 </div>
               </>
@@ -528,46 +469,28 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
               {/* Cover Letter */}
               <button
                 onClick={() => applyQuickPrompt('cover_letter')}
-                style={{ ...termBtn(false), fontSize: '13px' }}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ key: 'cover_letter', x: e.clientX, y: e.clientY }) }}
+                style={{ ...termBtn(false), fontSize: CRT_FONT.label }}
               >
                 COVER LETTER
-              </button>
-              <button
-                onClick={() => openGear('cover_letter')}
-                title="Customize cover letter prompt"
-                style={{ ...termBtn(false), fontSize: '12px', padding: '1px 6px' }}
-              >
-                ⚙
               </button>
 
               {/* Why This Job? */}
               <button
                 onClick={() => applyQuickPrompt('why_good_fit')}
-                style={{ ...termBtn(false), fontSize: '13px' }}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ key: 'why_good_fit', x: e.clientX, y: e.clientY }) }}
+                style={{ ...termBtn(false), fontSize: CRT_FONT.label }}
               >
                 WHY THIS JOB?
-              </button>
-              <button
-                onClick={() => openGear('why_good_fit')}
-                title="Customize why-good-fit prompt"
-                style={{ ...termBtn(false), fontSize: '12px', padding: '1px 6px' }}
-              >
-                ⚙
               </button>
 
               {/* Custom */}
               <button
                 onClick={() => applyQuickPrompt('custom')}
-                style={{ ...termBtn(false), fontSize: '13px' }}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ key: 'custom', x: e.clientX, y: e.clientY }) }}
+                style={{ ...termBtn(false), fontSize: CRT_FONT.label }}
               >
                 CUSTOM
-              </button>
-              <button
-                onClick={() => openGear('custom')}
-                title="Customize your custom prompt"
-                style={{ ...termBtn(false), fontSize: '12px', padding: '1px 6px' }}
-              >
-                ⚙
               </button>
             </div>
 
@@ -586,8 +509,8 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
                   autoFocus
                 />
                 <div className="flex gap-2 mt-2">
-                  <button onClick={saveGear} style={{ ...termBtn(true), fontSize: '13px' }}>SAVE</button>
-                  <button onClick={() => setEditingQuick(null)} style={{ ...termBtn(false), fontSize: '13px' }}>CANCEL</button>
+                  <button onClick={saveGear} style={{ ...termBtn(true), fontSize: CRT_FONT.label }}>SAVE</button>
+                  <button onClick={() => setEditingQuick(null)} style={{ ...termBtn(false), fontSize: CRT_FONT.label }}>CANCEL</button>
                 </div>
               </div>
             )}
@@ -634,11 +557,11 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
               <button onClick={handleClose} style={termBtn(false)}>CANCEL</button>
               {provider === 'proxy' && (
                 isSubscribed ? (
-                  <span style={{ color: T.greenDim, fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                  <span style={{ color: T.greenDim, fontSize: CRT_FONT.label, fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
                     Pro - Unlimited Use
                   </span>
                 ) : usage ? (
-                  <span style={{ fontSize: '12px', fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
+                  <span style={{ fontSize: CRT_FONT.label, fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
                     <span style={{ color: T.greenDim }}>{usage.count}/{usage.limit} uses left this month, </span>
                     <span
                       onClick={() => createCheckoutSession().catch(() => {})}
@@ -657,14 +580,14 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
       {/* ── OUTPUT VIEW ─────────────────────────────────────────────────────── */}
       {view === 'output' && (
         <div className="flex flex-col gap-3 px-4 py-3">
-          <div style={{ color: T.greenDim, fontSize: '13px', letterSpacing: '0.1em' }}>
+          <div style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
             {isStreaming ? '// GENERATING...' : '// OUTPUT'}
           </div>
           <pre
             ref={outputRef}
             style={{
               fontFamily: '"VT323", monospace',
-              fontSize: '14px',
+              fontSize: CRT_FONT.body,
               color: T.green,
               background: 'rgba(57,255,20,0.03)',
               border: `1px solid ${T.border}`,
@@ -695,7 +618,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           </div>
           {limitHit && provider === 'proxy' && (
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: '8px' }}>
-              <div style={{ color: T.warn, fontFamily: '"VT323", monospace', fontSize: '13px', marginBottom: '6px' }}>
+              <div style={{ color: T.warn, fontFamily: '"VT323", monospace', fontSize: CRT_FONT.label, marginBottom: '6px' }}>
                 // UPGRADE TO PRO — unlimited AI
               </div>
               <button
@@ -737,19 +660,19 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
               flexShrink: 0,
             }}
           >
-            <span style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: '13px', letterSpacing: '0.1em' }}>
+            <span style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
               // {provider === 'openai' ? 'OPENAI INFO' : provider === 'anthropic' ? 'ANTHROPIC INFO' : 'AI INFO'}
             </span>
             <button
               onClick={() => setShowInfo(false)}
-              style={{ color: T.greenDim, fontSize: '16px', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}
+              style={{ color: T.greenDim, fontSize: CRT_FONT.btn, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}
             >
               ✕
             </button>
           </div>
           {/* Dialog body */}
           <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1 }}>
-            <pre style={{ fontFamily: '"VT323", monospace', fontSize: '14px', color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+            <pre style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.body, color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
               {status === 'not_connected'
                 ? `> No API key configured.\n>\n> Go to Settings → AI ASSISTANT\n> and enter your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.\n>\n> Your key is stored locally in\n> your browser only — never sent\n> to our servers.`
                 : provider === 'proxy'
@@ -762,12 +685,58 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           <div style={{ padding: '8px 14px', borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
             <button
               onClick={() => setShowInfo(false)}
-              style={{ ...termBtn(false), fontSize: '13px' }}
+              style={{ ...termBtn(false), fontSize: CRT_FONT.label }}
             >
               CLOSE
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── CONTEXT MENU ────────────────────────────────────────────────────── */}
+      {ctxMenu && createPortal(
+        <div
+          ref={ctxMenuRef}
+          style={{
+            position: 'fixed',
+            top: ctxMenu.y,
+            left: ctxMenu.x,
+            zIndex: 300,
+            background: T.bg,
+            border: `1px solid ${T.border}`,
+            fontFamily: '"VT323", monospace',
+            minWidth: '140px',
+            boxShadow: '0 0 8px 1px rgba(57,255,20,0.25)',
+          }}
+        >
+          <div style={{ padding: '4px 10px', color: T.greenDim, fontSize: CRT_FONT.chrome, borderBottom: `1px solid ${T.border}`, userSelect: 'none' }}>
+            {ctxMenu.key === 'cover_letter' ? 'COVER LETTER' : ctxMenu.key === 'why_good_fit' ? 'WHY THIS JOB?' : 'CUSTOM'}
+          </div>
+          <button
+            onClick={() => {
+              setDraftPrompt(quickPromptText(ctxMenu.key))
+              setEditingQuick(ctxMenu.key)
+              setCtxMenu(null)
+            }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '4px 10px', color: T.green, fontSize: CRT_FONT.btn, background: 'none', border: 'none', cursor: 'pointer', fontFamily: '"VT323", monospace' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = T.border)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+          >
+            Edit prompt
+          </button>
+          <button
+            onClick={() => {
+              applyQuickPrompt(ctxMenu.key)
+              setCtxMenu(null)
+            }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '4px 10px', color: T.green, fontSize: CRT_FONT.btn, background: 'none', border: 'none', cursor: 'pointer', fontFamily: '"VT323", monospace' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = T.border)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+          >
+            Use prompt
+          </button>
+        </div>,
+        document.body
       )}
     </div>
   )

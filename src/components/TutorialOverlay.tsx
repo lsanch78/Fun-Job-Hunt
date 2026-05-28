@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { playBootBlip, playExitBlip, playTutorialPage as playPage } from '@/lib/sfx'
+import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
+
+ensureCrtStyles()
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
@@ -228,8 +231,8 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
   const vh = window.innerHeight
 
   // Responsive card dimensions
-  const cardW = mobileMode ? Math.min(vw - 24, 360) : 638
-  const cardH = mobileMode ? Math.min(vh - 80, 460) : 488
+  const cardW = mobileMode ? Math.min(vw - 24, 360) : 720
+  const cardH = mobileMode ? Math.min(vh - 80, 460) : 540
 
   // Card is always centered
   const cardLeft = (vw - cardW) / 2
@@ -320,28 +323,31 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
       </svg>
 
       {/* ── Card — always centered ── */}
+      <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 10000, pointerEvents: 'none' }}>
       <div
         ref={cardRef}
-        className="fixed flex flex-col"
+        className="crt-card flex flex-col"
         style={{
-          zIndex: 10000,
+          pointerEvents: 'auto',
           width:  cardW,
           height: cardH,
-          top:    cardTop,
-          left:   cardLeft,
-          background: 'var(--color-bg)',
-          border: '1px solid var(--color-primary)',
-          color:  'var(--color-primary)',
-          boxShadow: '0 0 0 1px var(--color-bg), 0 0 12px 3px color-mix(in srgb, var(--color-primary) 30%, transparent)',
+          fontFamily: '"VT323", monospace',
+          background: T.bg,
+          border: `1px solid ${T.border}`,
+          color: T.green,
+          borderRadius: '8px',
+          textShadow: crtTextShadow,
+          animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1,end) 0.35s infinite',
+          boxShadow: crtBoxShadow,
         }}
       >
-        {/* Header bar — pixel font */}
+        {/* Header bar */}
         <div
           className="px-5 py-2 flex items-center justify-between shrink-0"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
+          style={{ borderBottom: `1px solid ${T.border}` }}
         >
-          <span className="font-pixel text-[7px] tracking-widest text-muted">
-            TUTORIAL
+          <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, letterSpacing: '0.1em' }}>
+            // TUTORIAL
           </span>
           {/* Step dots */}
           <div className="flex items-center gap-1">
@@ -351,14 +357,14 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
                 style={{
                   display: 'inline-block',
                   width: 5, height: 5,
-                  background: i === step ? 'var(--color-primary)' : 'var(--color-border)',
+                  background: i === step ? T.green : T.border,
                 }}
               />
             ))}
           </div>
           <button
             onClick={handleSkip}
-            className="font-pixel text-[7px] text-muted hover:text-primary leading-none"
+            style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, background: 'none', border: 'none', cursor: 'pointer', fontFamily: '"VT323", monospace' }}
             title="Skip (Esc)"
           >
             ESC
@@ -367,34 +373,34 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
 
         {/* Body */}
         <div className="px-5 pt-4 pb-2 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
-          {/* Step counter — pixel font, small */}
-          <p className="font-pixel text-[7px] text-muted tracking-widest">
+          {/* Step counter */}
+          <p style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
             STEP {step + 1} / {activeSteps.length}
           </p>
 
-          {/* Title — pixel font */}
-          <p className="font-pixel text-[10px] tracking-widest leading-relaxed" style={{ color: 'var(--color-secondary)' }}>
+          {/* Title */}
+          <p style={{ color: T.green, fontSize: CRT_FONT.title, letterSpacing: '0.1em' }}>
             {current.title}
           </p>
 
-          {/* Subtitle — terminal font, muted */}
-          <p className="font-terminal text-lg tracking-widest text-muted leading-none">
+          {/* Subtitle */}
+          <p style={{ color: T.greenDim, fontSize: CRT_FONT.sub, letterSpacing: '0.08em' }}>
             {current.subtitle}
           </p>
 
           {/* Divider */}
-          <div style={{ height: 1, background: 'var(--color-border)', flexShrink: 0 }} />
+          <div style={{ height: 1, background: T.border, flexShrink: 0 }} />
 
-          {/* Body paragraphs — terminal font */}
+          {/* Body paragraphs */}
           <div className="flex flex-col gap-2 overflow-hidden">
             {current.body.map((para, i) => (
               <p
                 key={i}
-                className="font-terminal leading-snug"
                 style={{
-                  fontSize: '1.05rem',
-                  color: i === 0 ? 'var(--color-primary)' : 'var(--color-muted)',
-                  opacity: i === 0 ? 1 : 0.8,
+                  fontFamily: '"VT323", monospace',
+                  fontSize: CRT_FONT.body,
+                  color: i === 0 ? T.green : T.greenDim,
+                  opacity: i === 0 ? 1 : 0.85,
                   lineHeight: 1.4,
                 }}
               >
@@ -404,24 +410,28 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
           </div>
         </div>
 
-        {/* Footer — pixel font buttons */}
+        {/* Footer */}
         <div
           className="px-5 py-3 flex items-center gap-2 shrink-0"
-          style={{ borderTop: '1px solid var(--color-border)' }}
+          style={{ borderTop: `1px solid ${T.border}` }}
         >
           <button
             onClick={handleSkip}
-            className="font-pixel text-[7px] tracking-widest hover:opacity-70"
             style={{
-              color: 'var(--color-muted)',
-              border: '1px solid var(--color-border)',
-              padding: mobileMode ? '8px 14px' : '3px 7px',
+              fontFamily: '"VT323", monospace',
+              fontSize: CRT_FONT.btn,
+              color: T.greenDim,
+              background: 'transparent',
+              border: `1px solid ${T.border}`,
+              padding: mobileMode ? '6px 14px' : '1px 8px',
+              cursor: 'pointer',
+              letterSpacing: '0.05em',
             }}
           >
             SKIP
           </button>
 
-          <p className="font-terminal text-sm text-muted ml-1 leading-none hidden sm:block">
+          <p style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.btn, color: T.greenDim, marginLeft: '4px' }} className="hidden sm:block">
             space / enter
           </p>
 
@@ -429,11 +439,15 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
             {step > 0 && (
               <button
                 onClick={handleBack}
-                className="font-pixel text-[7px] tracking-widest hover:opacity-70"
                 style={{
-                  color: 'var(--color-muted)',
-                  border: '1px solid var(--color-border)',
-                  padding: mobileMode ? '8px 14px' : '3px 7px',
+                  fontFamily: '"VT323", monospace',
+                  fontSize: CRT_FONT.btn,
+                  color: T.greenDim,
+                  background: 'transparent',
+                  border: `1px solid ${T.border}`,
+                  padding: mobileMode ? '6px 14px' : '1px 8px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
                 }}
               >
                 ◀ BACK
@@ -441,17 +455,22 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
             )}
             <button
               onClick={handleNext}
-              className="font-pixel text-[7px] tracking-widest hover:opacity-80"
               style={{
-                color: 'var(--color-bg)',
-                background: 'var(--color-primary)',
-                padding: mobileMode ? '8px 16px' : '3px 9px',
+                fontFamily: '"VT323", monospace',
+                fontSize: CRT_FONT.btn,
+                color: T.bg,
+                background: T.green,
+                border: `1px solid ${T.green}`,
+                padding: mobileMode ? '6px 16px' : '1px 10px',
+                cursor: 'pointer',
+                letterSpacing: '0.05em',
               }}
             >
               {step < activeSteps.length - 1 ? 'NEXT ▶' : 'DONE ✓'}
             </button>
           </div>
         </div>
+      </div>
       </div>
     </>
   )
