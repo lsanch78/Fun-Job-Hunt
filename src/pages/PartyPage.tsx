@@ -7,15 +7,16 @@ import NetworkBackdrop from '@/components/NetworkBackdrop'
 import UniverseQuote from '@/components/UniverseQuote'
 import type { Contact, Job } from '@/types'
 import {
-  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact,
+  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
 } from '@/services/contactService'
 import { playDeleteBump, playTrash, playUniverseOpen, playUniverseClose } from '@/lib/sfx'
+import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function MultiplayerPage({ userId }: { userId: string | null }) {
+export default function PartyPage({ userId }: { userId: string | null }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
@@ -28,12 +29,25 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [universeView, setUniverseView] = useState(false)
   const [expOverrides, setExpOverrides] = useState<Record<string, number>>({})
+  const [cooldownHours, setCooldownHours] = useState(168)
   const [page, setPage] = useState(1)
   const [totalFiltered, setTotalFiltered] = useState(0)
   const PAGE_SIZE = 30
 
   useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && universeView) {
+        playUniverseClose()
+        setUniverseView(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [universeView])
+
+  useEffect(() => {
     if (!userId) { setLoading(false); return }
+    setCooldownHours(getCommCooldownHours(userId))
     Promise.all([
       fetchContactsWithJobs(userId),
       fetchJobs(userId),
@@ -41,6 +55,9 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
       setContacts(contacts)
       setJobsByContact(jobsByContact)
       setJobs(jobs)
+      const initial: Record<string, number> = {}
+      for (const c of contacts) { if (c.commExp > 0) initial[c.id] = c.commExp }
+      setExpOverrides(initial)
       setLoading(false)
     })
   }, [userId])
@@ -59,6 +76,8 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
       userId,
       name: '',
       lastInteractionAt: null,
+      commExp: 0,
+      lastCommAt: null,
       createdAt: new Date().toISOString(),
     }
     setContacts((prev) => [blank, ...prev])
@@ -84,8 +103,10 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
         email: contact.email,
         notes: contact.notes,
         lastInteractionAt: contact.lastInteractionAt,
+        commExp: 0,
+        lastCommAt: null,
       }, userId)
-      if (error) { console.error('[MultiplayerPage] insertContact:', error); return }
+      if (error) { console.error('[PartyPage] insertContact:', error); return }
       if (data) {
         await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
         setContacts((prev) => prev.map((c) => c.id === contact.id ? data : c))
@@ -142,7 +163,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
         <div>
-          <h1 className="text-sm tracking-widest">MULTIPLAYER</h1>
+          <h1 className="text-sm tracking-widest">PARTY</h1>
           <p className="text-muted text-xs mt-1">
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''} in your network`}
           </p>
@@ -262,7 +283,13 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             page={safePage}
             pageSize={PAGE_SIZE}
             onTotalFiltered={setTotalFiltered}
-            onExpChange={(id, exp) => setExpOverrides((prev) => ({ ...prev, [id]: exp }))}
+            cooldownHours={cooldownHours}
+            onExpChange={(id, exp) => {
+              const now = new Date().toISOString()
+              setContacts((prev) => prev.map((c) => c.id === id ? { ...c, commExp: exp, lastCommAt: now } : c))
+              setExpOverrides((prev) => ({ ...prev, [id]: exp }))
+              updateContactExp(id, exp)
+            }}
           />
 
           {/* Pagination */}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
+import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
 
 export type { Contact }
@@ -41,7 +42,7 @@ function getExpRank(exp: number): { level: number; title: string; barColor: stri
   return               { level: 0, title: 'Unknown',   barColor: '#555555' }
 }
 
-function ExpBar({ lastInteractionAt, commBonus = 0 }: { lastInteractionAt: string | null; commBonus?: number }) {
+function ExpBar({ commBonus = 0 }: { lastInteractionAt?: string | null; commBonus?: number }) {
   const { level, title, barColor } = getExpRank(commBonus)
   const displayPct = commBonus
   return (
@@ -143,20 +144,37 @@ if (typeof document !== 'undefined' && !document.getElementById('contact-xp-pop-
 
 const CONTACT_XP_PER_COMM = 5
 
-function PingButton({ contactId, onPing, onComm }: {
+function PingButton({ contactId, lastCommAt, cooldownHours, onPing, onComm }: {
   contactId: string
+  lastCommAt: string | null
+  cooldownHours: number
   onPing: (id: string) => void
   onComm: (x: number, y: number) => void
 }) {
   const [state, setState] = useState<'idle' | 'done'>('idle')
+  const [remaining, setRemaining] = useState(() => commCooldownRemaining(lastCommAt, cooldownHours))
   const btnRef = useRef<HTMLButtonElement>(null)
 
+  useEffect(() => {
+    setRemaining(commCooldownRemaining(lastCommAt, cooldownHours))
+    if (!lastCommAt) return
+    const interval = setInterval(() => {
+      const r = commCooldownRemaining(lastCommAt, cooldownHours)
+      setRemaining(r)
+      if (r <= 0) clearInterval(interval)
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [lastCommAt, cooldownHours])
+
+  const locked = remaining > 0
+
   function handleClick() {
-    if (state === 'done') return
+    if (state === 'done' || locked) return
     onPing(contactId)
     const rect = btnRef.current?.getBoundingClientRect()
     onComm(rect ? rect.left + rect.width / 2 : window.innerWidth / 2, rect ? rect.top : window.innerHeight / 2)
     setState('done')
+    setRemaining(cooldownHours)
     setTimeout(() => setState('idle'), 1500)
   }
 
@@ -164,13 +182,17 @@ function PingButton({ contactId, onPing, onComm }: {
     <button
       ref={btnRef}
       onClick={handleClick}
+      disabled={locked}
+      title={locked ? `Available in ${formatCooldown(remaining)}` : undefined}
       className={`font-pixel text-[8px] px-2 py-1 border whitespace-nowrap transition-none w-[60px]
-        ${state === 'done'
-          ? 'border-primary text-bg bg-primary'
-          : 'border-secondary text-secondary hover:border-primary hover:text-primary'
+        ${locked
+          ? 'border-border text-muted cursor-not-allowed'
+          : state === 'done'
+            ? 'border-primary text-bg bg-primary'
+            : 'border-secondary text-secondary hover:border-primary hover:text-primary'
         }`}
     >
-      COMM
+      {locked ? formatCooldown(remaining) : 'COMM'}
     </button>
   )
 }
@@ -282,7 +304,7 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
 
 interface ContactXpPopup { id: number; x: number; y: number }
 
-function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange }: {
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours }: {
   contact: Contact
   apps?: AppLink[]
   onPing: (id: string) => void
@@ -292,8 +314,9 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   checked?: boolean
   onToggle?: (id: string) => void
   onExpChange?: (id: string, exp: number) => void
+  cooldownHours: number
 }) {
-  const [commBonus, setCommBonus] = useState(0)
+  const [commBonus, setCommBonus] = useState(contact.commExp ?? 0)
   const [popups, setPopups] = useState<ContactXpPopup[]>([])
   const [maxPopup, setMaxPopup] = useState<{ x: number; y: number } | null>(null)
   const popupCounter = useRef(0)
@@ -402,7 +425,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
 
       {/* Comm */}
       <td className="px-2 py-1 w-[100px] text-right">
-        <PingButton contactId={contact.id} onPing={onPing} onComm={handleComm} />
+        <PingButton contactId={contact.id} lastCommAt={contact.lastCommAt} cooldownHours={cooldownHours} onPing={onPing} onComm={handleComm} />
       </td>
     </tr>
     </>
@@ -443,7 +466,7 @@ function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
         <div className="flex-1">
           <ExpBar lastInteractionAt={contact.lastInteractionAt} />
         </div>
-        <PingButton contactId={contact.id} onPing={onPing} onComm={() => {}} />
+        <PingButton contactId={contact.id} lastCommAt={contact.lastCommAt} cooldownHours={168} onPing={onPing} onComm={() => {}} />
       </div>
     </div>
   )
@@ -467,9 +490,10 @@ interface ContactListProps {
   pageSize?: number
   onTotalFiltered?: (n: number) => void
   onExpChange?: (id: string, exp: number) => void
+  cooldownHours?: number
 }
 
-export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168 }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -513,7 +537,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
         </thead>
         <tbody>
           {paged.map((c) => (
-            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} onExpChange={onExpChange} />
+            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} onExpChange={onExpChange} cooldownHours={cooldownHours} />
           ))}
         </tbody>
       </table>

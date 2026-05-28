@@ -1,0 +1,1 @@
+ALTER TABLE public.contacts ADD COLUMN comm_exp INT NOT NULL DEFAULT 0;

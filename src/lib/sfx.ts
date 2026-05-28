@@ -786,9 +786,9 @@ export function playAuthBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── MultiplayerPage ───────────────────────────────────────────────────────────
+// ── PartyPage ─────────────────────────────────────────────────────────────────
 
-/** Two-note rising blip for multiplayer nav: A4 → E5. */
+/** Two-note rising blip for party nav: A4 → E5. */
 export function playMultiplayerBlip(): void {
   if (isSfxMuted()) return
   try {

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
 import { fetchJobs, readCache } from '@/services/jobService'
-import type { Job } from '@/types'
+import { fetchContacts } from '@/services/contactService'
+import type { Job, Contact } from '@/types'
 import XpTracker from '@/components/XpTracker'
 import { calculateXp } from '@/services/xpService'
 
@@ -203,6 +204,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
   const [jobs, setJobs] = useState<Job[]>(() =>
     userId ? readCache(userId) : []
   )
+  const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(() =>
     userId ? readCache(userId).length === 0 && readWorkdayCache(userId).length === 0 : true
   )
@@ -211,13 +213,15 @@ export default function StatsPage({ userId }: { userId: string | null }) {
     if (!userId) { setLoading(false); return }
     let cancelled = false
     async function load() {
-      const [rows, jobRows] = await Promise.all([
+      const [rows, jobRows, contactRows] = await Promise.all([
         fetchWorkdays(userId!),
         fetchJobs(userId!),
+        fetchContacts(userId!),
       ])
       if (!cancelled) {
         setWorkdays(rows)
         setJobs(jobRows)
+        setContacts(contactRows)
         setLoading(false)
       }
     }
@@ -335,6 +339,26 @@ export default function StatsPage({ userId }: { userId: string | null }) {
     today.setHours(0, 0, 0, 0)
     return Math.floor((today.getTime() - last.getTime()) / 86_400_000)
   }, [jobs])
+
+  // ── Party ───────────────────────────────────────────────────────────────────
+  const totalContacts = contacts.length
+
+  const champCount    = useMemo(() => contacts.filter((c) => c.commExp >= 80).length, [contacts])
+  const allyCount     = useMemo(() => contacts.filter((c) => c.commExp >= 60 && c.commExp < 80).length, [contacts])
+  const avgCommExp    = useMemo(() => {
+    if (contacts.length === 0) return null
+    return Math.round(contacts.reduce((sum, c) => sum + c.commExp, 0) / contacts.length)
+  }, [contacts])
+
+  const mostActiveContact = useMemo(() => {
+    if (contacts.length === 0) return null
+    return contacts.reduce((best, c) => c.commExp > best.commExp ? c : best)
+  }, [contacts])
+
+  const contactsCommThisWeek = useMemo(() => {
+    const since = Date.now() - 7 * 86_400_000
+    return contacts.filter((c) => c.lastCommAt && new Date(c.lastCommAt).getTime() > since).length
+  }, [contacts])
 
   // ── Rank ────────────────────────────────────────────────────────────────────
   const xp = calculateXp(totalApps)
@@ -495,6 +519,45 @@ export default function StatsPage({ userId }: { userId: string | null }) {
           value={loading ? '...' : String(highConvictionCount)}
           sub="jobs rated 4+"
         />
+      </div>
+
+      {/* ── Row 6: Party ────────────────────────────────────────────────────── */}
+      <div className="px-6 pt-4 pb-0">
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">PARTY</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
+        <StatCard
+          label="CONTACTS"
+          value={loading ? '...' : String(totalContacts)}
+          sub="in your network"
+        />
+        <StatCard
+          label="COMMS THIS WEEK"
+          value={loading ? '...' : String(contactsCommThisWeek)}
+          sub="contacts reached"
+        />
+        <StatCard
+          label="AVG EXP"
+          value={loading ? '...' : avgCommExp === null ? '—' : String(avgCommExp)}
+          sub="across all contacts"
+        />
+        <StatCard
+          label="CHAMPIONS"
+          value={loading ? '...' : String(champCount)}
+          sub="80+ exp"
+        />
+        <StatCard
+          label="ALLIES"
+          value={loading ? '...' : String(allyCount)}
+          sub="60–79 exp"
+        />
+        {mostActiveContact && (
+          <StatCard
+            label="TOP CONTACT"
+            value={loading ? '...' : mostActiveContact.name}
+            sub={`${mostActiveContact.commExp} exp`}
+          />
+        )}
       </div>
 
       {/* ── Applications per day chart ───────────────────────────────────────── */}

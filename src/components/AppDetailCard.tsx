@@ -55,6 +55,8 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
       userId,
       name: '',
       lastInteractionAt: null,
+      commExp: 0,
+      lastCommAt: null,
       createdAt: new Date().toISOString(),
     })
   }
@@ -74,6 +76,8 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
         email: contact.email,
         notes: contact.notes,
         lastInteractionAt: contact.lastInteractionAt,
+        commExp: 0,
+        lastCommAt: null,
       }, userId)
       if (error) { console.error('[ContactsPanel] insertContact failed:', error); return }
       if (data) {

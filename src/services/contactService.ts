@@ -26,6 +26,8 @@ interface DbContact {
   email: string | null
   notes: string | null
   last_interaction_at: string | null
+  comm_exp: number
+  last_comm_at: string | null
   created_at: string
 }
 
@@ -42,6 +44,8 @@ function dbToContact(row: DbContact): Contact {
     email:              row.email       ?? undefined,
     notes:              row.notes       ?? undefined,
     lastInteractionAt:  row.last_interaction_at,
+    commExp:            row.comm_exp,
+    lastCommAt:         row.last_comm_at,
     createdAt:          row.created_at,
   }
 }
@@ -58,6 +62,8 @@ function contactToDbInsert(contact: Omit<Contact, 'id' | 'createdAt'>, userId: s
     email:               contact.email       ?? null,
     notes:               contact.notes       ?? null,
     last_interaction_at: contact.lastInteractionAt,
+    comm_exp:            contact.commExp ?? 0,
+    last_comm_at:        contact.lastCommAt ?? null,
   }
 }
 
@@ -215,6 +221,16 @@ export async function unlinkContactFromJob(contactId: string, jobId: string): Pr
     .eq('contact_id', contactId)
 
   if (error) console.error('[contactService] unlinkContactFromJob:', error.message)
+  return { error: error?.message ?? null }
+}
+
+export async function updateContactExp(id: string, exp: number): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('contacts')
+    .update({ comm_exp: Math.min(100, Math.max(0, exp)), last_comm_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) console.error('[contactService] updateContactExp:', error.message)
   return { error: error?.message ?? null }
 }
 

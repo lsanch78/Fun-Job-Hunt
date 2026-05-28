@@ -11,7 +11,7 @@ import { fetchJobs } from '@/services/jobService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function MobileMultiplayerPage({ userId }: { userId: string | null }) {
+export default function MobilePartyPage({ userId }: { userId: string | null }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
@@ -48,6 +48,8 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
       userId,
       name: '',
       lastInteractionAt: null,
+      commExp: 0,
+      lastCommAt: null,
       createdAt: new Date().toISOString(),
     }
     setContacts((prev) => [blank, ...prev])
@@ -73,8 +75,10 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
         email: contact.email,
         notes: contact.notes,
         lastInteractionAt: contact.lastInteractionAt,
+        commExp: 0,
+        lastCommAt: null,
       }, userId)
-      if (error) { console.error('[MobileMultiplayerPage] insertContact:', error); return }
+      if (error) { console.error('[MobilePartyPage] insertContact:', error); return }
       if (data) {
         await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
         setContacts((prev) => prev.map((c) => c.id === contact.id ? data : c))
@@ -103,7 +107,7 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div>
-          <h1 className="font-pixel text-xs tracking-widest">MULTIPLAYER</h1>
+          <h1 className="font-pixel text-xs tracking-widest">PARTY</h1>
           <p className="font-pixel text-[9px] text-muted mt-0.5">
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
           </p>

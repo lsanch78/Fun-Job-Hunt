@@ -58,6 +58,8 @@ export interface Contact {
   email?: string
   notes?: string
   lastInteractionAt: string | null
+  commExp: number
+  lastCommAt: string | null
   createdAt: string
 }
 

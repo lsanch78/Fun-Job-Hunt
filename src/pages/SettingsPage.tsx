@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
+import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { WORKDAY_KEYS } from '@/lib/workdayKeys'
 import { supabase } from '@/lib/supabase'
@@ -62,6 +63,7 @@ export default function SettingsPage() {
   const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
 
   const [userId,        setUserId]        = useState<string | null>(null)
+  const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
   const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
   const [aiApiKey,      setAiApiKeyState]  = useState<string>(() => getAiApiKey())
   const [apiKeyVisible, setApiKeyVisible]  = useState(false)
@@ -74,6 +76,7 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
+      setCommCooldown(getCommCooldownHours(user.id))
     })
     if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
   }, [])
@@ -262,6 +265,32 @@ export default function SettingsPage() {
               be marked Ghosted automatically when you open the job log.
             </p>
           )}
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-sm mb-6 text-secondary">PARTY</h2>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted text-xs mb-2">How often you can COMM a contact</p>
+          <div className="flex flex-wrap gap-2">
+            {COMM_COOLDOWN_OPTIONS.map((opt) => (
+              <button
+                key={opt.hours}
+                onClick={() => {
+                  if (!userId) return
+                  setCommCooldown(opt.hours)
+                  setCommCooldownHours(userId, opt.hours)
+                }}
+                className={`text-[10px] px-3 py-1.5 border transition-none
+                  ${commCooldown === opt.hours
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted hover:border-secondary hover:text-secondary'
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

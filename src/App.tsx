@@ -18,8 +18,8 @@ import ScratchPad from '@/components/ScratchPad'
 import type { Session } from '@supabase/supabase-js'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
-import MultiplayerPage from '@/pages/MultiplayerPage'
-import MobileMultiplayerPage from '@/pages/MobileMultiplayerPage'
+import PartyPage from '@/pages/PartyPage'
+import MobilePartyPage from '@/pages/MobilePartyPage'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
@@ -75,11 +75,11 @@ function ProtectedRoute({
   )
 }
 
-function MultiplayerRoute({ session }: { session: Session | null | undefined }) {
+function PartyRoute({ session }: { session: Session | null | undefined }) {
   const isMobile = useIsMobile()
   const userId = session?.user?.id ?? null
-  if (isMobile) return <MobileMultiplayerPage userId={userId} />
-  return <MultiplayerPage userId={userId} />
+  if (isMobile) return <MobilePartyPage userId={userId} />
+  return <PartyPage userId={userId} />
 }
 
 function JobLogRoute({ session }: { session: Session | null | undefined }) {
@@ -124,10 +124,10 @@ export default function App() {
             }
           />
           <Route
-            path="/multiplayer"
+            path="/party"
             element={
               <ProtectedRoute session={session}>
-                <MultiplayerRoute session={session} />
+                <PartyRoute session={session} />
               </ProtectedRoute>
             }
           />
