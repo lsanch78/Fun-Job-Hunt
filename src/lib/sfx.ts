@@ -799,19 +799,90 @@ export function playMultiplayerBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-/** Short ping confirm for logging a contact interaction. */
-export function playPingBlip(): void {
+/** Walkie-talkie radio squelch for logging a contact comm. Pass `exp` (0–100) to layer a pitch-scaled EXP fill tone. */
+export function playPingBlip(exp?: number): void {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
-    const osc = ctx.createOscillator(); const gain = ctx.createGain()
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(1046, ctx.currentTime)
-    gain.gain.setValueAtTime(0, ctx.currentTime)
-    gain.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.19)
+    const t0 = ctx.currentTime
+    const sr = ctx.sampleRate
+
+    // Initial squelch click
+    const clickLen = Math.ceil(sr * 0.012)
+    const clickBuf = ctx.createBuffer(1, clickLen, sr)
+    const cd = clickBuf.getChannelData(0)
+    for (let i = 0; i < clickLen; i++) cd[i] = Math.random() * 2 - 1
+    const clickSrc = ctx.createBufferSource(); clickSrc.buffer = clickBuf
+    const clickBp = ctx.createBiquadFilter(); clickBp.type = 'bandpass'; clickBp.frequency.value = 2400; clickBp.Q.value = 0.8
+    const clickGain = ctx.createGain()
+    clickGain.gain.setValueAtTime(0.35, t0); clickGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.012)
+    clickSrc.connect(clickBp); clickBp.connect(clickGain); clickGain.connect(ctx.destination)
+    clickSrc.start(t0); clickSrc.stop(t0 + 0.015)
+
+    // Main static burst (the kshhh)
+    const staticLen = Math.ceil(sr * 0.18)
+    const staticBuf = ctx.createBuffer(1, staticLen, sr)
+    const sd = staticBuf.getChannelData(0)
+    for (let i = 0; i < staticLen; i++) sd[i] = Math.random() * 2 - 1
+    const staticSrc = ctx.createBufferSource(); staticSrc.buffer = staticBuf
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1200
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4800
+    const staticGain = ctx.createGain()
+    const t1 = t0 + 0.008
+    staticGain.gain.setValueAtTime(0, t1)
+    staticGain.gain.linearRampToValueAtTime(0.28, t1 + 0.01)
+    staticGain.gain.setValueAtTime(0.28, t1 + 0.10)
+    staticGain.gain.exponentialRampToValueAtTime(0.001, t1 + 0.18)
+    staticSrc.connect(hp); hp.connect(lp); lp.connect(staticGain); staticGain.connect(ctx.destination)
+    staticSrc.start(t1); staticSrc.stop(t1 + 0.19)
+
+    // Tail squelch click at the end
+    const tailLen = Math.ceil(sr * 0.01)
+    const tailBuf = ctx.createBuffer(1, tailLen, sr)
+    const td = tailBuf.getChannelData(0)
+    for (let i = 0; i < tailLen; i++) td[i] = Math.random() * 2 - 1
+    const tailSrc = ctx.createBufferSource(); tailSrc.buffer = tailBuf
+    const tailBp = ctx.createBiquadFilter(); tailBp.type = 'bandpass'; tailBp.frequency.value = 2000; tailBp.Q.value = 1.0
+    const tailGain = ctx.createGain()
+    const t2 = t0 + 0.19
+    tailGain.gain.setValueAtTime(0.25, t2); tailGain.gain.exponentialRampToValueAtTime(0.001, t2 + 0.01)
+    tailSrc.connect(tailBp); tailBp.connect(tailGain); tailGain.connect(ctx.destination)
+    tailSrc.start(t2); tailSrc.stop(t2 + 0.012)
+
+    // EXP fill tone — sine wave, pitch-scaled by EXP, smooth tube-like swell
+    if (exp !== undefined) {
+      const fillT = t0 + 0.21
+      const fillDur = 0.55
+      const fillFreq = 180 * Math.pow(400 / 180, Math.max(0, Math.min(1, exp / 100)))
+      const fillOsc = ctx.createOscillator(); fillOsc.type = 'sine'
+      fillOsc.frequency.setValueAtTime(fillFreq, fillT)
+      fillOsc.frequency.exponentialRampToValueAtTime(exp >= 100 ? 783.99 : fillFreq * 1.25, fillT + fillDur)
+      const fillGain = ctx.createGain()
+      fillGain.gain.setValueAtTime(0, fillT)
+      fillGain.gain.linearRampToValueAtTime(0.07, fillT + 0.08)
+      fillGain.gain.setValueAtTime(0.07, fillT + fillDur - 0.08)
+      fillGain.gain.linearRampToValueAtTime(0, fillT + fillDur)
+      fillOsc.connect(fillGain); fillGain.connect(ctx.destination)
+      fillOsc.start(fillT); fillOsc.stop(fillT + fillDur + 0.01)
+
+      if (exp >= 100) {
+        const pingT = fillT + fillDur + 0.05
+        const pingNotes = [783.99, 1046.5]
+        pingNotes.forEach((freq, i) => {
+          const osc = ctx.createOscillator(); osc.type = 'sine'
+          const gain = ctx.createGain()
+          osc.frequency.setValueAtTime(freq, pingT + i * 0.13)
+          gain.gain.setValueAtTime(0, pingT + i * 0.13)
+          gain.gain.linearRampToValueAtTime(0.12, pingT + i * 0.13 + 0.01)
+          gain.gain.setValueAtTime(0.12, pingT + i * 0.13 + 0.08)
+          gain.gain.linearRampToValueAtTime(0, pingT + i * 0.13 + 0.28)
+          osc.connect(gain); gain.connect(ctx.destination)
+          osc.start(pingT + i * 0.13); osc.stop(pingT + i * 0.13 + 0.3)
+        })
+      }
+    }
+
+    setTimeout(() => ctx.close(), exp !== undefined && exp >= 100 ? 1400 : 850)
   } catch { /* AudioContext blocked */ }
 }
 

@@ -108,9 +108,10 @@ interface Props {
   contacts: Contact[]
   jobsByContact: Record<string, { id: string; title: string; company: string }[]>
   expanded?: boolean
+  expOverrides?: Record<string, number>
 }
 
-export default function NetworkBackdrop({ contacts, jobsByContact, expanded = false }: Props) {
+export default function NetworkBackdrop({ contacts, jobsByContact, expanded = false, expOverrides = {} }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dims, setDims] = useState({ w: 0, h: 0 })
   const [renderNodes, setRenderNodes] = useState<RenderNode[]>([])
@@ -173,7 +174,7 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
     desiredNodes.push({ id: '__user__', kind: 'user', exp: 100, color: '#eab308', radius: 10 })
 
     for (const contact of contacts) {
-      const exp = computeExp(contact.lastInteractionAt)
+      const exp = expOverrides[contact.id] ?? computeExp(contact.lastInteractionAt)
       desiredNodes.push({ id: contact.id, kind: 'contact', exp, color: expToColor(exp), radius: 5 })
       desiredLinks.push({ id: `u-${contact.id}`, sourceId: '__user__', targetId: contact.id, source: '__user__', target: contact.id, exp })
 
@@ -187,7 +188,7 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
     }
 
     return { desiredNodes, desiredLinks }
-  }, [contacts, jobsByContact])
+  }, [contacts, jobsByContact, expOverrides])
 
   // Bootstrap the sim once we have dimensions
   useEffect(() => {

@@ -32,17 +32,24 @@ function computeExp(lastInteractionAt: string | null): ExpInfo {
 
 // ── ExpBar ────────────────────────────────────────────────────────────────────
 
-function ExpBar({ lastInteractionAt }: { lastInteractionAt: string | null }) {
-  const { pct, barColor, daysAgo } = computeExp(lastInteractionAt)
-  const hasHistory = daysAgo !== null
-  const level = hasHistory ? 5 : 1
-  const title = hasHistory ? 'Ally' : 'Prospect'
+function getExpRank(exp: number): { level: number; title: string; barColor: string } {
+  if (exp >= 80) return { level: 5, title: 'Champion',  barColor: '#22c55e' }
+  if (exp >= 60) return { level: 4, title: 'Ally',      barColor: '#84cc16' }
+  if (exp >= 40) return { level: 3, title: 'Contact',   barColor: '#eab308' }
+  if (exp >= 20) return { level: 2, title: 'Prospect',  barColor: '#f97316' }
+  if (exp > 0)   return { level: 1, title: 'Stranger',  barColor: '#ef4444' }
+  return               { level: 0, title: 'Unknown',   barColor: '#555555' }
+}
+
+function ExpBar({ lastInteractionAt, commBonus = 0 }: { lastInteractionAt: string | null; commBonus?: number }) {
+  const { level, title, barColor } = getExpRank(commBonus)
+  const displayPct = commBonus
   return (
     <div className="flex flex-col gap-1 w-full">
       <div className="h-1.5 w-full bg-border overflow-hidden">
         <div
-          className="h-full transition-none"
-          style={{ width: `${pct}%`, backgroundColor: barColor }}
+          className="h-full"
+          style={{ width: `${displayPct}%`, backgroundColor: barColor, transition: 'width 400ms ease' }}
         />
       </div>
       <span className="font-pixel text-[9px] text-muted leading-none flex flex-col">
@@ -109,29 +116,61 @@ function SocialIcons({ contact }: { contact: Contact }) {
   )
 }
 
-// ── PingButton ────────────────────────────────────────────────────────────────
+// ── Comm XP popup keyframes (injected once) ───────────────────────────────────
 
-function PingButton({ contactId, onPing }: { contactId: string; onPing: (id: string) => void }) {
+const CONTACT_XP_STYLE = `
+@keyframes contact-xp-pop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0px)   scale(0.7); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(-12px) scale(1.2); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-36px) scale(1.05); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-58px) scale(0.95); }
+}
+@keyframes contact-xp-max {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0px)  scale(0.5); }
+  20%  { opacity: 1; transform: translateX(-50%) translateY(-18px) scale(1.4); }
+  60%  { opacity: 1; transform: translateX(-50%) translateY(-44px) scale(1.1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-72px) scale(1.0); }
+}
+`
+if (typeof document !== 'undefined' && !document.getElementById('contact-xp-pop-keyframes')) {
+  const el = document.createElement('style')
+  el.id = 'contact-xp-pop-keyframes'
+  el.textContent = CONTACT_XP_STYLE
+  document.head.appendChild(el)
+}
+
+// ── CommButton ────────────────────────────────────────────────────────────────
+
+const CONTACT_XP_PER_COMM = 5
+
+function PingButton({ contactId, onPing, onComm }: {
+  contactId: string
+  onPing: (id: string) => void
+  onComm: (x: number, y: number) => void
+}) {
   const [state, setState] = useState<'idle' | 'done'>('idle')
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   function handleClick() {
     if (state === 'done') return
-    playPingBlip()
     onPing(contactId)
+    const rect = btnRef.current?.getBoundingClientRect()
+    onComm(rect ? rect.left + rect.width / 2 : window.innerWidth / 2, rect ? rect.top : window.innerHeight / 2)
     setState('done')
     setTimeout(() => setState('idle'), 1500)
   }
 
   return (
     <button
+      ref={btnRef}
       onClick={handleClick}
-      className={`font-pixel text-[8px] px-2 py-1 border whitespace-nowrap transition-none
+      className={`font-pixel text-[8px] px-2 py-1 border whitespace-nowrap transition-none w-[60px]
         ${state === 'done'
           ? 'border-primary text-bg bg-primary'
-          : 'border-secondary text-secondary hover:bg-secondary hover:text-bg'
+          : 'border-secondary text-secondary hover:border-primary hover:text-primary'
         }`}
     >
-      {state === 'done' ? '✓ PINGED!' : '✓ PING'}
+      COMM
     </button>
   )
 }
@@ -241,7 +280,9 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
-function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle }: {
+interface ContactXpPopup { id: number; x: number; y: number }
+
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange }: {
   contact: Contact
   apps?: AppLink[]
   onPing: (id: string) => void
@@ -250,8 +291,65 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   deleteMode?: boolean
   checked?: boolean
   onToggle?: (id: string) => void
+  onExpChange?: (id: string, exp: number) => void
 }) {
+  const [commBonus, setCommBonus] = useState(0)
+  const [popups, setPopups] = useState<ContactXpPopup[]>([])
+  const [maxPopup, setMaxPopup] = useState<{ x: number; y: number } | null>(null)
+  const popupCounter = useRef(0)
+  const expBarRef = useRef<HTMLTableCellElement>(null)
+
+  function getExpBarPos(): { x: number; y: number } {
+    const rect = expBarRef.current?.getBoundingClientRect()
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+  }
+
+  function handleComm(_x: number, _y: number) {
+    const next = Math.min(100, commBonus + CONTACT_XP_PER_COMM)
+    setCommBonus(next)
+    onExpChange?.(contact.id, next)
+    playPingBlip(next)
+    const { x, y } = getExpBarPos()
+    if (next >= 100 && commBonus < 100) {
+      setMaxPopup({ x, y })
+      setTimeout(() => setMaxPopup(null), 1400)
+    }
+    const id = ++popupCounter.current
+    setPopups((prev) => [...prev, { id, x, y }])
+    setTimeout(() => setPopups((prev) => prev.filter((p) => p.id !== id)), 1100)
+  }
+
   return (
+    <>
+    {popups.map((p) => (
+      <div
+        key={p.id}
+        className="pointer-events-none fixed z-[9998] select-none font-pixel text-primary"
+        style={{
+          left: p.x,
+          top: p.y,
+          fontSize: '0.7rem',
+          animation: 'contact-xp-pop 1.0s ease-out forwards',
+        }}
+      >
+        +{CONTACT_XP_PER_COMM} EXP
+      </div>
+    ))}
+    {maxPopup && (
+      <div
+        className="pointer-events-none fixed z-[9999] select-none font-pixel text-yellow-400"
+        style={{
+          left: maxPopup.x,
+          top: maxPopup.y,
+          fontSize: '0.85rem',
+          animation: 'contact-xp-max 1.4s ease-out forwards',
+        }}
+      >
+        ★ MAX
+      </div>
+    )}
     <tr className="border-b border-border hover:bg-surface/50 transition-colors">
       {/* Delete checkbox */}
       {deleteMode && (
@@ -282,9 +380,9 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
         <span className="font-pixel text-xs text-primary truncate block">{contact.name}</span>
       </td>
 
-      {/* Status bar */}
-      <td className="px-2 py-1 w-[130px]">
-        <ExpBar lastInteractionAt={contact.lastInteractionAt} />
+      {/* Company */}
+      <td className="px-2 py-1 min-w-[120px] max-w-[180px]">
+        <span className="font-pixel text-xs text-muted truncate block">{contact.company ?? '—'}</span>
       </td>
 
       {/* Apps */}
@@ -297,11 +395,17 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
         <SocialIcons contact={contact} />
       </td>
 
-      {/* Ping */}
+      {/* EXP bar */}
+      <td ref={expBarRef} className="px-2 py-1 w-[130px]">
+        <ExpBar lastInteractionAt={contact.lastInteractionAt} commBonus={commBonus} />
+      </td>
+
+      {/* Comm */}
       <td className="px-2 py-1 w-[100px] text-right">
-        <PingButton contactId={contact.id} onPing={onPing} />
+        <PingButton contactId={contact.id} onPing={onPing} onComm={handleComm} />
       </td>
     </tr>
+    </>
   )
 }
 
@@ -339,7 +443,7 @@ function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
         <div className="flex-1">
           <ExpBar lastInteractionAt={contact.lastInteractionAt} />
         </div>
-        <PingButton contactId={contact.id} onPing={onPing} />
+        <PingButton contactId={contact.id} onPing={onPing} onComm={() => {}} />
       </div>
     </div>
   )
@@ -362,9 +466,10 @@ interface ContactListProps {
   page?: number
   pageSize?: number
   onTotalFiltered?: (n: number) => void
+  onExpChange?: (id: string, exp: number) => void
 }
 
-export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -399,15 +504,16 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
             {deleteMode && <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">COMPANY</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">APPS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col"><span className="sr-only">Actions</span></th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col">ACTION</th>
           </tr>
         </thead>
         <tbody>
           {paged.map((c) => (
-            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} />
+            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} onExpChange={onExpChange} />
           ))}
         </tbody>
       </table>

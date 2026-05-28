@@ -27,6 +27,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [deleteMode, setDeleteMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [universeView, setUniverseView] = useState(false)
+  const [expOverrides, setExpOverrides] = useState<Record<string, number>>({})
   const [page, setPage] = useState(1)
   const [totalFiltered, setTotalFiltered] = useState(0)
   const PAGE_SIZE = 30
@@ -146,12 +147,26 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''} in your network`}
           </p>
         </div>
-        <button
-          onClick={handleAddContact}
-          className="text-[10px] px-3 py-1.5 border border-primary text-primary hover:bg-primary hover:text-bg transition-none"
-        >
-          + ADD CONTACT
-        </button>
+        <div className="flex items-center gap-2">
+          {contacts.length > 0 && (
+            <button
+              onClick={() => setUniverseView((v) => { v ? playUniverseClose() : playUniverseOpen(); return !v })}
+              className={`text-[10px] px-3 py-1.5 border transition-none ${
+                universeView
+                  ? 'border-primary text-primary'
+                  : 'border-border text-muted hover:border-secondary hover:text-secondary'
+              }`}
+            >
+              YOUR UNIVERSE
+            </button>
+          )}
+          <button
+            onClick={handleAddContact}
+            className="text-[10px] px-3 py-1.5 border border-primary text-primary hover:bg-primary hover:text-bg transition-none"
+          >
+            + ADD CONTACT
+          </button>
+        </div>
       </div>
 
       {/* Sort + search toolbar */}
@@ -174,18 +189,6 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
           ))}
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          {contacts.length > 0 && (
-            <button
-              onClick={() => setUniverseView((v) => { v ? playUniverseClose() : playUniverseOpen(); return !v })}
-              className={`text-[10px] px-2 py-0.5 border transition-none ${
-                universeView
-                  ? 'border-primary text-primary'
-                  : 'border-border text-muted hover:border-secondary hover:text-secondary'
-              }`}
-            >
-              UNIVERSE
-            </button>
-          )}
           {deleteMode && selected.size > 0 && (
             <button
               onClick={handleDelete}
@@ -213,7 +216,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
 
         {/* Animated network backdrop */}
         {!loading && contacts.length > 0 && (
-          <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={universeView} />
+          <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={universeView} expOverrides={expOverrides} />
         )}
 
         {/* Universe quotes */}
@@ -259,6 +262,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             page={safePage}
             pageSize={PAGE_SIZE}
             onTotalFiltered={setTotalFiltered}
+            onExpChange={(id, exp) => setExpOverrides((prev) => ({ ...prev, [id]: exp }))}
           />
 
           {/* Pagination */}
