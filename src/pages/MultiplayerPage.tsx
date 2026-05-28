@@ -3,11 +3,13 @@ import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
 import SearchBar from '@/components/SearchBar'
+import NetworkBackdrop from '@/components/NetworkBackdrop'
+import UniverseQuote from '@/components/UniverseQuote'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact,
 } from '@/services/contactService'
-import { playDeleteBump, playTrash } from '@/lib/sfx'
+import { playDeleteBump, playTrash, playUniverseOpen, playUniverseClose } from '@/lib/sfx'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
 
@@ -24,6 +26,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [universeView, setUniverseView] = useState(false)
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -162,6 +165,18 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
           ))}
         </div>
         <div className="flex items-center gap-1 ml-auto">
+          {contacts.length > 0 && (
+            <button
+              onClick={() => setUniverseView((v) => { v ? playUniverseClose() : playUniverseOpen(); return !v })}
+              className={`text-[10px] px-2 py-0.5 border transition-none ${
+                universeView
+                  ? 'border-primary text-primary'
+                  : 'border-border text-muted hover:border-secondary hover:text-secondary'
+              }`}
+            >
+              UNIVERSE
+            </button>
+          )}
           {deleteMode && selected.size > 0 && (
             <button
               onClick={handleDelete}
@@ -185,7 +200,15 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
       </div>
 
       {/* Scrollable content */}
-      <div className="overflow-auto flex-1">
+      <div className="overflow-hidden flex-1 relative">
+
+        {/* Animated network backdrop */}
+        {!loading && contacts.length > 0 && (
+          <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={universeView} />
+        )}
+
+        {/* Universe quotes */}
+        <UniverseQuote visible={universeView} />
 
         {/* Empty state */}
         {!loading && contacts.length === 0 && (
@@ -202,8 +225,17 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
           </div>
         )}
 
-        {/* Contact table */}
+        {/* Contact table — fades out in universe view */}
         {contacts.length > 0 && (
+          <div
+            style={{
+              opacity: universeView ? 0 : 1,
+              pointerEvents: universeView ? 'none' : undefined,
+              transition: 'opacity 600ms ease',
+              overflowY: 'auto',
+              height: '100%',
+            }}
+          >
           <ContactList
             contacts={contacts}
             sortBy={sortBy}
@@ -216,6 +248,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             selected={selected}
             onToggle={handleToggle}
           />
+          </div>
         )}
 
       </div>

@@ -815,6 +815,85 @@ export function playPingBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── UniverseView ──────────────────────────────────────────────────────────────
+
+/** Upward whoosh for entering universe view. */
+export function playUniverseOpen(): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const dur = 0.75
+    const bufSize = Math.ceil(ctx.sampleRate * dur)
+    const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+    const nd = noiseBuf.getChannelData(0)
+    for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.playbackRate.value = 0.5
+    const bpf = ctx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.Q.value = 0.8
+    bpf.frequency.setValueAtTime(120, ctx.currentTime)
+    bpf.frequency.exponentialRampToValueAtTime(3200, ctx.currentTime + dur)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.06)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+    src.connect(bpf); bpf.connect(gain); gain.connect(ctx.destination)
+    src.start(ctx.currentTime); src.stop(ctx.currentTime + dur + 0.01)
+    // Sub-tone swell underneath
+    const osc = ctx.createOscillator(); const oscGain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(60, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + dur)
+    oscGain.gain.setValueAtTime(0, ctx.currentTime)
+    oscGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.1)
+    oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+    osc.connect(oscGain); oscGain.connect(ctx.destination)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur + 0.01)
+    setTimeout(() => ctx.close(), (dur + 0.1) * 1000)
+  } catch { /* AudioContext blocked */ }
+}
+
+/** Downward whoosh for exiting universe view — open played in reverse. */
+export function playUniverseClose(): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const dur = 0.75
+    const bufSize = Math.ceil(ctx.sampleRate * dur)
+
+    // Generate same noise as open, then reverse it
+    const fwdBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+    const fwd = fwdBuf.getChannelData(0)
+    for (let i = 0; i < bufSize; i++) fwd[i] = Math.random() * 2 - 1
+    const revBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+    const rev = revBuf.getChannelData(0)
+    for (let i = 0; i < bufSize; i++) rev[i] = fwd[bufSize - 1 - i]
+
+    const src = ctx.createBufferSource(); src.buffer = revBuf; src.playbackRate.value = 0.5
+    const bpf = ctx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.Q.value = 0.8
+    // Mirror of open: sweep high → low
+    bpf.frequency.setValueAtTime(3200, ctx.currentTime)
+    bpf.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + dur)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.12)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+    src.connect(bpf); bpf.connect(gain); gain.connect(ctx.destination)
+    src.start(ctx.currentTime); src.stop(ctx.currentTime + dur + 0.01)
+
+    // Sub-tone drop — mirror of open's swell
+    const osc = ctx.createOscillator(); const oscGain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(180, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + dur)
+    oscGain.gain.setValueAtTime(0, ctx.currentTime)
+    oscGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.12)
+    oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+    osc.connect(oscGain); oscGain.connect(ctx.destination)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur + 0.01)
+
+    setTimeout(() => ctx.close(), (dur + 0.1) * 1000)
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── TutorialOverlay ───────────────────────────────────────────────────────────
 
 /** Page-turn click for tutorial navigation. Same shape as playConsoleBlip. */
