@@ -40,6 +40,9 @@ function daysAgoLabel(daysAgo: number | null): string {
 
 function StatusBar({ lastInteractionAt }: { lastInteractionAt: string | null }) {
   const { pct, barColor, daysAgo } = computeStatus(lastInteractionAt)
+  const hasHistory = daysAgo !== null
+  const level = hasHistory ? 5 : 1
+  const title = hasHistory ? 'Ally' : 'Prospect'
   return (
     <div className="flex flex-col gap-1 w-full">
       <div className="h-1.5 w-full bg-border overflow-hidden">
@@ -48,8 +51,9 @@ function StatusBar({ lastInteractionAt }: { lastInteractionAt: string | null }) 
           style={{ width: `${pct}%`, backgroundColor: barColor }}
         />
       </div>
-      <span className="font-pixel text-[9px] text-muted leading-none">
-        {daysAgoLabel(daysAgo)}
+      <span className="font-pixel text-[9px] text-muted leading-none flex flex-col">
+        <span>LVL {level}</span>
+        <span>{title}</span>
       </span>
     </div>
   )
@@ -83,10 +87,10 @@ function buildSocials(contact: Contact): SocialEntry[] {
 
 function SocialIcons({ contact }: { contact: Contact }) {
   const socials = buildSocials(contact)
-  if (socials.length === 0) return <span className="text-muted font-pixel text-[9px]">—</span>
+  if (socials.length === 0) return <span className="text-muted font-pixel text-[9px] flex items-center justify-center w-full h-full">—</span>
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 px-2 py-1">
       {socials.map(({ platform, value, label, icon }) => {
         const href = platform === 'email'
           ? `mailto:${value}`
@@ -185,15 +189,15 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
     }
   }, [open])
 
-  if (!apps || apps.length === 0) return <span className="text-muted font-pixel text-[9px]">—</span>
+  if (!apps || apps.length === 0) return <span className="text-muted font-pixel text-[9px] flex items-center justify-center w-full h-full">—</span>
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
-        className={`font-pixel text-[8px] px-1.5 py-0.5 border leading-none transition-none whitespace-nowrap
-          ${open ? 'border-secondary text-secondary' : 'border-border text-muted hover:border-secondary hover:text-secondary'}`}
+        className={`font-pixel text-xs px-2 border-0 border-l leading-none transition-none whitespace-nowrap w-full h-full
+          ${open ? 'border-secondary text-secondary bg-surface' : 'border-border text-muted hover:border-secondary hover:text-secondary hover:bg-surface/50'}`}
       >
         {apps.length} app{apps.length !== 1 ? 's' : ''} {open ? '▲' : '▼'}
       </button>
@@ -259,12 +263,12 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
       </td>
 
       {/* Apps */}
-      <td className="px-2 py-1 max-w-[200px]">
+      <td className="p-0 max-w-[200px]">
         <AppsDropdown apps={apps} onOpenJob={onOpenJob} />
       </td>
 
       {/* Socials */}
-      <td className="px-2 py-1">
+      <td className="p-0">
         <SocialIcons contact={contact} />
       </td>
 
@@ -357,7 +361,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
           <tr className="border-b border-border text-primary text-left select-none">
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">STATUS</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">APPS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col"><span className="sr-only">Actions</span></th>
