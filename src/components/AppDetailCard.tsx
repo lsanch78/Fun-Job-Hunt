@@ -131,20 +131,20 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
       ) : linked.length === 0 ? (
         <span style={dimStyle}>no contacts linked</span>
       ) : (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap gap-1 overflow-y-auto" style={{ maxHeight: '4rem' }}>
           {linked.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-2 group">
+            <div key={c.id} className="flex items-center gap-1 group px-1.5 py-0.5" style={{ border: `1px solid ${T.border}` }}>
               <button
                 onClick={() => setCardContact(c)}
-                className="flex items-baseline gap-1.5 flex-1 min-w-0 text-left hover:opacity-80 transition-none"
+                className="flex items-baseline gap-1 min-w-0 text-left hover:opacity-80 transition-none"
                 title="Edit contact"
               >
-                <span style={panelStyle} className="truncate">{c.name}</span>
-                {c.company && <span style={dimStyle} className="truncate shrink-0">@ {c.company}</span>}
+                <span style={panelStyle}>{c.name}</span>
+                {c.company && <span style={dimStyle}>@ {c.company}</span>}
               </button>
               <button
                 onClick={() => handleUnlink(c.id)}
-                className="opacity-0 group-hover:opacity-100 transition-none hover:opacity-60"
+                className="opacity-0 group-hover:opacity-100 transition-none hover:opacity-60 leading-none"
                 style={dimStyle}
                 title="Unlink contact"
               >

@@ -4,7 +4,6 @@ import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
 import SearchBar from '@/components/SearchBar'
 import NetworkBackdrop from '@/components/NetworkBackdrop'
-import UniverseQuote from '@/components/UniverseQuote'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
@@ -240,15 +239,9 @@ export default function PartyPage({ userId }: { userId: string | null }) {
           <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={universeView} expOverrides={expOverrides} />
         )}
 
-        {/* Universe quotes */}
-        <UniverseQuote visible={universeView} />
-
         {/* Empty state */}
         {!loading && contacts.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-6 py-24 px-6 text-center">
-            <p className="font-terminal text-2xl text-muted leading-snug max-w-sm">
-              "YOUR NETWORK IS YOUR NET WORTH.<br />START WITH ONE ALLY."
-            </p>
             <button
               onClick={handleAddContact}
               className="text-[10px] px-4 py-2 border border-primary text-primary hover:bg-primary hover:text-bg transition-none"
