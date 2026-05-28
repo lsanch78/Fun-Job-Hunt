@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Job, Contact } from '@/types'
 import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
+import { useAI } from '@/hooks/useAI'
 import {
   fetchContactsForJob, fetchContacts, linkContactToJob,
   unlinkContactFromJob, insertContact, updateContact,
@@ -8,6 +9,8 @@ import {
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 import ContactDetailCard from '@/components/ContactDetailCard'
+import AiButton from '@/components/AiButton'
+import { createCheckoutSession } from '@/services/subscriptionService'
 
 ensureCrtStyles()
 
@@ -226,6 +229,8 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
 }
 
 // ── AppDetailCard ─────────────────────────────────────────────────────────────
+const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
+
 export default function AppDetailCard({ jobs, jobId, userId, onClose, onChange, fullScreen = false }: AppDetailCardProps) {
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
@@ -233,8 +238,11 @@ export default function AppDetailCard({ jobs, jobId, userId, onClose, onChange, 
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiLimitHit, setAiLimitHit] = useState(false)
   const loadedIds = useRef<Set<string>>(new Set())
   const cardRef = useRef<HTMLDivElement>(null)
+  const ai = useAI()
 
   const job = jobs[localIdx] ?? jobs[0]
 
@@ -390,13 +398,55 @@ export default function AppDetailCard({ jobs, jobId, userId, onClose, onChange, 
     </div>
   )
 
+  function handleCleanJD() {
+    const raw = job.description ?? ''
+    if (!raw.trim()) return
+    setAiError(null)
+    setAiLimitHit(false)
+    ai.run({
+      system: CLEAN_JD_SYSTEM,
+      prompt: raw,
+      onComplete: (cleaned) => update('description', cleaned),
+      onError: (msg) => {
+        const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
+        setAiLimitHit(isLimit)
+        if (!isLimit) setAiError(msg)
+      },
+    })
+  }
+
   const page2 = (
     <>
       <div className="tracking-wide pb-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, borderBottom: `1px solid ${T.border}` }}>
         {job.company || '—'}{job.title ? ` — ${job.title}` : ''}
       </div>
       <div className="flex-1 flex flex-col min-h-0">
-        <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
+        <div className="flex items-center justify-between mb-0.5">
+          <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
+          <AiButton
+            label="CLEAN JD"
+            phase={ai.phase}
+            dots={ai.dots}
+            onClick={handleCleanJD}
+            disabled={ai.phase !== 'idle' || !job.description?.trim()}
+            title={ai.phase === 'generating' ? 'Generating…' : ai.phase === 'ready' ? 'Done!' : 'Use AI to clean up formatting'}
+          />
+        </div>
+        {aiLimitHit && (
+          <div className="mb-1 flex items-center gap-2" style={{ fontSize: CRT_FONT.chrome }}>
+            <span style={{ color: T.warn }}>// MONTHLY LIMIT REACHED</span>
+            <button
+              onClick={() => createCheckoutSession().catch(() => {})}
+              className="px-2 py-0.5 transition-none hover:opacity-80"
+              style={{ color: T.warn, border: `1px solid ${T.warn}`, fontSize: CRT_FONT.chrome }}
+            >
+              UPGRADE — $8/mo
+            </button>
+          </div>
+        )}
+        {aiError && (
+          <div className="mb-1 truncate" style={{ fontSize: CRT_FONT.chrome, color: '#ff4444' }}>{aiError}</div>
+        )}
         <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
       </div>
     </>

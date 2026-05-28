@@ -288,12 +288,12 @@ export default function QuickCast() {
 
   // AI quick-generate (right-click submenu)
   const [aiMenuOpen,     setAiMenuOpen]     = useState(false)
-  const [aiGenerating,   setAiGenerating]   = useState(false)
-  const [aiGenDots,      setAiGenDots]      = useState(0)        // 0-2 for animation
-  const [aiResult,       setAiResult]       = useState<string | null>(null)   // null = none ready
   const [aiSettings,     setAiSettings]     = useState<AiSettings | null>(null)
   const aiMenuRef    = useRef<HTMLDivElement>(null)
   const aiAbortRef   = useRef<AbortController | null>(null)
+  const [aiGenerating,   setAiGenerating]   = useState(false)
+  const [aiGenDots,      setAiGenDots]      = useState(0)
+  const [aiResult,       setAiResult]       = useState<string | null>(null)
 
   const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
