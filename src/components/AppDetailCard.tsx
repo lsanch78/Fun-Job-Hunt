@@ -48,10 +48,12 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
       if (tag === 'TEXTAREA' || tag === 'INPUT') return
       if (e.key === 'ArrowRight') { e.preventDefault(); goPage(1) }
       if (e.key === 'ArrowLeft')  { e.preventDefault(); goPage(-1) }
+      if (e.key === 'ArrowUp')    { e.preventDefault(); goJob(-1) }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); goJob(1) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, page])
+  }, [onClose, page, localIdx])
 
   // Reset to page 1 when navigating jobs
   useEffect(() => {
@@ -125,8 +127,7 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
 
   if (!job) return null
 
-  const hasPrevJob = localIdx > 0
-  const hasNextJob = localIdx < jobs.length - 1
+
 
   if (fullScreen) {
     return (
@@ -141,13 +142,11 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
       }}>
         {/* ── Top bar ── */}
         <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-          <button onClick={() => goJob(-1)} disabled={!hasPrevJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Previous application">◀</button>
           <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>[{localIdx + 1}/{jobs.length}]</span>
           </span>
-          <button onClick={() => goJob(1)} disabled={!hasNextJob} className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Next application">▶</button>
-          <span className="ml-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>{page} / 2</span>
           <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center ml-1 flex-shrink-0 hover:opacity-60" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Close (Esc)">✕</button>
         </div>
         {/* ── Body ── */}
@@ -186,11 +185,15 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
         </div>
         {/* ── Page nav ── */}
         <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
-          <button onClick={() => goPage(-1)} disabled={page === 1} className="px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>← PREV</button>
+          <div className="w-20">
+            {page === 2 && <button onClick={() => goPage(-1)} className="px-3 py-1.5 transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>← FRONT</button>}
+          </div>
           <button onClick={handleSave} disabled={saveState === 'saving' || detailsLoading} className="px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80" style={{ fontSize: CRT_FONT.btn, color: saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.greenDim, border: `1px solid ${saveState === 'saved' ? T.green : saveState === 'error' ? '#ff4444' : T.border}` }} title={saveState === 'error' && saveError ? saveError : 'Save detail fields to database'}>
             {saveState === 'saving' ? '…' : saveState === 'saved' ? '✓ SAVED' : saveState === 'error' ? '✕ ERR' : 'SAVE'}
           </button>
-          <button onClick={() => goPage(1)} disabled={page === 2} className="px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>NEXT →</button>
+          <div className="w-20 flex justify-end">
+            {page === 1 && <button onClick={() => goPage(1)} className="px-3 py-1.5 transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>BACK →</button>}
+          </div>
         </div>
       </div>
     )
@@ -223,36 +226,11 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
       >
         {/* ── Top bar ── */}
         <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-          {/* Job prev/next */}
-          <button
-            onClick={() => goJob(-1)}
-            disabled={!hasPrevJob}
-            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1"
-            style={{ color: T.greenDim, fontSize: CRT_FONT.btn }}
-            title="Previous application"
-          >
-            ◀
-          </button>
-
           {/* Title */}
           <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
-          </span>
-
-          <button
-            onClick={() => goJob(1)}
-            disabled={!hasNextJob}
-            className="disabled:opacity-20 disabled:cursor-not-allowed leading-none px-1"
-            style={{ color: T.greenDim, fontSize: CRT_FONT.btn }}
-            title="Next application"
-          >
-            ▶
-          </button>
-
-          {/* Page indicator */}
-          <span className="ml-2 select-none flex-shrink-0" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>
-            {page} / 2
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>[{localIdx + 1}/{jobs.length}]</span>
           </span>
 
           {/* Close */}
@@ -337,14 +315,13 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
 
         {/* ── Page nav ── */}
         <div className="px-4 py-2 flex items-center justify-between flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
-          <button
-            onClick={() => goPage(-1)}
-            disabled={page === 1}
-            className="px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
-            style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}
-          >
-            ← PREV
-          </button>
+          <div className="w-20">
+            {page === 2 && (
+              <button onClick={() => goPage(-1)} className="px-2 py-0.5 transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>
+                ← FRONT
+              </button>
+            )}
+          </div>
 
           <button
             onClick={handleSave}
@@ -360,14 +337,13 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
             {saveState === 'saving' ? '…' : saveState === 'saved' ? '✓ SAVED' : saveState === 'error' ? '✕ ERR' : 'SAVE'}
           </button>
 
-          <button
-            onClick={() => goPage(1)}
-            disabled={page === 2}
-            className="px-2 py-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-none hover:opacity-70"
-            style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}
-          >
-            NEXT →
-          </button>
+          <div className="w-20 flex justify-end">
+            {page === 1 && (
+              <button onClick={() => goPage(1)} className="px-2 py-0.5 transition-none hover:opacity-70" style={{ color: T.greenDim, fontSize: CRT_FONT.btn, border: `1px solid ${T.border}` }}>
+                BACK →
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
