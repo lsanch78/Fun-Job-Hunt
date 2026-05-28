@@ -62,5 +62,5 @@ export const STREAK = {
 } as const
 
 // --- THEMES ---
-export const THEMES = ['terminal', 'nes', 'gameboy', 'arcade'] as const
+export const THEMES = ['terminal', 'nes', 'gameboy', 'arcade', 'highcontrast', 'custom'] as const
 export type Theme = typeof THEMES[number]

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useTheme } from '@/lib/ThemeContext'
+import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { deleteAllWorkdays } from '@/services/workdayService'
@@ -11,10 +11,23 @@ import { createCheckoutSession, openPortalSession } from '@/services/subscriptio
 import type { Job } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
-  terminal: 'Classic Terminal',
-  nes:      'NES RPG',
-  gameboy:  'Game Boy',
-  arcade:   'Arcade Cabinet',
+  terminal:     'Classic Terminal',
+  nes:          'NES RPG',
+  gameboy:      'Game Boy',
+  arcade:       'Arcade Cabinet',
+  highcontrast: 'High Contrast',
+  custom:       'Custom',
+}
+
+const COLOR_LABELS: Record<keyof CustomColors, string> = {
+  bg:        'BACKGROUND',
+  surface:   'SURFACE',
+  border:    'BORDER',
+  primary:   'PRIMARY',
+  secondary: 'SECONDARY',
+  muted:     'MUTED',
+  dim:       'DIM',
+  warning:   'WARNING',
 }
 
 function jobsToCSV(jobs: Job[]): string {
@@ -37,7 +50,7 @@ function jobsToCSV(jobs: Job[]): string {
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, customColors, setCustomColors } = useTheme()
   const { isSubscribed, subscription, refresh } = useSubscription()
   const [exporting, setExporting] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
@@ -158,7 +171,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg font-pixel text-primary p-8">
+    <div className="h-full overflow-y-auto bg-bg font-pixel text-primary p-8">
       <h1 className="text-xl mb-8">SETTINGS</h1>
 
       <section>
@@ -180,6 +193,35 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+
+        {theme === 'custom' && (
+          <div className="mt-6 border-2 border-muted p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-secondary">CUSTOM COLORS</span>
+              <button
+                onClick={() => setCustomColors(DEFAULT_CUSTOM_COLORS)}
+                className="text-xs text-muted hover:text-secondary border border-muted hover:border-secondary px-2 py-1 transition-none"
+              >
+                RESET
+              </button>
+            </div>
+            {(Object.keys(COLOR_LABELS) as (keyof CustomColors)[]).map((key) => (
+              <div key={key} className="flex items-center justify-between gap-4">
+                <span className="text-xs text-muted w-24">{COLOR_LABELS[key]}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted font-mono">{customColors[key].toUpperCase()}</span>
+                  <input
+                    type="color"
+                    value={customColors[key]}
+                    onChange={(e) => setCustomColors({ ...customColors, [key]: e.target.value })}
+                    className="w-8 h-8 cursor-pointer border-2 border-muted bg-transparent p-0"
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mt-12">
