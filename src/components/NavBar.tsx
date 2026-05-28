@@ -33,6 +33,10 @@ export default function NavBar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [username, setUsername] = useState<string>('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
   const [tutorialActive, setTutorialActive] = useState(false)
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -47,8 +51,12 @@ export default function NavBar() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setUserEmail(data.session?.user.email ?? null)
-      setUserId(data.session?.user.id ?? null)
+      const user = data.session?.user
+      setUserEmail(user?.email ?? null)
+      setUserId(user?.id ?? null)
+      const name = (user?.user_metadata?.['username'] as string | undefined) ?? ''
+      setUsername(name)
+      setNameInput(name)
     })
   }, [])
 
@@ -57,6 +65,7 @@ export default function NavBar() {
     function onClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+        setEditingName(false)
       }
     }
     document.addEventListener('mousedown', onClickOutside)
@@ -77,10 +86,18 @@ export default function NavBar() {
     navigate('/auth')
   }
 
-  // Initials avatar from email
-  const initials = userEmail
-    ? userEmail[0].toUpperCase()
-    : '?'
+  async function handleSaveName() {
+    const trimmed = nameInput.trim()
+    if (!trimmed || trimmed === username) { setEditingName(false); return }
+    setNameSaving(true)
+    await supabase.auth.updateUser({ data: { username: trimmed } })
+    setUsername(trimmed)
+    setNameSaving(false)
+    setEditingName(false)
+  }
+
+  // Initials avatar from username or email
+  const initials = username ? username[0].toUpperCase() : (userEmail ? userEmail[0].toUpperCase() : '?')
 
   const mobileDrawer = drawerOpen ? createPortal(
     <>
@@ -292,10 +309,32 @@ export default function NavBar() {
           {dropdownOpen && (
             <div className="absolute right-0 top-8 bg-surface border border-border min-w-[180px] flex flex-col z-50">
 
-              {/* User info */}
+              {/* User info — click to edit username */}
               {userEmail && (
-                <div className="px-3 py-2 border-b border-border text-muted truncate">
-                  {userEmail}
+                <div className="px-3 py-2 border-b border-border">
+                  {editingName ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                        className="flex-1 bg-transparent border-b border-primary text-primary font-pixel text-[10px] outline-none py-0.5"
+                        disabled={nameSaving}
+                      />
+                      <button onClick={handleSaveName} disabled={nameSaving} className="text-[9px] text-primary hover:opacity-70 shrink-0">
+                        {nameSaving ? '…' : 'OK'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setNameInput(username); setEditingName(true) }}
+                      className="w-full text-left text-muted hover:text-primary truncate"
+                      title="Click to edit username"
+                    >
+                      {username || userEmail}
+                    </button>
+                  )}
                 </div>
               )}
 

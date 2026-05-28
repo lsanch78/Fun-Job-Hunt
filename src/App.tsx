@@ -75,7 +75,6 @@ function JobLogRoute({ session }: { session: Session | null | undefined }) {
   const userId = session?.user?.id ?? null
   const userName =
     (session?.user?.user_metadata?.['username'] as string | undefined) ??
-    session?.user?.email?.split('@')[0] ??
     null
   if (isMobile) return <MobileJobLogPage userId={userId} userName={userName} />
   return <JobLogPage userId={userId} userName={userName} />

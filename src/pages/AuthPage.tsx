@@ -26,7 +26,6 @@ export default function AuthPage() {
       if (data.session) {
         const name =
           (data.session.user.user_metadata?.['username'] as string | undefined) ??
-          data.session.user.email?.split('@')[0] ??
           null
         setReturningName(name)
       }
