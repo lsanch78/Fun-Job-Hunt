@@ -142,10 +142,12 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
       }}>
         {/* ── Top bar ── */}
         <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
+          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.sub }}>
+            <span className="mr-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.sub }}>↑</span>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
-            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>[{localIdx + 1}/{jobs.length}]</span>
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>({jobs.length - localIdx}/{jobs.length})</span>
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.sub }}>↓</span>
           </span>
           <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center ml-1 flex-shrink-0 hover:opacity-60" style={{ color: T.greenDim, fontSize: CRT_FONT.btn }} title="Close (Esc)">✕</button>
         </div>
@@ -227,10 +229,12 @@ export default function AppDetailCard({ jobs, jobId, onClose, onChange, fullScre
         {/* ── Top bar ── */}
         <div className="px-4 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
           {/* Title */}
-          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.btn }}>
+          <span className="tracking-wide truncate flex-1 text-center leading-tight" style={{ color: T.green, fontSize: CRT_FONT.sub }}>
+            <span className="mr-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.sub }}>↑</span>
             {job.company || '—'}
             {job.title ? <span style={{ color: T.greenDim }}> — {job.title}</span> : null}
-            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>[{localIdx + 1}/{jobs.length}]</span>
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>({jobs.length - localIdx}/{jobs.length})</span>
+            <span className="ml-2 select-none" style={{ color: T.greenDim, fontSize: CRT_FONT.sub }}>↓</span>
           </span>
 
           {/* Close */}
