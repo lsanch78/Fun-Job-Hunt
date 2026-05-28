@@ -27,6 +27,9 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [deleteMode, setDeleteMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [universeView, setUniverseView] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalFiltered, setTotalFiltered] = useState(0)
+  const PAGE_SIZE = 30
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -119,6 +122,11 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
     setSelected(new Set())
     setDeleteMode(false)
   }
+
+  useEffect(() => { setPage(1) }, [search, sortBy])
+
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE))
+  const safePage   = Math.min(page, totalPages)
 
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
     { key: 'name',    label: 'NAME' },
@@ -248,7 +256,36 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
             deleteMode={deleteMode}
             selected={selected}
             onToggle={handleToggle}
+            page={safePage}
+            pageSize={PAGE_SIZE}
+            onTotalFiltered={setTotalFiltered}
           />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-4 py-3 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+              >
+                ← PREV
+              </button>
+              <span className="text-muted text-[10px]">
+                {safePage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+              >
+                NEXT →
+              </button>
+              <span className="text-muted text-[10px] ml-2">
+                {totalFiltered} contacts
+              </span>
+            </div>
+          )}
           </div>
         )}
 

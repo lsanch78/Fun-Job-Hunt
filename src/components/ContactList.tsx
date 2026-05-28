@@ -359,9 +359,12 @@ interface ContactListProps {
   deleteMode?: boolean
   selected?: Set<string>
   onToggle?: (id: string) => void
+  page?: number
+  pageSize?: number
+  onTotalFiltered?: (n: number) => void
 }
 
-export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -372,10 +375,16 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
     : contacts
   const sorted = sortContacts(filtered, sortBy)
 
+  useEffect(() => {
+    onTotalFiltered?.(sorted.length)
+  }, [sorted.length, onTotalFiltered])
+
+  const paged = pageSize ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted
+
   if (mobile) {
     return (
       <div>
-        {sorted.map((c) => (
+        {paged.map((c) => (
           <ContactCard key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} />
         ))}
       </div>
@@ -397,7 +406,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
           </tr>
         </thead>
         <tbody>
-          {sorted.map((c) => (
+          {paged.map((c) => (
             <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} />
           ))}
         </tbody>
