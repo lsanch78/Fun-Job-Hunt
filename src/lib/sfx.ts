@@ -784,6 +784,35 @@ export function playAuthBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── MultiplayerPage ───────────────────────────────────────────────────────────
+
+/** Two-note rising blip for multiplayer nav: A4 → E5. */
+export function playMultiplayerBlip(): void {
+  if (isSfxMuted()) return
+  try {
+    squareNotes([
+      { freq: 440, t: 0,    dur: 0.07, vol: 0.030 },
+      { freq: 659, t: 0.08, dur: 0.12, vol: 0.026 },
+    ])
+  } catch { /* AudioContext blocked */ }
+}
+
+/** Short ping confirm for logging a contact interaction. */
+export function playPingBlip(): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator(); const gain = ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(1046, ctx.currentTime)
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.19)
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── TutorialOverlay ───────────────────────────────────────────────────────────
 
 /** Page-turn click for tutorial navigation. Same shape as playConsoleBlip. */

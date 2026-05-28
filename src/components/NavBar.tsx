@@ -8,7 +8,7 @@ import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
 import FeedbackModal from '@/components/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
-import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip } from '@/lib/sfx'
+import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip, playMultiplayerBlip } from '@/lib/sfx'
 
 const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 
@@ -22,10 +22,11 @@ const THEME_LABELS: Record<Theme, string> = {
 }
 
 const NAV_LINKS = [
-  { label: 'JOBS',    to: '/jobs' },
-  { label: 'STATS',   to: '/stats' },
-  { label: 'STORY',   to: '/story' },
-  { label: 'CREDITS', to: '/credits' },
+  { label: 'JOBS',        to: '/jobs' },
+  { label: 'MULTIPLAYER', to: '/multiplayer' },
+  { label: 'STATS',       to: '/stats' },
+  { label: 'STORY',       to: '/story' },
+  { label: 'CREDITS',     to: '/credits' },
 ]
 
 export default function NavBar() {
@@ -121,14 +122,15 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Nav links — mobile: JOBS and CREDITS only */}
-        {NAV_LINKS.filter(({ to }) => to === '/jobs' || to === '/credits').map(({ label, to }) => (
+        {/* Nav links — mobile: JOBS, MULTIPLAYER, and CREDITS only */}
+        {NAV_LINKS.filter(({ to }) => to === '/jobs' || to === '/multiplayer' || to === '/credits').map(({ label, to }) => (
           <NavLink
             key={to}
             to={to}
             onClick={() => {
               setDrawerOpen(false)
               if (to === '/jobs') playJobsBoot()
+              else if (to === '/multiplayer') playMultiplayerBlip()
               else if (to === '/credits') playCreditsBlip()
             }}
             className={({ isActive }) =>
@@ -248,7 +250,7 @@ export default function NavBar() {
             <NavLink
               key={to}
               to={to}
-              onClick={to === '/jobs' ? playJobsBoot : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
+              onClick={to === '/jobs' ? playJobsBoot : to === '/multiplayer' ? playMultiplayerBlip : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
               className={({ isActive }) =>
                 `whitespace-nowrap transition-none ${
                   isActive

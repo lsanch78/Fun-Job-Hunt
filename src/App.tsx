@@ -17,6 +17,8 @@ import WorkdayBar from '@/components/WorkdayBar'
 import type { Session } from '@supabase/supabase-js'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
+import MultiplayerPage from '@/pages/MultiplayerPage'
+import MobileMultiplayerPage from '@/pages/MobileMultiplayerPage'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
@@ -70,6 +72,13 @@ function ProtectedRoute({
   )
 }
 
+function MultiplayerRoute({ session }: { session: Session | null | undefined }) {
+  const isMobile = useIsMobile()
+  const userId = session?.user?.id ?? null
+  if (isMobile) return <MobileMultiplayerPage userId={userId} />
+  return <MultiplayerPage userId={userId} />
+}
+
 function JobLogRoute({ session }: { session: Session | null | undefined }) {
   const isMobile = useIsMobile()
   const userId = session?.user?.id ?? null
@@ -108,6 +117,14 @@ export default function App() {
             element={
               <ProtectedRoute session={session}>
                 <JobLogRoute session={session} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/multiplayer"
+            element={
+              <ProtectedRoute session={session}>
+                <MultiplayerRoute session={session} />
               </ProtectedRoute>
             }
           />
