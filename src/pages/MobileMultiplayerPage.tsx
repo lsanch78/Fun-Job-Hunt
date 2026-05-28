@@ -16,7 +16,7 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<SortBy>('status')
+  const [sortBy, setSortBy] = useState<SortBy>('name')
   const [search, setSearch] = useState('')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
@@ -92,7 +92,7 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
   }
 
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
-    { key: 'status', label: 'ST' },
+    { key: 'exp', label: 'EXP' },
     { key: 'name',   label: 'A-Z' },
     { key: 'date',   label: 'DT' },
   ]

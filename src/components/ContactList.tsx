@@ -5,20 +5,20 @@ import { playPingBlip } from '@/lib/sfx'
 import type { Contact } from '@/types'
 
 export type { Contact }
-export type SortBy = 'status' | 'name' | 'date'
+export type SortBy = 'exp' | 'name' | 'company' | 'date'
 
-// ── Status helpers ────────────────────────────────────────────────────────────
+// ── Exp helpers ───────────────────────────────────────────────────────────────
 
-type StatusTier = 'excellent' | 'good' | 'fair' | 'low' | 'dead'
+type ExpTier = 'excellent' | 'good' | 'fair' | 'low' | 'dead'
 
-interface StatusInfo {
+interface ExpInfo {
   pct: number
-  tier: StatusTier
+  tier: ExpTier
   daysAgo: number | null
   barColor: string
 }
 
-function computeStatus(lastInteractionAt: string | null): StatusInfo {
+function computeExp(lastInteractionAt: string | null): ExpInfo {
   if (!lastInteractionAt) return { pct: 0,   tier: 'dead',      daysAgo: null, barColor: '#555555' }
   const days = Math.floor((Date.now() - new Date(lastInteractionAt).getTime()) / 86_400_000)
   if (days === 0)  return { pct: 100, tier: 'excellent', daysAgo: 0,    barColor: '#22c55e' }
@@ -29,17 +29,11 @@ function computeStatus(lastInteractionAt: string | null): StatusInfo {
   return             { pct: 5,   tier: 'dead',      daysAgo: days, barColor: '#ef4444' }
 }
 
-function daysAgoLabel(daysAgo: number | null): string {
-  if (daysAgo === null) return 'never'
-  if (daysAgo === 0)    return 'today'
-  if (daysAgo === 1)    return '1d ago'
-  return `${daysAgo}d ago`
-}
 
-// ── StatusBar ─────────────────────────────────────────────────────────────────
+// ── ExpBar ────────────────────────────────────────────────────────────────────
 
-function StatusBar({ lastInteractionAt }: { lastInteractionAt: string | null }) {
-  const { pct, barColor, daysAgo } = computeStatus(lastInteractionAt)
+function ExpBar({ lastInteractionAt }: { lastInteractionAt: string | null }) {
+  const { pct, barColor, daysAgo } = computeExp(lastInteractionAt)
   const hasHistory = daysAgo !== null
   const level = hasHistory ? 5 : 1
   const title = hasHistory ? 'Ally' : 'Prospect'
@@ -146,14 +140,31 @@ function PingButton({ contactId, onPing }: { contactId: string; onPing: (id: str
 
 function sortContacts(contacts: Contact[], sortBy: SortBy): Contact[] {
   return [...contacts].sort((a, b) => {
-    if (sortBy === 'name') return a.name.localeCompare(b.name)
     if (sortBy === 'date') {
       if (!a.lastInteractionAt && !b.lastInteractionAt) return 0
       if (!a.lastInteractionAt) return 1
       if (!b.lastInteractionAt) return -1
       return new Date(b.lastInteractionAt).getTime() - new Date(a.lastInteractionAt).getTime()
     }
-    return computeStatus(a.lastInteractionAt).pct - computeStatus(b.lastInteractionAt).pct
+    if (sortBy === 'exp') {
+      const pctDiff = computeExp(a.lastInteractionAt).pct - computeExp(b.lastInteractionAt).pct
+      if (pctDiff !== 0) return pctDiff
+    }
+    if (sortBy === 'company') {
+      const companyDiff = (a.company ?? '').localeCompare(b.company ?? '')
+      if (companyDiff !== 0) return companyDiff
+    }
+    // name → company → status → date (tiebreaker chain for all modes)
+    const nameDiff = a.name.localeCompare(b.name)
+    if (nameDiff !== 0) return nameDiff
+    const companyDiff = (a.company ?? '').localeCompare(b.company ?? '')
+    if (companyDiff !== 0) return companyDiff
+    const statusDiff = computeExp(a.lastInteractionAt).pct - computeExp(b.lastInteractionAt).pct
+    if (statusDiff !== 0) return statusDiff
+    if (!a.lastInteractionAt && !b.lastInteractionAt) return 0
+    if (!a.lastInteractionAt) return 1
+    if (!b.lastInteractionAt) return -1
+    return new Date(b.lastInteractionAt).getTime() - new Date(a.lastInteractionAt).getTime()
   })
 }
 
@@ -273,7 +284,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
 
       {/* Status bar */}
       <td className="px-2 py-1 w-[130px]">
-        <StatusBar lastInteractionAt={contact.lastInteractionAt} />
+        <ExpBar lastInteractionAt={contact.lastInteractionAt} />
       </td>
 
       {/* Apps */}
@@ -326,7 +337,7 @@ function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
       )}
       <div className="flex items-center gap-3">
         <div className="flex-1">
-          <StatusBar lastInteractionAt={contact.lastInteractionAt} />
+          <ExpBar lastInteractionAt={contact.lastInteractionAt} />
         </div>
         <PingButton contactId={contact.id} onPing={onPing} />
       </div>

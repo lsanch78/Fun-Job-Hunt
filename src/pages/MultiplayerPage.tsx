@@ -20,7 +20,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<SortBy>('status')
+  const [sortBy, setSortBy] = useState<SortBy>('name')
   const [search, setSearch] = useState('')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
@@ -121,9 +121,10 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   }
 
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
-    { key: 'status', label: 'STATUS' },
-    { key: 'name',   label: 'NAME' },
-    { key: 'date',   label: 'DATE' },
+    { key: 'name',    label: 'NAME' },
+    { key: 'company', label: 'COMPANY' },
+    { key: 'exp',  label: 'EXP' },
+    { key: 'date',    label: 'DATE' },
   ]
 
   return (
