@@ -227,6 +227,19 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
     return () => { abortRef.current?.abort() }
   }, [userId, resumeSlots])
 
+  // Escape key handling
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      if (showInfo) { setShowInfo(false); return }
+      if (editingQuick) { setEditingQuick(null); return }
+      if (view === 'output') { handleBack(); return }
+      handleClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showInfo, editingQuick, view])
+
   // Auto-scroll output as it streams
   useEffect(() => {
     if (outputRef.current) {
@@ -453,8 +466,8 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
             {occupiedSlots.length === 0 ? (
               <div style={{ color: T.warn, fontSize: '13px', lineHeight: '1.6' }}>
                 <p>&gt; No resumes uploaded yet.</p>
-                <p>&gt; Go to <span style={{ color: T.green }}>Settings → Resumes</span> to upload one</p>
-                <p>&gt; for faster AI-assisted applications.</p>
+                <p>&gt; Look below at the <span style={{ color: T.green }}>Quick Cast</span> and upload</p>
+                <p>&gt; up to 3 resumes (A, B, C) so AI can reference your resume.</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-1">
@@ -507,32 +520,9 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
           {/* Prompt */}
           <div>
             <div style={labelStyle}>Prompt</div>
-            <textarea
-              rows={4}
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              placeholder="Enter your instruction for the AI..."
-              style={termTextarea}
-            />
-          </div>
 
-          {/* JD */}
-          <div>
-            <div style={labelStyle}>Job Description</div>
-            <textarea
-              rows={7}
-              maxLength={10000}
-              value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
-              placeholder="Paste job description here..."
-              style={termTextarea}
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pb-1">
             {/* Quick prompts row */}
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap mb-2">
               <span style={{ ...labelStyle, marginBottom: 0 }}>QUICK:</span>
 
               {/* Cover Letter */}
@@ -583,7 +573,7 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
 
             {/* Gear editor */}
             {editingQuick && (
-              <div style={{ border: `1px solid ${T.border}`, padding: '8px', borderRadius: '4px' }}>
+              <div style={{ border: `1px solid ${T.border}`, padding: '8px', borderRadius: '4px', marginBottom: '8px' }}>
                 <div style={{ ...labelStyle, marginBottom: '4px' }}>
                   EDIT: {editingQuick === 'cover_letter' ? 'COVER LETTER' : editingQuick === 'why_good_fit' ? 'WHY THIS JOB?' : 'CUSTOM'} PROMPT
                 </div>
@@ -602,6 +592,30 @@ export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }:
               </div>
             )}
 
+            <textarea
+              rows={4}
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="Enter your instruction for the AI..."
+              style={termTextarea}
+            />
+          </div>
+
+          {/* JD */}
+          <div>
+            <div style={labelStyle}>Job Description</div>
+            <textarea
+              rows={7}
+              maxLength={10000}
+              value={jdText}
+              onChange={(e) => setJdText(e.target.value)}
+              placeholder="Paste job description here..."
+              style={termTextarea}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2 pb-1">
             {/* Generate / Cancel */}
             <div className="flex gap-2 items-center">
               <button

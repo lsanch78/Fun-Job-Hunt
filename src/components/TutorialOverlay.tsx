@@ -3,7 +3,7 @@ import { playBootBlip, playExitBlip, playTutorialPage as playPage } from '@/lib/
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
-const TUTORIAL_SEEN_KEY = 'fjobhunt:tutorial_seen'
+const TUTORIAL_SEEN_KEY = (userId: string) => `fjobhunt:tutorial_seen:${userId}`
 
 interface TutorialStep {
   id: string
@@ -34,6 +34,14 @@ const MOBILE_STEPS: TutorialStep[] = [
 ]
 
 const STEPS: TutorialStep[] = [
+  {
+    id: 'navbar',
+    title: 'WELCOME',
+    subtitle: 'new user detected',
+    body: [
+      "Welcome to Fun Job Hunt! Press Space Bar to go through this short tutorial. It's designed to get you up to speed quickly, so you can start tracking your job applications and career progress with ease. Let's dive in!",
+    ],
+  },
   {
     id: 'quickcast',
     title: 'QUICK CAST',
@@ -156,10 +164,11 @@ const SPOTLIGHT_PAD = 6
 
 interface Props {
   onDone: () => void
+  userId: string
   mobileMode?: boolean
 }
 
-export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
+export default function TutorialOverlay({ onDone, userId, mobileMode = false }: Props) {
   const activeSteps = mobileMode ? MOBILE_STEPS : STEPS
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
@@ -203,7 +212,7 @@ export default function TutorialOverlay({ onDone, mobileMode = false }: Props) {
   }, [step])
 
   function markSeen() {
-    try { localStorage.setItem(TUTORIAL_SEEN_KEY, 'true') } catch { /* ignore */ }
+    try { localStorage.setItem(TUTORIAL_SEEN_KEY(userId), 'true') } catch { /* ignore */ }
   }
   function handleNext() {
     if (step < activeSteps.length - 1) { playPage('forward'); setStep((s) => s + 1) }

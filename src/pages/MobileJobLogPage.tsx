@@ -94,13 +94,14 @@ export default function MobileJobLogPage({
   // Register tutorial trigger + auto-show on first visit
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
-    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY) === 'true' } catch { return false } })()
+    if (!userId) return () => { unregisterTutorialTrigger() }
+    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY(userId)) === 'true' } catch { return false } })()
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }
     }
     return () => { unregisterTutorialTrigger() }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll body lock when quick-add overlay is open
   useEffect(() => {
@@ -280,8 +281,8 @@ export default function MobileJobLogPage({
       )}
 
       {/* Tutorial overlay */}
-      {showTutorial && (
-        <TutorialOverlay onDone={() => setShowTutorial(false)} mobileMode />
+      {showTutorial && userId && (
+        <TutorialOverlay userId={userId} onDone={() => setShowTutorial(false)} mobileMode />
       )}
     </div>
   )

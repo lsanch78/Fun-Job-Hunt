@@ -1262,13 +1262,14 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   // Tutorial: register re-trigger bus + auto-show for first-time visitors
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
-    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY) === 'true' } catch { return false } })()
+    if (!userId) return () => { unregisterTutorialTrigger() }
+    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY(userId)) === 'true' } catch { return false } })()
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }
     }
     return () => { unregisterTutorialTrigger() }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const committedFiltered = filteredJobs.filter((j) => j.committed)
   const drafts            = filteredJobs.filter((j) => !j.committed)
@@ -1699,7 +1700,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       )}
 
       {/* Tutorial overlay */}
-      {showTutorial && <TutorialOverlay onDone={() => setShowTutorial(false)} />}
+      {showTutorial && userId && <TutorialOverlay userId={userId} onDone={() => setShowTutorial(false)} />}
 
       {/* Scratch pad drawer */}
       <ScratchPad userId={userId} />
