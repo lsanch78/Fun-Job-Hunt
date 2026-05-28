@@ -315,9 +315,9 @@ const JobRow = forwardRef<JobRowHandle, {
   // Keep committed job's detail fields in sync (lazy-loaded after detail card opens)
   useEffect(() => {
     if (job.committed) {
-      setDraft((prev) => ({ ...prev, description: job.description, contacts: job.contacts, notes: job.notes }))
+      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes }))
     }
-  }, [job.description, job.contacts, job.notes, job.committed])
+  }, [job.description, job.notes, job.committed])
 
   function update<K extends keyof Job>(key: K, val: Job[K]) {
     const next = { ...draft, [key]: val }
@@ -404,9 +404,7 @@ const JobRow = forwardRef<JobRowHandle, {
         return <StatusCell key="status" status={draft.status} onStatusChange={handleStatusChange} />
       case 'jd':
         return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
-      case 'contacts':
-        return <DetailCell key="contacts" value={draft.contacts} placeholder="Contacts" onChange={(v) => update('contacts', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
-      case 'notes':
+case 'notes':
         return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
       default:
         return null
@@ -1632,7 +1630,6 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                     if (!j.committed) return
                     updateJobDetails(j.id, {
                       description: j.description ?? null,
-                      contacts:    j.contacts    ?? null,
                       notes:       j.notes       ?? null,
                     })
                   }}
@@ -1694,6 +1691,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
         <AppDetailCard
           jobs={jobs.filter((j) => j.committed)}
           jobId={detailJobId}
+          userId={userId}
           onClose={() => setDetailJobId(null)}
           onChange={handleDraftChange}
         />

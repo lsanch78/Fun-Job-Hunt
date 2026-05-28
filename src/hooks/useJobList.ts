@@ -63,13 +63,13 @@ export interface JobListState {
   ) => number | null
 
   /**
-   * Persists detail-card fields (description, contacts, notes) for a single
-   * committed job. Does not touch React state — detail fields are lazy-loaded
-   * and not part of the list view.
+   * Persists detail-card fields (description, notes) for a single committed job.
+   * Does not touch React state — detail fields are lazy-loaded and not part of
+   * the list view.
    */
   updateJobDetails: (
     jobId: string,
-    details: { description: string | null; contacts: string | null; notes: string | null },
+    details: { description: string | null; notes: string | null },
   ) => void
 
   /**
@@ -202,7 +202,7 @@ export function useJobList(userId: string | null): JobListState {
 
   const updateJobDetails = useCallback((
     jobId: string,
-    details: { description: string | null; contacts: string | null; notes: string | null },
+    details: { description: string | null; notes: string | null },
   ) => {
     svcUpdateJobDetails(jobId, details)
   }, [])

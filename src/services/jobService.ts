@@ -23,7 +23,6 @@ export const JOB_LIMITS = {
   postingUrl:  500,
   salary:       20,
   description: 5000,
-  contacts:    1000,
   notes:       2000,
 } as const
 
@@ -61,7 +60,6 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     rating:       job.rating,
     salary:       job.salary || null,
     description:  job.description ?? null,
-    contacts:     job.contacts ?? null,
     notes:        job.notes ?? null,
   }
 }
@@ -175,9 +173,8 @@ function validateCoreFields(job: Job): string | null {
   return null
 }
 
-function validateDetailFields(details: { description: string | null; contacts: string | null; notes: string | null }): string | null {
+function validateDetailFields(details: { description: string | null; notes: string | null }): string | null {
   if ((details.description?.length ?? 0) > JOB_LIMITS.description) return `Description must be ${JOB_LIMITS.description} characters or less`
-  if ((details.contacts?.length    ?? 0) > JOB_LIMITS.contacts)    return `Contacts must be ${JOB_LIMITS.contacts} characters or less`
   if ((details.notes?.length       ?? 0) > JOB_LIMITS.notes)       return `Notes must be ${JOB_LIMITS.notes} characters or less`
   return null
 }
@@ -215,7 +212,7 @@ export async function updateJob(job: Job): Promise<{ error: string | null }> {
 export async function fetchJobsForExport(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,date_applied,rating,salary,description,contacts,notes')
+    .select('id,user_id,title,company,status,posting_url,date_applied,rating,salary,description,notes')
     .eq('user_id', userId)
     .order('date_applied', { ascending: false })
 
@@ -227,7 +224,6 @@ export async function fetchJobsForExport(userId: string): Promise<Job[]> {
   return (data as DbJob[]).map((row) => ({
     ...dbJobToJob(row),
     description: row.description ?? undefined,
-    contacts:    row.contacts    ?? undefined,
     notes:       row.notes       ?? undefined,
   }))
 }
@@ -235,10 +231,10 @@ export async function fetchJobsForExport(userId: string): Promise<Job[]> {
 // ── Detail-card lazy load / save ──────────────────────────────────────────────
 
 /** Fetches only the detail columns for a single job. Returns null on error. */
-export async function fetchJobDetails(jobId: string): Promise<{ description: string | null; contacts: string | null; notes: string | null } | null> {
+export async function fetchJobDetails(jobId: string): Promise<{ description: string | null; notes: string | null } | null> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('description,contacts,notes')
+    .select('description,notes')
     .eq('id', jobId)
     .single()
 
@@ -246,11 +242,11 @@ export async function fetchJobDetails(jobId: string): Promise<{ description: str
     console.error('[jobService] fetchJobDetails:', error.message, jobId)
     return null
   }
-  return data as { description: string | null; contacts: string | null; notes: string | null }
+  return data as { description: string | null; notes: string | null }
 }
 
 /** Persists only the detail columns for a single job. */
-export async function updateJobDetails(jobId: string, details: { description: string | null; contacts: string | null; notes: string | null }): Promise<{ error: string | null }> {
+export async function updateJobDetails(jobId: string, details: { description: string | null; notes: string | null }): Promise<{ error: string | null }> {
   const validationError = validateDetailFields(details)
   if (validationError) return { error: validationError }
 

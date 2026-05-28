@@ -1,20 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
-import type { MockContact } from '@/components/ContactList'
+import type { Contact } from '@/types'
+import { updateContact } from '@/services/contactService'
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
 ensureCrtStyles()
 
 interface ContactDetailCardProps {
-  contacts: MockContact[]
+  contacts: Contact[]
   contactId: string
   onClose: () => void
-  onChange: (updated: MockContact) => void
+  onChange: (updated: Contact) => void
+  onSave?: (contact: Contact) => Promise<void>
   fullScreen?: boolean
 }
 
 const LIMITS = {
   name:     100,
+  company:  100,
   linkedin: 200,
   github:   100,
   twitter:  100,
@@ -28,6 +31,7 @@ export default function ContactDetailCard({
   contactId,
   onClose,
   onChange,
+  onSave,
   fullScreen = false,
 }: ContactDetailCardProps) {
   const currentIdx = contacts.findIndex((c) => c.id === contactId)
@@ -69,20 +73,29 @@ export default function ContactDetailCard({
     setLocalIdx((prev) => Math.max(0, Math.min(contacts.length - 1, prev + dir)))
   }
 
-  function update<K extends keyof MockContact>(key: K, val: MockContact[K]) {
+  function update<K extends keyof Contact>(key: K, val: Contact[K]) {
     if (!contact) return
     onChange({ ...contact, [key]: val })
   }
 
-  function handleSave() {
-    if (saveState === 'saving') return
+  async function handleSave() {
+    if (saveState === 'saving' || !contact) return
     setSaveState('saving')
-    // Phase 1: UI-only — simulate a save delay, wire to DB in phase 2
-    setTimeout(() => {
+    if (onSave) {
+      await onSave(contact)
       playSaveBlip()
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 1500)
-    }, 300)
+    } else {
+      const { error } = await updateContact(contact)
+      if (!error) {
+        playSaveBlip()
+        setSaveState('saved')
+        setTimeout(() => setSaveState('idle'), 1500)
+      } else {
+        setSaveState('idle')
+      }
+    }
   }
 
   if (!contact) return null
@@ -110,17 +123,30 @@ export default function ContactDetailCard({
 
   const body = (
     <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-      {/* Name */}
-      <div>
-        <div className={labelClass} style={{ color: T.greenDim }}>Name</div>
-        <input
-          className={inputClass}
-          style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-          value={contact.name}
-          maxLength={LIMITS.name}
-          onChange={(e) => update('name', e.target.value)}
-          placeholder="Full name"
-        />
+      {/* Name + Company */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <div className={labelClass} style={{ color: T.greenDim }}>Name</div>
+          <input
+            className={inputClass}
+            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+            value={contact.name}
+            maxLength={LIMITS.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Full name"
+          />
+        </div>
+        <div className="flex-1">
+          <div className={labelClass} style={{ color: T.greenDim }}>Company</div>
+          <input
+            className={inputClass}
+            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+            value={contact.company ?? ''}
+            maxLength={LIMITS.company}
+            onChange={(e) => update('company', e.target.value || undefined)}
+            placeholder="Where they work"
+          />
+        </div>
       </div>
 
       {/* Socials row */}

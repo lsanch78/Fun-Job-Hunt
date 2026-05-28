@@ -1,40 +1,44 @@
 import { useState } from 'react'
-import ContactList, { type MockContact, type SortBy } from '@/components/ContactList'
+import ContactList, { type Contact, type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 
 // ── Mock data (phase 1 — replaced by DB in phase 2) ──────────────────────────
 
-const MOCK_CONTACTS: MockContact[] = [
+const MOCK_CONTACTS: Contact[] = [
   {
     id: '1',
+    userId: '',
     name: 'John Smith',
     linkedin: 'johnsmith',
     github: 'jsmith',
     email: 'john@example.com',
-    apps: ['SWE @ Anthropic', 'Staff Eng @ Vercel'],
     lastInteractionAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    createdAt: new Date().toISOString(),
   },
   {
     id: '2',
+    userId: '',
     name: 'Jane Doe',
     linkedin: 'janedoe',
-    apps: ['Product Designer @ Linear'],
     lastInteractionAt: new Date(Date.now() - 22 * 86_400_000).toISOString(),
+    createdAt: new Date().toISOString(),
   },
   {
     id: '3',
+    userId: '',
     name: 'Alex Rivera',
     discord: 'alex#1234',
     linkedin: 'alexrivera',
     twitter: 'alexr',
     lastInteractionAt: null,
+    createdAt: new Date().toISOString(),
   },
 ]
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MultiplayerPage({ userId: _userId }: { userId: string | null }) {
-  const [contacts, setContacts] = useState<MockContact[]>(MOCK_CONTACTS)
+  const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS)
   const [sortBy, setSortBy] = useState<SortBy>('status')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
 
@@ -45,10 +49,12 @@ export default function MultiplayerPage({ userId: _userId }: { userId: string | 
   }
 
   function handleAddContact() {
-    const blank: MockContact = {
+    const blank: Contact = {
       id: `new-${Date.now()}`,
+      userId: '',
       name: '',
       lastInteractionAt: null,
+      createdAt: new Date().toISOString(),
     }
     setContacts((prev) => [blank, ...prev])
     setDetailContactId(blank.id)

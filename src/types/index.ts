@@ -26,7 +26,6 @@ export interface DbJob {
   salary: string | null
   // Detail-card columns — nullable, lazy-loaded when the card opens
   description: string | null
-  contacts: string | null
   notes: string | null
 }
 
@@ -44,8 +43,22 @@ export interface Job {
   saving?: boolean          // true while the DB insert is in-flight
   // Detail-card fields — lazy-loaded from DB when the card opens
   description?: string
-  contacts?: string
   notes?: string
+}
+
+export interface Contact {
+  id: string
+  userId: string
+  name: string
+  company?: string
+  linkedin?: string
+  github?: string
+  twitter?: string
+  discord?: string
+  email?: string
+  notes?: string
+  lastInteractionAt: string | null
+  createdAt: string
 }
 
 export interface Profile {

@@ -269,6 +269,7 @@ export default function MobileJobLogPage({
         <AppDetailCard
           jobs={jobs}
           jobId={detailJobId}
+          userId={userId}
           onClose={() => setDetailJobId(null)}
           onChange={onDraftChange}
           fullScreen

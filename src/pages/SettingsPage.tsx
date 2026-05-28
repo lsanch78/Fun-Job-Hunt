@@ -31,7 +31,7 @@ const COLOR_LABELS: Record<keyof CustomColors, string> = {
 }
 
 function jobsToCSV(jobs: Job[]): string {
-  const headers = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Contacts', 'Notes']
+  const headers = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Notes']
   const rows = jobs.map((j) => [
     j.id,
     j.company,
@@ -42,7 +42,6 @@ function jobsToCSV(jobs: Job[]): string {
     j.rating > 0 ? String(j.rating) : '',
     j.postingUrl,
     j.description ?? '',
-    j.contacts ?? '',
     j.notes ?? '',
   ])
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`

@@ -1,22 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
+import type { Contact } from '@/types'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface MockContact {
-  id: string
-  name: string
-  linkedin?: string
-  github?: string
-  twitter?: string
-  discord?: string
-  email?: string
-  lastInteractionAt: string | null
-  apps?: string[]  // job titles linked to this contact (many-to-many, UI only for now)
-  notes?: string
-}
-
+export type { Contact }
 export type SortBy = 'status' | 'name' | 'date'
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -46,56 +33,6 @@ function daysAgoLabel(daysAgo: number | null): string {
   if (daysAgo === 0)    return 'today'
   if (daysAgo === 1)    return '1d ago'
   return `${daysAgo}d ago`
-}
-
-// ── AppsCell ──────────────────────────────────────────────────────────────────
-
-function AppsCell({ apps }: { apps?: string[] }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [open])
-
-  if (!apps || apps.length === 0) {
-    return <span className="font-pixel text-[9px] text-muted/40">—</span>
-  }
-
-  const [first, ...rest] = apps
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 font-pixel text-[8px] px-1.5 py-1.5 border transition-none
-          ${open ? 'border-primary text-primary' : 'border-border text-muted hover:border-primary hover:text-primary'}`}
-      >
-        <span className="truncate max-w-[100px]">{first}</span>
-        {rest.length > 0 && <span className="text-muted shrink-0">+{rest.length}</span>}
-        <span className="text-muted shrink-0">{open ? '▲' : '▾'}</span>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full mt-0.5 z-50 bg-surface border border-border min-w-[160px] flex flex-col">
-          {apps.map((app) => (
-            <span
-              key={app}
-              className="font-pixel text-[8px] px-2 py-1.5 text-muted border-b border-border last:border-b-0 truncate"
-              title={app}
-            >
-              {app}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ── StatusBar ─────────────────────────────────────────────────────────────────
@@ -133,7 +70,7 @@ function normalizeUrl(value: string, platform: string): string {
 
 interface SocialEntry { platform: string; value: string; label: string; icon: string }
 
-function buildSocials(contact: MockContact): SocialEntry[] {
+function buildSocials(contact: Contact): SocialEntry[] {
   const entries: SocialEntry[] = []
   if (contact.linkedin) entries.push({ platform: 'linkedin', value: contact.linkedin, label: 'LinkedIn', icon: 'in' })
   if (contact.github)   entries.push({ platform: 'github',   value: contact.github,   label: 'GitHub',   icon: 'gh' })
@@ -143,7 +80,7 @@ function buildSocials(contact: MockContact): SocialEntry[] {
   return entries
 }
 
-function SocialIcons({ contact }: { contact: MockContact }) {
+function SocialIcons({ contact }: { contact: Contact }) {
   const socials = buildSocials(contact)
   if (socials.length === 0) return <span className="text-muted font-pixel text-[9px]">—</span>
 
@@ -202,7 +139,7 @@ function PingButton({ contactId, onPing }: { contactId: string; onPing: (id: str
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
-function sortContacts(contacts: MockContact[], sortBy: SortBy): MockContact[] {
+function sortContacts(contacts: Contact[], sortBy: SortBy): Contact[] {
   return [...contacts].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
     if (sortBy === 'date') {
@@ -218,7 +155,7 @@ function sortContacts(contacts: MockContact[], sortBy: SortBy): MockContact[] {
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
 function ContactRow({ contact, onPing, onOpenDetail }: {
-  contact: MockContact
+  contact: Contact
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
@@ -242,11 +179,6 @@ function ContactRow({ contact, onPing, onOpenDetail }: {
         <span className="font-pixel text-xs text-primary truncate block">{contact.name}</span>
       </td>
 
-      {/* Apps */}
-      <td className="px-2 py-1 w-[160px]">
-        <AppsCell apps={contact.apps} />
-      </td>
-
       {/* Status bar */}
       <td className="px-2 py-1 w-[130px]">
         <StatusBar lastInteractionAt={contact.lastInteractionAt} />
@@ -268,7 +200,7 @@ function ContactRow({ contact, onPing, onOpenDetail }: {
 // ── Mobile card ───────────────────────────────────────────────────────────────
 
 function ContactCard({ contact, onPing, onOpenDetail }: {
-  contact: MockContact
+  contact: Contact
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
@@ -288,9 +220,6 @@ function ContactCard({ contact, onPing, onOpenDetail }: {
         </div>
         <SocialIcons contact={contact} />
       </div>
-      {contact.apps && contact.apps.length > 0 && (
-        <AppsCell apps={contact.apps} />
-      )}
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <StatusBar lastInteractionAt={contact.lastInteractionAt} />
@@ -304,7 +233,7 @@ function ContactCard({ contact, onPing, onOpenDetail }: {
 // ── ContactList (exported) ────────────────────────────────────────────────────
 
 interface ContactListProps {
-  contacts: MockContact[]
+  contacts: Contact[]
   sortBy: SortBy
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
@@ -331,7 +260,6 @@ export default function ContactList({ contacts, sortBy, onPing, onOpenDetail, mo
           <tr className="border-b border-border text-primary text-left select-none">
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[160px]" scope="col">APPS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">STATUS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col"><span className="sr-only">Actions</span></th>

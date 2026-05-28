@@ -28,6 +28,7 @@ export function onSfxMutedChange(cb: (muted: boolean) => void): () => void {
 
 function squareNotes(notes: { freq: number; t: number; dur: number; vol: number }[]): void {
   const ctx = new AudioContext()
+  const last = notes.reduce((max, n) => Math.max(max, n.t + n.dur), 0)
   notes.forEach(({ freq, t, dur, vol }) => {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -40,6 +41,7 @@ function squareNotes(notes: { freq: number; t: number; dur: number; vol: number 
     osc.connect(gain); gain.connect(ctx.destination)
     osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + dur + 0.01)
   })
+  setTimeout(() => ctx.close(), (last + 0.1) * 1000)
 }
 
 // ── WorkdayBar ────────────────────────────────────────────────────────────────
