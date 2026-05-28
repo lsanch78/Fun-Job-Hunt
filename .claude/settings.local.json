@@ -72,7 +72,8 @@
       "WebSearch",
       "WebFetch(domain:supabase.com)",
       "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Recurse -Directory -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -First 20 FullName)"
+      "Bash(Select-Object -First 20 FullName)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('dependencies',{}\\).get\\('ts-jest',''\\), d.get\\('devDependencies',{}\\).get\\('ts-jest',''\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

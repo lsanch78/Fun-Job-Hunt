@@ -79,9 +79,11 @@ describe('STREAK constants', () => {
 })
 
 describe('THEMES', () => {
-  it('contains exactly 4 themes', () => expect(THEMES).toHaveLength(4))
+  it('contains exactly 6 themes', () => expect(THEMES).toHaveLength(6))
   it('includes terminal', () => expect(THEMES).toContain('terminal'))
   it('includes nes', () => expect(THEMES).toContain('nes'))
   it('includes gameboy', () => expect(THEMES).toContain('gameboy'))
   it('includes arcade', () => expect(THEMES).toContain('arcade'))
+  it('includes highcontrast', () => expect(THEMES).toContain('highcontrast'))
+  it('includes custom', () => expect(THEMES).toContain('custom'))
 })
