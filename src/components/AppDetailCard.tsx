@@ -23,7 +23,7 @@ interface AppDetailCardProps {
 
 // ── ContactsPanel ─────────────────────────────────────────────────────────────
 
-function ContactsPanel({ jobId, userId }: { jobId: string; userId: string | null }) {
+function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string; jobTitle: string; jobCompany: string; userId: string | null }) {
   const [linked, setLinked] = useState<Contact[]>([])
   const [all, setAll] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,7 +59,7 @@ function ContactsPanel({ jobId, userId }: { jobId: string; userId: string | null
     })
   }
 
-  async function handleCardSave(contact: Contact) {
+  async function handleCardSave(contact: Contact, _pendingJobIds?: string[]) {
     if (!userId) return
     // New contact — insert then link
     if (contact.id.startsWith('new-')) {
@@ -199,14 +199,7 @@ function ContactsPanel({ jobId, userId }: { jobId: string; userId: string | null
         <ContactDetailCard
           contacts={cardContact.id.startsWith('new-') ? [cardContact] : linked}
           contactId={cardContact.id}
-          onClose={() => {
-            // discard if blank new contact
-            if (!cardContact.id.startsWith('new-') || cardContact.name.trim()) {
-              setCardContact(null)
-            } else {
-              setCardContact(null)
-            }
-          }}
+          onClose={() => setCardContact(null)}
           onChange={(updated) => {
             setCardContact(updated)
             if (!updated.id.startsWith('new-')) {
@@ -214,6 +207,8 @@ function ContactsPanel({ jobId, userId }: { jobId: string; userId: string | null
             }
           }}
           onSave={handleCardSave}
+          userId={userId}
+          lockedJob={{ id: jobId, title: jobTitle, company: jobCompany }}
         />
       )}
     </div>
@@ -377,7 +372,7 @@ export default function AppDetailCard({ jobs, jobId, userId, onClose, onChange, 
           ))}
         </div>
       </div>
-      <ContactsPanel jobId={job.id} userId={userId} />
+      <ContactsPanel jobId={job.id} jobTitle={job.title} jobCompany={job.company} userId={userId} />
       <div className="flex-1 flex flex-col min-h-0">
         <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
         <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…','Culture impressions…','Source / how you found it…','Resume version used…','Anything else…'].join('\n')} />

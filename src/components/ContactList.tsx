@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
 import type { Contact } from '@/types'
@@ -152,12 +153,85 @@ function sortContacts(contacts: Contact[], sortBy: SortBy): Contact[] {
   })
 }
 
+// ── AppsDropdown ──────────────────────────────────────────────────────────────
+
+interface AppLink { id: string; title: string; company: string }
+
+function abbrevTitle(title: string): string {
+  return title
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+    .slice(0, 4)
+}
+
+function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobId: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function reposition() {
+      const rect = btnRef.current?.getBoundingClientRect()
+      if (rect) setMenuPos({ top: rect.bottom + 2, left: rect.left })
+    }
+    reposition()
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open])
+
+  if (!apps || apps.length === 0) return <span className="text-muted font-pixel text-[9px]">—</span>
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        onClick={() => setOpen((o) => !o)}
+        className={`font-pixel text-[8px] px-1.5 py-0.5 border leading-none transition-none whitespace-nowrap
+          ${open ? 'border-secondary text-secondary' : 'border-border text-muted hover:border-secondary hover:text-secondary'}`}
+      >
+        {apps.length} app{apps.length !== 1 ? 's' : ''} {open ? '▲' : '▼'}
+      </button>
+
+      {open && menuPos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[210]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[211] border border-border bg-bg min-w-[180px] py-0.5"
+            style={{ top: menuPos.top, left: menuPos.left }}
+          >
+            {apps.map(({ id, title, company }) => (
+              <button
+                key={id}
+                onClick={() => { onOpenJob?.(id); setOpen(false) }}
+                className="w-full text-left px-2 py-1 font-pixel text-[8px] text-muted hover:text-primary hover:bg-surface transition-none flex items-baseline gap-1 truncate"
+              >
+                <span className="text-secondary shrink-0">{abbrevTitle(title)}</span>
+                <span className="text-muted/60 shrink-0">@</span>
+                <span className="truncate">{company || title}</span>
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
+    </div>
+  )
+}
+
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
-function ContactRow({ contact, onPing, onOpenDetail }: {
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
   contact: Contact
+  apps?: AppLink[]
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
+  onOpenJob?: (jobId: string) => void
 }) {
   return (
     <tr className="border-b border-border hover:bg-surface/50 transition-colors">
@@ -184,6 +258,11 @@ function ContactRow({ contact, onPing, onOpenDetail }: {
         <StatusBar lastInteractionAt={contact.lastInteractionAt} />
       </td>
 
+      {/* Apps */}
+      <td className="px-2 py-1 max-w-[200px]">
+        <AppsDropdown apps={apps} onOpenJob={onOpenJob} />
+      </td>
+
       {/* Socials */}
       <td className="px-2 py-1">
         <SocialIcons contact={contact} />
@@ -199,10 +278,12 @@ function ContactRow({ contact, onPing, onOpenDetail }: {
 
 // ── Mobile card ───────────────────────────────────────────────────────────────
 
-function ContactCard({ contact, onPing, onOpenDetail }: {
+function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
   contact: Contact
+  apps?: AppLink[]
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
+  onOpenJob?: (jobId: string) => void
 }) {
   return (
     <div className="border-b border-border px-3 py-2.5 flex flex-col gap-2">
@@ -220,6 +301,11 @@ function ContactCard({ contact, onPing, onOpenDetail }: {
         </div>
         <SocialIcons contact={contact} />
       </div>
+      {apps && apps.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <AppsDropdown apps={apps} onOpenJob={onOpenJob} />
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <StatusBar lastInteractionAt={contact.lastInteractionAt} />
@@ -237,17 +323,19 @@ interface ContactListProps {
   sortBy: SortBy
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
+  jobsByContact?: Record<string, AppLink[]>
+  onOpenJob?: (jobId: string) => void
   mobile?: boolean
 }
 
-export default function ContactList({ contacts, sortBy, onPing, onOpenDetail, mobile = false }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false }: ContactListProps) {
   const sorted = sortContacts(contacts, sortBy)
 
   if (mobile) {
     return (
       <div>
         {sorted.map((c) => (
-          <ContactCard key={c.id} contact={c} onPing={onPing} onOpenDetail={onOpenDetail} />
+          <ContactCard key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} />
         ))}
       </div>
     )
@@ -261,13 +349,14 @@ export default function ContactList({ contacts, sortBy, onPing, onOpenDetail, mo
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">STATUS</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">APPS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((c) => (
-            <ContactRow key={c.id} contact={c} onPing={onPing} onOpenDetail={onOpenDetail} />
+            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} />
           ))}
         </tbody>
       </table>

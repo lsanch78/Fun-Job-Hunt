@@ -1,18 +1,186 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Contact } from '@/types'
-import { updateContact } from '@/services/contactService'
+import { updateContact, fetchJobsForContact, fetchAllJobsForUser, linkContactToJob, unlinkContactFromJob } from '@/services/contactService'
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
 ensureCrtStyles()
+
+interface JobOption { id: string; title: string; company: string }
 
 interface ContactDetailCardProps {
   contacts: Contact[]
   contactId: string
   onClose: () => void
   onChange: (updated: Contact) => void
-  onSave?: (contact: Contact) => Promise<void>
+  onSave?: (contact: Contact, pendingJobIds: string[]) => Promise<void>
+  userId?: string | null
+  lockedJob?: JobOption
   fullScreen?: boolean
+}
+
+// ── JobsPanel ─────────────────────────────────────────────────────────────────
+
+interface JobsPanelProps {
+  contactId: string
+  userId?: string | null
+  lockedJob?: JobOption
+  onPendingChange?: (jobs: JobOption[]) => void
+}
+
+function JobsPanel({ contactId, userId, lockedJob, onPendingChange }: JobsPanelProps) {
+  const [linked, setLinked] = useState<JobOption[]>([])
+  const [all, setAll] = useState<JobOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [picking, setPicking] = useState(false)
+  const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const isNew = contactId.startsWith('new-')
+
+  useEffect(() => {
+    if (isNew) {
+      // Pre-populate with lockedJob if coming from AppDetailCard
+      const initial = lockedJob ? [lockedJob] : []
+      setLinked(initial)
+      onPendingChange?.(initial)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    fetchJobsForContact(contactId).then((jobs) => {
+      setLinked(jobs)
+      setLoading(false)
+    })
+  }, [contactId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (picking && userId) {
+      fetchAllJobsForUser(userId).then(setAll)
+      setTimeout(() => searchRef.current?.focus(), 50)
+    }
+    if (!picking) setSearch('')
+  }, [picking, userId])
+
+  function addLinked(job: JobOption) {
+    setLinked((prev) => {
+      const next = [...prev, job]
+      onPendingChange?.(next)
+      return next
+    })
+    setPicking(false)
+  }
+
+  function removeLinked(jobId: string) {
+    setLinked((prev) => {
+      const next = prev.filter((j) => j.id !== jobId)
+      onPendingChange?.(next)
+      return next
+    })
+  }
+
+  async function handleLink(job: JobOption) {
+    if (isNew) { addLinked(job); return }
+    const { error } = await linkContactToJob(contactId, job.id)
+    if (!error) addLinked(job)
+  }
+
+  async function handleUnlink(jobId: string) {
+    if (isNew) { removeLinked(jobId); return }
+    // lockedJob is always read-only — can't unlink from the panel it was opened from
+    if (lockedJob && jobId === lockedJob.id) return
+    const { error } = await unlinkContactFromJob(contactId, jobId)
+    if (!error) removeLinked(jobId)
+  }
+
+  const linkedIds = new Set(linked.map((j) => j.id))
+  const filtered = all.filter(
+    (j) => !linkedIds.has(j.id) && (
+      !search ||
+      j.title.toLowerCase().includes(search.toLowerCase()) ||
+      j.company.toLowerCase().includes(search.toLowerCase())
+    )
+  )
+
+  const panelStyle = { fontSize: CRT_FONT.body, color: T.green }
+  const dimStyle   = { fontSize: CRT_FONT.sub,  color: T.greenDim }
+  const btnStyle   = { fontSize: CRT_FONT.btn, color: T.greenDim, border: `1px solid ${T.border}` }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className={labelClass} style={{ color: T.greenDim }}>Linked Jobs</div>
+
+      {loading ? (
+        <span style={dimStyle}>loading…</span>
+      ) : linked.length === 0 ? (
+        <span style={dimStyle}>no jobs linked</span>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {linked.map((j) => {
+            const isLocked = lockedJob?.id === j.id
+            return (
+              <div key={j.id} className="flex items-center justify-between gap-2 group">
+                <span style={panelStyle} className="truncate flex-1">
+                  {j.title} <span style={dimStyle}>@ {j.company}</span>
+                </span>
+                {!isLocked && (
+                  <button
+                    onClick={() => handleUnlink(j.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-none hover:opacity-60"
+                    style={dimStyle}
+                    title="Unlink job"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!picking && !lockedJob && (
+        <div className="flex gap-2 mt-1">
+          <button onClick={() => setPicking(true)} className="px-2 py-0.5 transition-none hover:opacity-80" style={btnStyle}>
+            + LINK JOB
+          </button>
+        </div>
+      )}
+
+      {picking && (
+        <div className="flex flex-col gap-1.5 mt-1">
+          <input
+            ref={searchRef}
+            className={inputClass}
+            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+            placeholder="search jobs…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="flex flex-col max-h-[120px] overflow-y-auto">
+            {filtered.length === 0 ? (
+              <span style={dimStyle}>no matches</span>
+            ) : (
+              filtered.map((j) => (
+                <button
+                  key={j.id}
+                  onClick={() => handleLink(j)}
+                  className="text-left px-1 py-0.5 hover:opacity-70 transition-none flex gap-2 items-baseline"
+                  style={panelStyle}
+                >
+                  <span>{j.title}</span>
+                  <span style={dimStyle}>@ {j.company}</span>
+                </button>
+              ))
+            )}
+          </div>
+          <button onClick={() => setPicking(false)} className="px-2 py-0.5 transition-none hover:opacity-80 self-start" style={btnStyle}>
+            CANCEL
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 const LIMITS = {
@@ -32,11 +200,14 @@ export default function ContactDetailCard({
   onClose,
   onChange,
   onSave,
+  userId,
+  lockedJob,
   fullScreen = false,
 }: ContactDetailCardProps) {
   const currentIdx = contacts.findIndex((c) => c.id === contactId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [pendingJobIds, setPendingJobIds] = useState<string[]>(lockedJob ? [lockedJob.id] : [])
   const cardRef = useRef<HTMLDivElement>(null)
 
   const contact = contacts[localIdx] ?? contacts[0]
@@ -82,7 +253,7 @@ export default function ContactDetailCard({
     if (saveState === 'saving' || !contact) return
     setSaveState('saving')
     if (onSave) {
-      await onSave(contact)
+      await onSave(contact, pendingJobIds)
       playSaveBlip()
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 1500)
@@ -123,6 +294,14 @@ export default function ContactDetailCard({
 
   const body = (
     <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+      {/* Jobs panel — multi-link */}
+      <JobsPanel
+        contactId={contact.id}
+        userId={userId}
+        lockedJob={lockedJob}
+        onPendingChange={contact.id.startsWith('new-') ? (jobs) => setPendingJobIds(jobs.map((j) => j.id)) : undefined}
+      />
+
       {/* Name + Company */}
       <div className="flex gap-4">
         <div className="flex-1">

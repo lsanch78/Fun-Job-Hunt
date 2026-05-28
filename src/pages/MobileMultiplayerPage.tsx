@@ -1,57 +1,49 @@
-import { useState } from 'react'
-import ContactList, { type Contact, type SortBy } from '@/components/ContactList'
+import { useState, useEffect } from 'react'
+import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
-
-// ── Mock data (phase 1 — replaced by DB in phase 2) ──────────────────────────
-
-const MOCK_CONTACTS: Contact[] = [
-  {
-    id: '1',
-    userId: '',
-    name: 'John Smith',
-    linkedin: 'johnsmith',
-    github: 'jsmith',
-    email: 'john@example.com',
-    lastInteractionAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    userId: '',
-    name: 'Jane Doe',
-    linkedin: 'janedoe',
-    lastInteractionAt: new Date(Date.now() - 22 * 86_400_000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    userId: '',
-    name: 'Alex Rivera',
-    discord: 'alex#1234',
-    linkedin: 'alexrivera',
-    twitter: 'alexr',
-    lastInteractionAt: null,
-    createdAt: new Date().toISOString(),
-  },
-]
+import AppDetailCard from '@/components/AppDetailCard'
+import type { Contact, Job } from '@/types'
+import {
+  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,
+} from '@/services/contactService'
+import { fetchJobs } from '@/services/jobService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function MobileMultiplayerPage({ userId: _userId }: { userId: string | null }) {
-  const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS)
+export default function MobileMultiplayerPage({ userId }: { userId: string | null }) {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('status')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
+  const [detailJobId, setDetailJobId] = useState<string | null>(null)
 
-  function handlePing(id: string) {
+  useEffect(() => {
+    if (!userId) { setLoading(false); return }
+    Promise.all([
+      fetchContactsWithJobs(userId),
+      fetchJobs(userId),
+    ]).then(([{ contacts, jobsByContact }, jobs]) => {
+      setContacts(contacts)
+      setJobsByContact(jobsByContact)
+      setJobs(jobs)
+      setLoading(false)
+    })
+  }, [userId])
+
+  async function handlePing(id: string) {
     setContacts((prev) =>
       prev.map((c) => c.id === id ? { ...c, lastInteractionAt: new Date().toISOString() } : c)
     )
+    await pingContact(id)
   }
 
   function handleAddContact() {
+    if (!userId) return
     const blank: Contact = {
       id: `new-${Date.now()}`,
-      userId: '',
+      userId,
       name: '',
       lastInteractionAt: null,
       createdAt: new Date().toISOString(),
@@ -63,6 +55,38 @@ export default function MobileMultiplayerPage({ userId: _userId }: { userId: str
   function handleDetailClose() {
     setContacts((prev) => prev.filter((c) => c.name.trim() !== '' || c.id !== detailContactId))
     setDetailContactId(null)
+  }
+
+  async function handleSave(contact: Contact, pendingJobIds: string[] = []) {
+    if (!userId) return
+    if (contact.id.startsWith('new-')) {
+      const { data, error } = await insertContact({
+        userId,
+        name: contact.name,
+        company: contact.company,
+        linkedin: contact.linkedin,
+        github: contact.github,
+        twitter: contact.twitter,
+        discord: contact.discord,
+        email: contact.email,
+        notes: contact.notes,
+        lastInteractionAt: contact.lastInteractionAt,
+      }, userId)
+      if (error) { console.error('[MobileMultiplayerPage] insertContact:', error); return }
+      if (data) {
+        await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
+        setContacts((prev) => prev.map((c) => c.id === contact.id ? data : c))
+        setDetailContactId(data.id)
+      }
+    } else {
+      await updateContact(contact)
+    }
+  }
+
+  async function refreshJobsByContact() {
+    if (!userId) return
+    const { jobsByContact: updated } = await fetchContactsWithJobs(userId)
+    setJobsByContact(updated)
   }
 
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
@@ -79,7 +103,7 @@ export default function MobileMultiplayerPage({ userId: _userId }: { userId: str
         <div>
           <h1 className="font-pixel text-xs tracking-widest">MULTIPLAYER</h1>
           <p className="font-pixel text-[9px] text-muted mt-0.5">
-            {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
+            {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         {/* Compact sort strip */}
@@ -101,7 +125,7 @@ export default function MobileMultiplayerPage({ userId: _userId }: { userId: str
       </div>
 
       {/* Empty state */}
-      {contacts.length === 0 && (
+      {!loading && contacts.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-5 py-20 px-6 text-center">
           <p className="font-terminal text-xl text-muted leading-snug">
             "YOUR NETWORK IS YOUR NET WORTH."
@@ -122,6 +146,8 @@ export default function MobileMultiplayerPage({ userId: _userId }: { userId: str
           sortBy={sortBy}
           onPing={handlePing}
           onOpenDetail={setDetailContactId}
+          jobsByContact={jobsByContact}
+          onOpenJob={setDetailJobId}
           mobile
         />
       )}
@@ -136,14 +162,30 @@ export default function MobileMultiplayerPage({ userId: _userId }: { userId: str
         +
       </button>
 
-      {/* Contact detail card — used for both editing and adding (full screen on mobile) */}
+      {/* Contact detail card */}
       {detailContactId && (
         <ContactDetailCard
           contacts={contacts}
           contactId={detailContactId}
-          onClose={handleDetailClose}
+          onClose={() => { handleDetailClose(); refreshJobsByContact() }}
           onChange={(updated) =>
             setContacts((prev) => prev.map((c) => c.id === updated.id ? updated : c))
+          }
+          onSave={handleSave}
+          userId={userId}
+          fullScreen
+        />
+      )}
+
+      {/* App detail card — opened from an Apps chip */}
+      {detailJobId && (
+        <AppDetailCard
+          jobs={jobs}
+          jobId={detailJobId}
+          userId={userId}
+          onClose={() => setDetailJobId(null)}
+          onChange={(updated) =>
+            setJobs((prev) => prev.map((j) => j.id === updated.id ? updated : j))
           }
           fullScreen
         />

@@ -63,6 +63,38 @@ function contactToDbInsert(contact: Omit<Contact, 'id' | 'createdAt'>, userId: s
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
 
+export interface ContactJobLink { id: string; title: string; company: string }
+
+/** Returns all contacts for a user plus a map of contactId → linked job info. */
+export async function fetchContactsWithJobs(userId: string): Promise<{
+  contacts: Contact[]
+  jobsByContact: Record<string, ContactJobLink[]>
+}> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*, job_contacts(jobs(id, company, title))')
+    .eq('user_id', userId)
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('[contactService] fetchContactsWithJobs:', error.message)
+    return { contacts: [], jobsByContact: {} }
+  }
+
+  const contacts: Contact[] = []
+  const jobsByContact: Record<string, ContactJobLink[]> = {}
+
+  for (const row of data as (DbContact & { job_contacts: { jobs: { id: string; company: string; title: string } | null }[] })[]) {
+    contacts.push(dbToContact(row))
+    const links = (row.job_contacts ?? [])
+      .filter((jc) => jc.jobs != null)
+      .map((jc) => ({ id: jc.jobs!.id, title: jc.jobs!.title, company: jc.jobs!.company }))
+    if (links.length) jobsByContact[row.id] = links
+  }
+
+  return { contacts, jobsByContact }
+}
+
 export async function fetchContacts(userId: string): Promise<Contact[]> {
   const { data, error } = await supabase
     .from('contacts')
@@ -87,7 +119,36 @@ export async function fetchContactsForJob(jobId: string): Promise<Contact[]> {
     console.error('[contactService] fetchContactsForJob:', error.message)
     return []
   }
-  return (data as { contacts: DbContact }[]).map((row) => dbToContact(row.contacts))
+  return (data as unknown as { contacts: DbContact }[]).map((row) => dbToContact(row.contacts))
+}
+
+export async function fetchJobsForContact(contactId: string): Promise<{ id: string; title: string; company: string }[]> {
+  const { data, error } = await supabase
+    .from('job_contacts')
+    .select('jobs(id, title, company)')
+    .eq('contact_id', contactId)
+
+  if (error) {
+    console.error('[contactService] fetchJobsForContact:', error.message)
+    return []
+  }
+  return (data as unknown as { jobs: { id: string; title: string; company: string } | null }[])
+    .filter((row) => row.jobs != null)
+    .map((row) => row.jobs!)
+}
+
+export async function fetchAllJobsForUser(userId: string): Promise<{ id: string; title: string; company: string }[]> {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('id, title, company')
+    .eq('user_id', userId)
+    .order('company', { ascending: true })
+
+  if (error) {
+    console.error('[contactService] fetchAllJobsForUser:', error.message)
+    return []
+  }
+  return data as { id: string; title: string; company: string }[]
 }
 
 // ── Writes ────────────────────────────────────────────────────────────────────
