@@ -191,8 +191,10 @@ export default function AuthPage() {
       token: otp,
       type: 'email',
     })
+    if (error) { setLoading(false); setError(error.message); return }
+    // Refresh session so the JWT reflects metadata set by the DB trigger on insert
+    await supabase.auth.refreshSession()
     setLoading(false)
-    if (error) { setError(error.message); return }
     navigate('/')
   }
 
