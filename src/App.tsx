@@ -14,6 +14,7 @@ import DevPortalPage from '@/pages/DevPortalPage'
 import NavBar from '@/components/NavBar'
 import QuickCast from '@/components/QuickCast'
 import WorkdayBar from '@/components/WorkdayBar'
+import ScratchPad from '@/components/ScratchPad'
 import type { Session } from '@supabase/supabase-js'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
@@ -55,6 +56,7 @@ function ProtectedRoute({
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
+      <ScratchPad userId={userId} />
       <QuickCast />
       <WorkdayBar userId={userId} inline />
     </div>
@@ -66,6 +68,7 @@ function ProtectedRoute({
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
+      <ScratchPad userId={userId} />
       <QuickCast />
       <WorkdayBar userId={userId} inline />
     </div>
