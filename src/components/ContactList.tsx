@@ -321,6 +321,7 @@ function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
 interface ContactListProps {
   contacts: Contact[]
   sortBy: SortBy
+  search?: string
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
   jobsByContact?: Record<string, AppLink[]>
@@ -328,8 +329,16 @@ interface ContactListProps {
   mobile?: boolean
 }
 
-export default function ContactList({ contacts, sortBy, onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false }: ContactListProps) {
-  const sorted = sortContacts(contacts, sortBy)
+export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false }: ContactListProps) {
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? contacts.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.company?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q)
+      )
+    : contacts
+  const sorted = sortContacts(filtered, sortBy)
 
   if (mobile) {
     return (

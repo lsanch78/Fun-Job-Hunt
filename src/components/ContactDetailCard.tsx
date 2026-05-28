@@ -149,30 +149,36 @@ function JobsPanel({ contactId, userId, lockedJob, onPendingChange }: JobsPanelP
 
       {picking && (
         <div className="flex flex-col gap-1.5 mt-1">
-          <input
-            ref={searchRef}
-            className={inputClass}
-            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-            placeholder="search jobs…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex flex-col max-h-[120px] overflow-y-auto">
-            {filtered.length === 0 ? (
-              <span style={dimStyle}>no matches</span>
-            ) : (
-              filtered.map((j) => (
-                <button
-                  key={j.id}
-                  onClick={() => handleLink(j)}
-                  className="text-left px-1 py-0.5 hover:opacity-70 transition-none flex gap-2 items-baseline"
-                  style={panelStyle}
-                >
-                  <span>{j.title}</span>
-                  <span style={dimStyle}>@ {j.company}</span>
-                </button>
-              ))
-            )}
+          <div className="relative">
+            <input
+              ref={searchRef}
+              className={inputClass}
+              style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+              placeholder="search jobs… (Esc to close)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setPicking(false) } }}
+            />
+            <div
+              className="absolute left-0 right-0 top-full z-10 flex flex-col overflow-y-auto"
+              style={{ background: T.bg, border: `1px solid ${T.border}`, maxHeight: '160px' }}
+            >
+              {filtered.length === 0 ? (
+                <span className="px-1 py-0.5" style={dimStyle}>no matches</span>
+              ) : (
+                filtered.map((j) => (
+                  <button
+                    key={j.id}
+                    onClick={() => handleLink(j)}
+                    className="text-left px-1 py-0.5 hover:opacity-70 transition-none flex gap-2 items-baseline"
+                    style={panelStyle}
+                  >
+                    <span>{j.title}</span>
+                    <span style={dimStyle}>@ {j.company}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
           <button onClick={() => setPicking(false)} className="px-2 py-0.5 transition-none hover:opacity-80 self-start" style={btnStyle}>
             CANCEL
@@ -254,9 +260,7 @@ export default function ContactDetailCard({
     setSaveState('saving')
     if (onSave) {
       await onSave(contact, pendingJobIds)
-      playSaveBlip()
-      setSaveState('saved')
-      setTimeout(() => setSaveState('idle'), 1500)
+      handleClose()
     } else {
       const { error } = await updateContact(contact)
       if (!error) {
@@ -412,7 +416,7 @@ export default function ContactDetailCard({
     <div className="px-4 py-2 flex items-center justify-center flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
       <button
         onClick={handleSave}
-        disabled={saveState === 'saving'}
+        disabled={saveState === 'saving' || !contact.name.trim()}
         className="px-3 py-0.5 disabled:opacity-40 disabled:cursor-not-allowed transition-none hover:opacity-80"
         style={{
           fontSize: CRT_FONT.btn,

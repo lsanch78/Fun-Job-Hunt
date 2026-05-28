@@ -163,30 +163,36 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
       {/* Pick existing */}
       {picking && (
         <div className="flex flex-col gap-1.5 mt-1">
-          <input
-            ref={searchRef}
-            className={inputClass}
-            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-            placeholder="search contacts…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex flex-col max-h-[120px] overflow-y-auto">
-            {filtered.length === 0 ? (
-              <span style={dimStyle}>no matches</span>
-            ) : (
-              filtered.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => handleLink(c)}
-                  className="text-left px-1 py-0.5 hover:opacity-70 transition-none flex gap-2 items-baseline"
-                  style={panelStyle}
-                >
-                  <span>{c.name}</span>
-                  {c.company && <span style={dimStyle}>@ {c.company}</span>}
-                </button>
-              ))
-            )}
+          <div className="relative">
+            <input
+              ref={searchRef}
+              className={inputClass}
+              style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+              placeholder="search contacts… (Esc to close)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setPicking(false) } }}
+            />
+            <div
+              className="absolute left-0 right-0 top-full z-10 flex flex-col overflow-y-auto"
+              style={{ background: T.bg, border: `1px solid ${T.border}`, maxHeight: '160px' }}
+            >
+              {filtered.length === 0 ? (
+                <span className="px-1 py-0.5" style={dimStyle}>no matches</span>
+              ) : (
+                filtered.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleLink(c)}
+                    className="text-left px-1 py-0.5 hover:opacity-70 transition-none flex gap-2 items-baseline"
+                    style={panelStyle}
+                  >
+                    <span>{c.name}</span>
+                    {c.company && <span style={dimStyle}>@ {c.company}</span>}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
           <button onClick={() => setPicking(false)} className="px-2 py-0.5 transition-none hover:opacity-80 self-start" style={btnStyle}>
             CANCEL

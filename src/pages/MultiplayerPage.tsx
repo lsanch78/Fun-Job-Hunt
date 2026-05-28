@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
+import SearchBar from '@/components/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,
@@ -16,6 +17,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('status')
+  const [search, setSearch] = useState('')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
 
@@ -114,8 +116,9 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
         </button>
       </div>
 
-      {/* Sort toolbar */}
+      {/* Sort + search toolbar */}
       <div className="px-4 py-2 border-b border-border flex items-center gap-x-4 gap-y-2">
+        <SearchBar value={search} onChange={setSearch} placeholder="search contacts…" />
         <div className="flex items-center gap-1">
           <span className="text-muted text-[10px] mr-1 select-none">SORT</span>
           {SORT_OPTIONS.map(({ key, label }) => (
@@ -157,6 +160,7 @@ export default function MultiplayerPage({ userId }: { userId: string | null }) {
           <ContactList
             contacts={contacts}
             sortBy={sortBy}
+            search={search}
             onPing={handlePing}
             onOpenDetail={setDetailContactId}
             jobsByContact={jobsByContact}

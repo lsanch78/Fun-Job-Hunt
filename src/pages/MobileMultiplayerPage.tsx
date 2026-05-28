@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
+import SearchBar from '@/components/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,
@@ -16,6 +17,7 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('status')
+  const [search, setSearch] = useState('')
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
 
@@ -106,8 +108,12 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        {/* Compact sort strip */}
-        <div className="flex items-center gap-1">
+      </div>
+
+      {/* Search + sort toolbar */}
+      <div className="px-3 py-2 border-b border-border flex items-center gap-3">
+        <SearchBar value={search} onChange={setSearch} placeholder="search…" className="flex-1" />
+        <div className="flex items-center gap-1 shrink-0">
           {SORT_OPTIONS.map(({ key, label }) => (
             <button
               key={key}
@@ -144,6 +150,7 @@ export default function MobileMultiplayerPage({ userId }: { userId: string | nul
         <ContactList
           contacts={contacts}
           sortBy={sortBy}
+          search={search}
           onPing={handlePing}
           onOpenDetail={setDetailContactId}
           jobsByContact={jobsByContact}
