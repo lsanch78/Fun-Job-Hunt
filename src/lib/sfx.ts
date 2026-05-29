@@ -775,6 +775,7 @@ export function playMusicBlip(): void {
 
 /** Rising blip for auth success: 440 → 880 Hz. */
 export function playAuthBlip(): void {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator(); const gain = ctx.createGain()
