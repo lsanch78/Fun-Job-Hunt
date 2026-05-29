@@ -89,11 +89,6 @@ export default function DialogueScene({
   const displayedText = currentLine.text.slice(0, charIndex)
   const isLastLine = lineIndex === lines.length - 1
 
-  // Fade music out on mount, resume on unmount
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
-  }, [])
 
   // Rain + thunder setup
   useEffect(() => {

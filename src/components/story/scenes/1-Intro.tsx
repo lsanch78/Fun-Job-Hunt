@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { isSfxMuted } from '@/lib/sfx'
 import introMp3 from '@/assets/music/1-intro.mp3'
 import { useSceneFlow } from '../useSceneFlow'
@@ -6,6 +6,11 @@ import { useSceneFlow } from '../useSceneFlow'
 export default function Intro({ onComplete }: { onComplete: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const pressCount = useRef(0)
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
+    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+  }, [])
 
   function handleLineAdvance() {
     pressCount.current += 1

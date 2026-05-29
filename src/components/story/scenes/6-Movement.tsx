@@ -131,6 +131,12 @@ export default function ScrollingTextCutscene({
   const [scrollDone, setScrollDone] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  // Fade music out on mount, resume on unmount
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
+    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+  }, [])
+
   // Skip on Enter or Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

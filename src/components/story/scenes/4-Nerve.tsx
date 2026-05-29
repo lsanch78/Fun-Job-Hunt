@@ -12,6 +12,11 @@ export default function Nerve({ onComplete }: { onComplete: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
+    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+  }, [])
+
   // Start music + ambient typing on mount
   useEffect(() => {
     const audio = new Audio(nerveMp3)
@@ -48,7 +53,8 @@ export default function Nerve({ onComplete }: { onComplete: () => void }) {
         { speaker: 'Mysterious Voice', text: "Hey you're doing great so far." },
         { speaker: 'Mysterious Voice', text: "HAHAHA" },
         { speaker: 'Mysterious Voice', text: "JUST KIDDING!" },
-        { speaker: 'Mysterious Voice', text: `See you around ${stats.name}!` },
+        { speaker: 'Mysterious Voice', text: `See you around ${stats.name}.` }, 
+        { speaker: 'Mysterious Voice', text: `Hah ${stats.appCount} applications having ass...` },
       ],
     },
   ], { weather: 'resumeStorm' })

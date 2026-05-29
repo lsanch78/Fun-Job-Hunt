@@ -24,10 +24,27 @@ export default function Heart({ onComplete }: { onComplete: () => void }) {
   const [name, setName] = useState<string | null>(null)
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
+    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+  }, [])
+
+  useEffect(() => {
     const audio = new Audio(heartMp3)
-    audio.volume = isSfxMuted() ? 0 : 0.6
+    audio.volume = 0
     audio.play().catch(() => {})
     audioRef.current = audio
+    if (!isSfxMuted()) {
+      const target = 0.6
+      const step = target / 30
+      const interval = setInterval(() => {
+        if (audio.volume + step >= target) {
+          audio.volume = target
+          clearInterval(interval)
+        } else {
+          audio.volume += step
+        }
+      }, 50)
+    }
     return () => { audio.pause() }
   }, [])
 
@@ -43,8 +60,47 @@ export default function Heart({ onComplete }: { onComplete: () => void }) {
       fadeIn: true,
       lines: name === null ? [] : [
         { speaker: 'Mysterious Voice', text: "..." },
-        { speaker: 'Mysterious Voice', text: `Who is this version of you, ${name}?` },
-        { speaker: 'Mysterious Voice', text: "I really didn't think you would be so persistent." },
+        { speaker: 'Mysterious Voice', text: `Well well well if it isn't ${name}!` },
+      ],
+    },
+    {
+      type: 'choice',
+      speaker: 'You',
+      prompt: '',
+      options: [
+        'WHO ARE YOU!?',
+        'WHAT DO YOU WANT!?',
+        "Hey bro, look I'm just like.. trying to get a job and stuff, can you like not?",
+        'Leave me alone!',
+      ],
+      storyInputIndex: 1,
+    },
+    {
+      type: 'lines',
+      lines: [
+        { speaker: 'Mysterious Voice', text: `What the...` },
+        { speaker: 'Mysterious Voice', text: `You can talk back to me?` },
+        { speaker: 'Mysterious Voice', text: `Where's ${name}? What's going on?` },
+        { speaker: 'Mysterious Voice', text: `Who are you?` }
+      ],
+    },
+    {
+      type: 'choice',
+      speaker: 'You',
+      prompt: '',
+      options: [
+        'ur mom',
+        'Your worst nightmare',
+        "I'm YOU (deals psychic damage)",
+        "I don't know, but you need to leave me alone!",
+      ],
+      storyInputIndex: 2,
+    },
+    {
+      type: 'lines',
+      lines: [
+        { speaker: 'Mysterious Voice', text: "Well this is awkward.." },
+        { speaker: 'Mysterious Voice', text: "I didn't ever think you'd talk back so uhh..." },
         { speaker: 'Mysterious Voice', text: "What are you doing this for anyways?" },
       ],
     },
@@ -58,18 +114,44 @@ export default function Heart({ onComplete }: { onComplete: () => void }) {
         'Less stress',
         'Hate my current job',
       ],
-      storyInputIndex: 1,
+      storyInputIndex: 3,
     },
     {
       type: 'lines',
       lines: (inputs) => [
-        { speaker: 'Mysterious Voice', text: BRANCH_RESPONSES[inputs[0]] ?? '...' },
-        { speaker: 'Mysterious Voice', text: "I guess I should tell you who I am now." },
+        { speaker: 'Mysterious Voice', text: BRANCH_RESPONSES[inputs[2]] ?? '...' },
+        { speaker: 'Mysterious Voice', text: "Well dang. guess I should tell you who I am now." },
+      ],
+    },
+    {
+      type: 'choice',
+      speaker: 'You',
+      prompt: '',
+      options: [
+        "I don't care dude",
+        "Let me guess: You're me?",
+      ],
+      storyInputIndex: 4,
+    },
+    {
+      type: 'lines',
+      lines: (inputs) => inputs[3] === "I don't care dude" ? [
+        { speaker: 'Mysterious Voice', text: "Well I'm ... YOU!" },
+        { speaker: 'You', text: "... is that it?" },
+        { speaker: 'You', text: "That was the big reveal?" },
+        { speaker: 'Self-Doubt', text: "Yeah uhh.. well this is awkward" },
+        { speaker: 'Self-Doubt', text: "It was supposed to be like a plot" },
+        { speaker: 'You', text: "Plot twist?" },
+        { speaker: 'Self-Doubt', text: "You keep stealing my thunder man." },
+        { speaker: 'Self-Doubt', text: "AHEM... ANYWAYS" },
+        { speaker: 'Self-Doubt', text: "I think we should work together instead of you know.. being mean to one another you know?" },
+      ] : [
         { speaker: 'Mysterious Voice', text: "...." },
-        { speaker: 'Mysterious Voice', text: `I'm you, ${name}.` },
-        { speaker: 'Self-Doubt', text: "I've always been here, gnawing away at you. You know that right?" },
-        { speaker: 'Self-Doubt', text: `I think maybe, if we worked together, we could be friends and ${BRANCH_GOALS[inputs[0]] ?? 'get there'}.` },
-        { speaker: 'Self-Doubt', text: "Anyways, I'll see you around yea? Don't be too hard on yourself." },
+        { speaker: 'Mysterious Voice', text: `God Damnit, ${name}.` },
+        { speaker: 'Self-Doubt', text: "How'd you know that?" },
+        { speaker: 'Self-Doubt', text: `I think well maybe, if we worked together, we could be friends and ${BRANCH_GOALS[inputs[2]] ?? 'get there'}.` },
+        { speaker: 'Self-Doubt', text: "Anyways, I'll see you around yea?" },
+        { speaker: 'Self-Doubt', text: "*god they always just steal my thunder man*" },
       ],
     },
   ], { weather: 'heartwave' })
