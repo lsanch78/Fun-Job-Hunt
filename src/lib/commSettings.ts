@@ -11,7 +11,9 @@ export const COMM_COOLDOWN_OPTIONS = [
 export type CommCooldownHours = typeof COMM_COOLDOWN_OPTIONS[number]['hours']
 
 export function getCommCooldownHours(userId: string): CommCooldownHours {
-  const parsed = lsGet<number>(SK.commCooldown(userId), 168)
+  // Fall back to legacy key where uid was in the middle of the string
+  const fromNew = lsGet<number | null>(SK.commCooldown(userId), null)
+  const parsed = fromNew ?? lsGet<number>(`fjobhunt:${userId}:comm-cooldown-hours`, 168)
   if (COMM_COOLDOWN_OPTIONS.some((o) => o.hours === parsed)) return parsed as CommCooldownHours
   return 168
 }

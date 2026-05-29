@@ -13,6 +13,7 @@ function savePunchIn(isoString: string) {
 
 function loadPunchIn(): Date | null {
   const raw = lsGet<string | null>(SK.workdayPunchIn, null)
+    ?? lsGet<string | null>('workday_punch_in', null)  // legacy key
   if (!raw) return null
   const d = new Date(raw)
   return isNaN(d.getTime()) ? null : d
@@ -20,6 +21,7 @@ function loadPunchIn(): Date | null {
 
 function clearPunchIn() {
   lsRemove(SK.workdayPunchIn)
+  lsRemove('workday_punch_in')  // legacy key
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -48,7 +50,9 @@ export function useWorkdayTracking(userId: string | null): WorkdayTrackingState 
 
   const doPunchOut = useCallback((at?: Date) => {
     const workdayId = lsGet<string | null>(SK.workdayId, null)
+      ?? lsGet<string | null>('workday_id', null)  // legacy key
     lsRemove(SK.workdayId)
+    lsRemove('workday_id')  // legacy key
     clearPunchIn()
     setPunchIn(null)
     playPunchOut()
@@ -68,7 +72,7 @@ export function useWorkdayTracking(userId: string | null): WorkdayTrackingState 
       const t = new Date()
       savePunchIn(t.toISOString())
       playPunchIn()
-      if (!lsGet<string | null>(SK.workdayId, null)) {
+      if (!(lsGet<string | null>(SK.workdayId, null) ?? lsGet<string | null>('workday_id', null))) {
         lsSet(SK.workdayId, 'pending')
         startWorkday(userId, t).then((id) => {
           if (id) lsSet(SK.workdayId, id)

@@ -208,17 +208,21 @@ export default function SettingsPage() {
       SK.jobs(userId),
       SK.workdays(userId),
       SK.workdayPunchIn,
+      'workday_punch_in',                           // legacy workday key
       SK.workdayId,
+      'workday_id',                                 // legacy workday key
       SK.scratchPad(userId),
       SK.scratchList(userId),
       SK.xp(userId),
-      `xp:${userId}`,                        // legacy xp key
+      `xp:${userId}`,                               // legacy xp key
       SK.musicTracks,
       SK.musicResume,
       SK.aiPanelSlots(userId),
-      `ai_panel_slots_${userId}`,            // legacy AI panel key
+      `ai_panel_slots_${userId}`,                   // legacy AI panel key
       SK.aiPanelText(userId),
-      `ai_panel_resume_text_${userId}`,      // legacy AI panel key
+      `ai_panel_resume_text_${userId}`,             // legacy AI panel key
+      SK.commCooldown(userId),
+      `fjobhunt:${userId}:comm-cooldown-hours`,     // legacy comm cooldown key
       SK.quickcastLinks(userId),
       SK.tutorialSeen(userId),
     ]
