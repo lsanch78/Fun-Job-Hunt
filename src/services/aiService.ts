@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 export type AiProvider = 'proxy' | 'openai' | 'anthropic'
 
@@ -23,31 +25,26 @@ export const ANTHROPIC_MODELS = [
   'claude-3-5-haiku-20241022',
 ]
 
-const PROVIDER_KEY = 'fjobhunt:ai:provider'
-const APIKEY_KEY   = 'fjobhunt:ai:apikey'
-
 const FUNCTION_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/ai-generate`
 
 // ── Provider / key helpers ────────────────────────────────────────────────────
 
 export function getAiProvider(): AiProvider {
-  try {
-    const val = localStorage.getItem(PROVIDER_KEY)
-    if (val === 'openai' || val === 'anthropic' || val === 'proxy') return val
-  } catch { /* ignore */ }
+  const val = lsGet<string>(SK.aiProvider, 'proxy')
+  if (val === 'openai' || val === 'anthropic' || val === 'proxy') return val
   return 'proxy'
 }
 
 export function setAiProvider(p: AiProvider): void {
-  try { localStorage.setItem(PROVIDER_KEY, p) } catch { /* ignore */ }
+  lsSet(SK.aiProvider, p)
 }
 
 export function getAiApiKey(): string {
-  try { return localStorage.getItem(APIKEY_KEY) ?? '' } catch { return '' }
+  return lsGet<string>(SK.aiApiKey, '')
 }
 
 export function setAiApiKey(k: string): void {
-  try { localStorage.setItem(APIKEY_KEY, k) } catch { /* ignore */ }
+  lsSet(SK.aiApiKey, k)
 }
 
 // ── Usage (proxy provider only) ───────────────────────────────────────────────

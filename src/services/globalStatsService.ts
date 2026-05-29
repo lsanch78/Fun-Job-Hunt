@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface GlobalStats {
@@ -11,7 +13,6 @@ export interface GlobalStats {
 }
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
-const CACHE_KEY = 'fjobhunt:global_stats'
 const CACHE_TTL = 5 * 60 * 1000  // 5 minutes in ms
 
 interface CachedStats {
@@ -20,22 +21,14 @@ interface CachedStats {
 }
 
 function readStatsCache(): GlobalStats | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const cached: CachedStats = JSON.parse(raw)
-    if (Date.now() - cached.fetchedAt < CACHE_TTL) return cached.stats
-    return null  // expired
-  } catch {
-    return null
-  }
+  const cached = lsGet<CachedStats | null>(SK.globalStats, null)
+  if (!cached) return null
+  if (Date.now() - cached.fetchedAt < CACHE_TTL) return cached.stats
+  return null  // expired
 }
 
 function writeStatsCache(stats: GlobalStats): void {
-  try {
-    const payload: CachedStats = { stats, fetchedAt: Date.now() }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
-  } catch { /* storage full — silently skip */ }
+  lsSet(SK.globalStats, { stats, fetchedAt: Date.now() })
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -63,10 +56,8 @@ export async function getGlobalStats(): Promise<GlobalStats | null> {
   }
 
   // DB failed — try returning stale cache rather than nothing
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) return (JSON.parse(raw) as CachedStats).stats
-  } catch { /* ignore */ }
+  const stale = lsGet<CachedStats | null>(SK.globalStats, null)
+  if (stale) return stale.stats
 
   return null
 }

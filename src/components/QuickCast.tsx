@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { playPageFlip, playSpellCast, playAiConsume, playAiDing } from '@/lib/sfx'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -64,7 +66,6 @@ if (typeof document !== 'undefined' && !document.getElementById('qc-ai-ready-sty
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LINKS_KEY  = (userId: string) => `fjobhunt:quickcast:links:${userId}`
 const MAX_SLOTS  = 8
 
 // Resume slot color palette — works across all themes
@@ -140,18 +141,12 @@ function renderIcon(key: string, size: number) {
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
 function loadLinks(userId: string): QuickCastSlot[] {
-  try {
-    const raw = localStorage.getItem(LINKS_KEY(userId))
-    if (raw) {
-      const parsed = JSON.parse(raw) as QuickCastSlot[]
-      if (Array.isArray(parsed)) return parsed.slice(0, MAX_SLOTS)
-    }
-  } catch { /* ignore */ }
-  return []
+  const parsed = lsGet<QuickCastSlot[]>(SK.quickcastLinks(userId), [])
+  return Array.isArray(parsed) ? parsed.slice(0, MAX_SLOTS) : []
 }
 
 function saveLinks(userId: string, links: QuickCastSlot[]): void {
-  try { localStorage.setItem(LINKS_KEY(userId), JSON.stringify(links)) } catch { /* ignore */ }
+  lsSet(SK.quickcastLinks(userId), links)
 }
 
 // ── Icon picker sub-component ─────────────────────────────────────────────────

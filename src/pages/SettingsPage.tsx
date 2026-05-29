@@ -5,7 +5,8 @@ import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhost
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
-import { WORKDAY_KEYS } from '@/lib/workdayKeys'
+import { lsRemove } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
 import { resetProfileXp } from '@/services/xpService'
@@ -171,10 +172,10 @@ export default function SettingsPage() {
     if (!userId) return
     setResetting(true)
     await Promise.all([deleteAllJobs(userId), deleteAllWorkdays(userId)])
-    localStorage.removeItem(`fjobhunt:jobs:${userId}`)
-    localStorage.removeItem(`fjobhunt:workdays:${userId}`)
-    localStorage.removeItem(WORKDAY_KEYS.punchIn)
-    localStorage.removeItem(WORKDAY_KEYS.workdayId)
+    lsRemove(SK.jobs(userId))
+    lsRemove(SK.workdays(userId))
+    lsRemove(SK.workdayPunchIn)
+    lsRemove(SK.workdayId)
     setResetting(false)
     setConfirmTarget(null)
     setResetDone('jobs')
@@ -204,37 +205,32 @@ export default function SettingsPage() {
       supabase.from('game_progress').upsert({ user_id: userId, employed: false }),
     ])
     const keys = [
-      // jobs + workdays
-      `fjobhunt:jobs:${userId}`,
-      `fjobhunt:workdays:${userId}`,
-      WORKDAY_KEYS.punchIn,
-      WORKDAY_KEYS.workdayId,
-      // scratch pad
-      `fjobhunt:scratchpad:${userId}`,
-      `fjobhunt:scratchlist:${userId}`,
-      // xp
-      `xp:${userId}`,
-      // music
-      'fjobhunt:music:tracks',
-      'fjobhunt:music:resume',
-      // AI panel
-      `ai_panel_slots_${userId}`,
-      `ai_panel_resume_text_${userId}`,
-      // quickcast
-      `fjobhunt:quickcast:links:${userId}`,
-      // tutorial
-      `fjobhunt:tutorial_seen:${userId}`,
+      SK.jobs(userId),
+      SK.workdays(userId),
+      SK.workdayPunchIn,
+      SK.workdayId,
+      SK.scratchPad(userId),
+      SK.scratchList(userId),
+      SK.xp(userId),
+      `xp:${userId}`,                        // legacy xp key
+      SK.musicTracks,
+      SK.musicResume,
+      SK.aiPanelSlots(userId),
+      `ai_panel_slots_${userId}`,            // legacy AI panel key
+      SK.aiPanelText(userId),
+      `ai_panel_resume_text_${userId}`,      // legacy AI panel key
+      SK.quickcastLinks(userId),
+      SK.tutorialSeen(userId),
     ]
-    keys.forEach((k) => localStorage.removeItem(k))
+    keys.forEach((k) => lsRemove(k))
     window.location.reload()
   }
 
   async function handleExportContacts() {
+    if (!userId) return
     setExportingContacts(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const contacts = await fetchContacts(user.id)
+      const contacts = await fetchContacts(userId)
       if (contacts.length === 0) return
       const csv = contactsToCSV(contacts)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -250,11 +246,10 @@ export default function SettingsPage() {
   }
 
   async function handleExport() {
+    if (!userId) return
     setExporting(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const jobs = await fetchJobsForExport(user.id)
+      const jobs = await fetchJobsForExport(userId)
       if (jobs.length === 0) return
       const csv = jobsToCSV(jobs)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })

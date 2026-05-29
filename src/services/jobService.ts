@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import type { Job, DbJob } from '@/types'
 
 // ── Job cap (see docs/SCALABILITY.md) ────────────────────────────────────────
@@ -28,7 +30,7 @@ export const JOB_LIMITS = {
 
 // ── Cache key ────────────────────────────────────────────────────────────────
 export function cacheKey(userId: string): string {
-  return `fjobhunt:jobs:${userId}`
+  return SK.jobs(userId)
 }
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
@@ -78,23 +80,13 @@ function jobToDbUpdate(job: Job): Partial<Omit<DbJob, 'id' | 'user_id'>> {
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 export function readCache(userId: string): Job[] {
-  try {
-    const raw = localStorage.getItem(cacheKey(userId))
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as Job[]) : []
-  } catch {
-    return []
-  }
+  const parsed = lsGet<unknown>(cacheKey(userId), [])
+  return Array.isArray(parsed) ? (parsed as Job[]) : []
 }
 
 // Only committed rows are cached — draft rows are always excluded.
 export function writeCache(userId: string, jobs: Job[]): void {
-  try {
-    localStorage.setItem(cacheKey(userId), JSON.stringify(jobs.filter((j) => j.committed)))
-  } catch {
-    console.error('[jobService] writeCache failed')
-  }
+  lsSet(cacheKey(userId), jobs.filter((j) => j.committed))
 }
 
 // ── DB reads ──────────────────────────────────────────────────────────────────
@@ -114,7 +106,7 @@ export async function fetchJobs(userId: string): Promise<Job[]> {
 }
 
 // ── Auto-ghost setting ────────────────────────────────────────────────────────
-const GHOST_SETTING_KEY = 'fjobhunt:autoghost'
+const DEFAULT_GHOST: AutoGhostSetting = { enabled: false, days: 60 }
 
 export interface AutoGhostSetting {
   enabled: boolean
@@ -122,17 +114,11 @@ export interface AutoGhostSetting {
 }
 
 export function readAutoGhostSetting(): AutoGhostSetting {
-  try {
-    const raw = localStorage.getItem(GHOST_SETTING_KEY)
-    if (!raw) return { enabled: false, days: 60 }
-    return { ...{ enabled: false, days: 60 }, ...JSON.parse(raw) }
-  } catch {
-    return { enabled: false, days: 60 }
-  }
+  return { ...DEFAULT_GHOST, ...lsGet<Partial<AutoGhostSetting>>(SK.autoGhost, {}) }
 }
 
 export function writeAutoGhostSetting(setting: AutoGhostSetting): void {
-  localStorage.setItem(GHOST_SETTING_KEY, JSON.stringify(setting))
+  lsSet(SK.autoGhost, setting)
 }
 
 // Statuses that can be auto-ghosted (still "waiting to hear back")
