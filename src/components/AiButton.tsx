@@ -67,6 +67,7 @@ interface AiButtonProps {
   phase: AiPhase
   dots: number
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
   disabled?: boolean
   title?: string
 }
@@ -89,10 +90,11 @@ const PHASE_STYLE: Record<AiPhase, React.CSSProperties> = {
   },
 }
 
-export default function AiButton({ label, phase, dots, onClick, disabled, title }: AiButtonProps) {
+export default function AiButton({ label, phase, dots, onClick, onContextMenu, disabled, title }: AiButtonProps) {
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       disabled={disabled}
       className={[
         'px-3 py-1 transition-none hover:opacity-90 disabled:cursor-not-allowed',

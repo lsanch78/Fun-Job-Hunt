@@ -7,6 +7,7 @@ import {
   runAutoGhost,
   JOB_CAP,
 } from '@/services/jobService'
+import { awardXp, xpForJob } from '@/services/xpService'
 
 // ── Draft factory ─────────────────────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ export interface JobListState {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useJobList(userId: string | null): JobListState {
+export function useJobList(userId: string | null, onXpAward?: (delta: number) => void): JobListState {
   const [jobs, setJobs] = useState<Job[]>(() => {
     const cached = userId ? readCache(userId) : []
     return [emptyJob(), ...cached]
@@ -193,6 +194,7 @@ export function useJobList(userId: string | null): JobListState {
       insertJob(savingRow, userId).then(() => {
         setJobs((prev) => prev.map((j) => j.id === committed.id ? { ...j, saving: false } : j))
       })
+      awardXp(userId, xpForJob(newCount), onXpAward)
     }
 
     return newCount
@@ -247,6 +249,7 @@ export function useJobList(userId: string | null): JobListState {
       return next
     })
     committedCountRef.current += 1
+    awardXp(userId, xpForJob(committedCountRef.current), onXpAward)
 
     return { error: null }
   }, [userId])

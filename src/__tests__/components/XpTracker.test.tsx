@@ -1,3 +1,5 @@
+jest.mock('@/lib/supabase', () => ({ supabase: {} }))
+
 import { render, screen } from '@testing-library/react'
 import XpTracker from '@/components/XpTracker'
 import { getRankInfo } from '@/services/xpService'

@@ -121,3 +121,17 @@ export async function deleteResumePdf(
   }
   return { error: null }
 }
+
+/** Delete all resume slots and their storage files for a user. */
+export async function deleteAllResumes(userId: string): Promise<{ error: string | null }> {
+  const allPaths = (['a', 'b', 'c'] as ResumeSlot[]).flatMap((slot) =>
+    ['pdf', 'docx'].map((ext) => resumeStoragePath(userId, slot, ext)),
+  )
+  const { error: storageErr } = await supabase.storage.from('resumes').remove(allPaths)
+  if (storageErr) console.error('[resumeService] deleteAllResumes storage:', storageErr.message)
+
+  const { error: dbErr } = await supabase.from('resume_slots').delete().eq('user_id', userId)
+  if (dbErr) console.error('[resumeService] deleteAllResumes db:', dbErr.message)
+
+  return { error: dbErr?.message ?? storageErr?.message ?? null }
+}

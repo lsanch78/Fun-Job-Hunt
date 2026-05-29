@@ -202,6 +202,12 @@ export async function deleteContact(id: string): Promise<{ error: string | null 
   return { error: error?.message ?? null }
 }
 
+export async function deleteAllContacts(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('contacts').delete().eq('user_id', userId)
+  if (error) console.error('[contactService] deleteAllContacts:', error.message)
+  return { error: error?.message ?? null }
+}
+
 // ── Junction table ────────────────────────────────────────────────────────────
 
 export async function linkContactToJob(contactId: string, jobId: string): Promise<{ error: string | null }> {

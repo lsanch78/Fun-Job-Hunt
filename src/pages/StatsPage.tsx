@@ -5,7 +5,7 @@ import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
 import type { Job, Contact } from '@/types'
 import XpTracker from '@/components/XpTracker'
-import { calculateXp } from '@/services/xpService'
+import { useXp } from '@/services/xpService'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -361,7 +361,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
   }, [contacts])
 
   // ── Rank ────────────────────────────────────────────────────────────────────
-  const xp = calculateXp(totalApps)
+  const { xp } = useXp(userId)
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

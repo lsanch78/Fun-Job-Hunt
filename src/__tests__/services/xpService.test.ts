@@ -1,36 +1,33 @@
-import { calculateXp, getRankInfo } from '@/services/xpService'
+jest.mock('@/lib/supabase', () => ({ supabase: {} }))
+
+import { xpForJob, getRankInfo } from '@/services/xpService'
 import { XP } from '@/config/game'
 
-// ── calculateXp ───────────────────────────────────────────────────────────────
+// ── xpForJob ──────────────────────────────────────────────────────────────────
 
-describe('calculateXp', () => {
-  it('0 jobs → 0 XP', () => {
-    expect(calculateXp(0)).toBe(0)
+describe('xpForJob', () => {
+  it('normal job earns ADD_JOB', () => {
+    expect(xpForJob(1)).toBe(XP.ADD_JOB)
+    expect(xpForJob(5)).toBe(XP.ADD_JOB)
+    expect(xpForJob(9)).toBe(XP.ADD_JOB)
   })
 
-  it('1 job → ADD_JOB XP (no bonus)', () => {
-    expect(calculateXp(1)).toBe(XP.ADD_JOB)
+  it('10th job earns double', () => {
+    expect(xpForJob(10)).toBe(XP.ADD_JOB * 2)
   })
 
-  it('9 jobs → 9 * ADD_JOB (no bonus yet)', () => {
-    expect(calculateXp(9)).toBe(9 * XP.ADD_JOB)
+  it('20th job earns double', () => {
+    expect(xpForJob(20)).toBe(XP.ADD_JOB * 2)
   })
 
-  it('10th job earns a bonus ADD_JOB on top', () => {
-    // base: 10 * 20 = 200, bonus: floor(10/10) * 20 = 20 → 220
-    expect(calculateXp(10)).toBe(10 * XP.ADD_JOB + XP.ADD_JOB)
+  it('11th job is back to normal', () => {
+    expect(xpForJob(11)).toBe(XP.ADD_JOB)
   })
 
-  it('20 jobs earns 2 bonus ADD_JOBs', () => {
-    expect(calculateXp(20)).toBe(20 * XP.ADD_JOB + 2 * XP.ADD_JOB)
-  })
-
-  it('15 jobs earns 1 bonus (only at the 10-mark, not the 15-mark)', () => {
-    expect(calculateXp(15)).toBe(15 * XP.ADD_JOB + 1 * XP.ADD_JOB)
-  })
-
-  it('is always non-negative', () => {
-    expect(calculateXp(0)).toBeGreaterThanOrEqual(0)
+  it('non-multiples-of-10 never earn double', () => {
+    ;[1, 3, 7, 11, 19, 21].forEach((n) => {
+      expect(xpForJob(n)).toBe(XP.ADD_JOB)
+    })
   })
 })
 
@@ -86,27 +83,28 @@ describe('getRankInfo', () => {
   })
 })
 
-// ── formula + rank together ───────────────────────────────────────────────────
+// ── xpForJob accumulation + getRankInfo ───────────────────────────────────────
 
-describe('calculateXp + getRankInfo', () => {
-  it('5 jobs puts you in rank 1 (100 XP threshold not reached)', () => {
-    const xp = calculateXp(5) // 5 * 20 = 100... wait, exactly 100
-    // 5 * 20 = 100 → rank 2
-    expect(getRankInfo(xp).rank).toBe(2)
+describe('xpForJob accumulation + getRankInfo', () => {
+  function accumulateXp(jobCount: number): number {
+    let total = 0
+    for (let i = 1; i <= jobCount; i++) total += xpForJob(i)
+    return total
+  }
+
+  it('4 jobs (80 XP) stays rank 1', () => {
+    expect(getRankInfo(accumulateXp(4)).rank).toBe(1)
   })
 
-  it('4 jobs stays rank 1', () => {
-    const xp = calculateXp(4) // 4 * 20 = 80
-    expect(getRankInfo(xp).rank).toBe(1)
+  it('5 jobs (100 XP) reaches rank 2', () => {
+    expect(getRankInfo(accumulateXp(5)).rank).toBe(2)
   })
 
-  it('10 jobs with bonus (220 XP) reaches rank 3 threshold at 250 — still rank 2', () => {
-    const xp = calculateXp(10) // 220 XP
-    expect(getRankInfo(xp).rank).toBe(2)
+  it('10 jobs with double bonus (220 XP) is rank 2', () => {
+    expect(getRankInfo(accumulateXp(10)).rank).toBe(2)
   })
 
-  it('13 jobs with 1 bonus (13*20 + 20 = 280 XP) reaches rank 3', () => {
-    const xp = calculateXp(13) // 13*20 + 20 = 280
-    expect(getRankInfo(xp).rank).toBe(3)
+  it('13 jobs (280 XP) reaches rank 3', () => {
+    expect(getRankInfo(accumulateXp(13)).rank).toBe(3)
   })
 })

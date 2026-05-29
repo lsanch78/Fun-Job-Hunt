@@ -6,21 +6,21 @@ export { getRankInfo }
 
 const avatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
 
-export default function XpTracker({ xp }: { xp: number }) {
-  const { rank, title, progress, nextFloor, isMax } = getRankInfo(xp)
+export default function XpTracker({ xp }: { xp: number | null }) {
+  const loaded = xp !== null
+  const { rank, title, progress, nextFloor, isMax } = getRankInfo(xp ?? 0)
   const barPct = Math.round(progress * 100)
-  const prevRankRef = useRef(rank)
-  const initializedRef = useRef(false)
+  const prevRankRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true
+    if (!loaded) return
+    if (prevRankRef.current === null) {
       prevRankRef.current = rank
       return
     }
     if (rank > prevRankRef.current) playLevelUp()
     prevRankRef.current = rank
-  }, [rank])
+  }, [rank, loaded])
 
   const avatarChar = avatarChars[(rank - 1) % avatarChars.length]
 

@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker from '@/components/XpTracker'
 import Cutscene from '@/components/Cutscene'
-import { calculateXp, getRankInfo } from '@/services/xpService'
+import { useXp, getRankInfo } from '@/services/xpService'
 
 // ── S-path node positions ─────────────────────────────────────────────────────
 const NODE_COLS = 4
@@ -179,10 +179,7 @@ const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '�
 
 export default function StoryPage({ userId }: { userId: string | null }) {
   const navigate = useNavigate()
-  const [xp, setXp] = useState(() => {
-    const cached = userId ? readCache(userId) : []
-    return calculateXp(cached.length)
-  })
+  const { xp } = useXp(userId)
   const [employed, setEmployed] = useState(false)
   const [loading, setLoading] = useState(() => {
     return userId ? readCache(userId).length === 0 : true
@@ -201,14 +198,13 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     let cancelled = false
 
     async function init() {
-      const [profileResult, dbJobs] = await Promise.all([
-        supabase.from('profiles').select('employed').eq('id', userId!).single(),
+      const [progressResult, dbJobs] = await Promise.all([
+        supabase.from('game_progress').select('employed').eq('user_id', userId!).single(),
         fetchJobs(userId!),
       ])
       if (cancelled) return
-      if (profileResult.data) setEmployed(!!profileResult.data.employed)
+      if (progressResult.data) setEmployed(!!progressResult.data.employed)
       setJobs(dbJobs)
-      setXp(calculateXp(dbJobs.length))
       setLoading(false)
     }
 
@@ -222,7 +218,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     setEmployed(next)
     if (!next) setFanfare(false)
     setTogglingEmployed(true)
-    await supabase.from('profiles').update({ employed: next }).eq('id', userId)
+    await supabase.from('game_progress').upsert({ user_id: userId!, employed: next })
     setTogglingEmployed(false)
   }
 
@@ -231,7 +227,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     playFanfare()
     setFanfare(true)
     setTogglingEmployed(true)
-    await supabase.from('profiles').update({ employed: true }).eq('id', userId)
+    await supabase.from('game_progress').upsert({ user_id: userId!, employed: true })
     setTogglingEmployed(false)
     setEmployed(true)
     // Let the fanfare play out, then fade music out and show cutscene
@@ -244,7 +240,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     navigate('/credits')
   }
 
-  const { rank: currentRank, progress, isMax } = getRankInfo(xp)
+  const { rank: currentRank, progress, isMax } = getRankInfo(xp ?? 0)
 
   function handleMidgameCutscene() {
     window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))

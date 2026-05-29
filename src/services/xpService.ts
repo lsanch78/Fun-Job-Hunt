@@ -1,16 +1,86 @@
+import { useState, useEffect, useCallback } from 'react'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
+import { supabase } from '@/lib/supabase'
 
-// ── XP formula ────────────────────────────────────────────────────────────────
-//
-// Base:  each committed job earns XP.ADD_JOB
-// Bonus: every 10th job earns an extra XP.ADD_JOB (the "mega milestone")
-//
-// xp = jobs * ADD_JOB + floor(jobs / 10) * ADD_JOB
+// Returns the XP delta for committing the nth job (1-indexed).
+// Every 10th job earns a double award.
+export function xpForJob(newCount: number): number {
+  return newCount % 10 === 0 ? XP.ADD_JOB * 2 : XP.ADD_JOB
+}
 
-export function calculateXp(committedJobCount: number): number {
-  const base = committedJobCount * XP.ADD_JOB
-  const bonus = Math.floor(committedJobCount / 10) * XP.ADD_JOB
-  return base + bonus
+
+export async function awardXp(userId: string, delta: number, onOptimistic?: (delta: number) => void): Promise<void> {
+  onOptimistic?.(delta)
+  const { error } = await supabase.rpc('increment_xp', { p_user_id: userId, p_delta: delta })
+  if (error) console.error('[xpService] awardXp:', error.message)
+}
+
+export async function resetProfileXp(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('game_progress')
+    .upsert({ user_id: userId, xp: 0, updated_at: new Date().toISOString() })
+  if (error) console.error('[xpService] resetProfileXp:', error.message)
+  try { localStorage.removeItem(`xp:${userId}`) } catch { /* ignore */ }
+  return { error: error?.message ?? null }
+}
+
+const xpCacheKey = (userId: string) => `xp:${userId}`
+
+function readXpCache(userId: string): number | null {
+  try {
+    const raw = localStorage.getItem(xpCacheKey(userId))
+    return raw !== null ? Number(raw) : null
+  } catch { return null }
+}
+
+function writeXpCache(userId: string, xp: number): void {
+  try { localStorage.setItem(xpCacheKey(userId), String(xp)) } catch {}
+}
+
+export function useXp(userId: string | null): { xp: number | null; bumpXp: (delta: number) => void } {
+  const [xp, setXp] = useState<number | null>(() => userId ? readXpCache(userId) : null)
+
+  useEffect(() => {
+    if (!userId) return
+
+    supabase
+      .from('game_progress')
+      .select('xp')
+      .eq('user_id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setXp(data.xp)
+          writeXpCache(userId, data.xp)
+        }
+      })
+
+    const channel = supabase
+      .channel(`game_progress:${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'game_progress',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        const row = payload.new as { xp?: number }
+        if (typeof row.xp === 'number') {
+          setXp(row.xp)
+          writeXpCache(userId, row.xp)
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [userId])
+
+  const bumpXp = useCallback((delta: number) => setXp(x => {
+    const next = (x ?? 0) + delta
+    if (userId) writeXpCache(userId, next)
+    return next
+  }), [userId])
+
+  return { xp, bumpXp }
 }
 
 // ── Rank info ─────────────────────────────────────────────────────────────────

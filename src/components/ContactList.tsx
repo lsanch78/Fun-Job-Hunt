@@ -4,6 +4,12 @@ import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
+import { useAI } from '@/hooks/useAI'
+import type { AiPhase } from '@/hooks/useAI'
+import AiButton from '@/components/AiButton'
+import { createCheckoutSession } from '@/services/subscriptionService'
+import { getResumeSignedUrl, type ResumeSlot } from '@/services/resumeService'
+import { getResumeText } from '@/services/resumeTextService'
 
 export type { Contact }
 export type SortBy = 'exp' | 'name' | 'company' | 'date' | 'recent'
@@ -303,11 +309,169 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
   )
 }
 
+// ── AI Outreach ───────────────────────────────────────────────────────────────
+
+const OUTREACH_DEFAULT_PROMPT = `You are a professional networking assistant helping a job seeker write outreach messages.
+
+You will be given:
+- SENDER: the job seeker (the person writing the message). Extract their name from their resume. This is the "I" / "me" in the message.
+- RECIPIENT: the contact being reached out to. Address them by name. Do NOT confuse their details with the sender's.
+
+Write a concise, warm outreach message from the SENDER to the RECIPIENT. Feel genuine and human — not templated or salesy. Keep it to 3–4 sentences: a brief opener, a reference to the role or company, and a low-pressure ask (coffee chat, quick call, or just to connect). Do not use filler like "I hope this email finds you well." Do not sign off with a name. Output only the message body.`
+
+const OUTREACH_PROMPT_KEY = 'fjobhunt:outreach_custom_prompt'
+
+function loadOutreachPrompt(): string {
+  try { return localStorage.getItem(OUTREACH_PROMPT_KEY) || OUTREACH_DEFAULT_PROMPT } catch { return OUTREACH_DEFAULT_PROMPT }
+}
+
+function saveOutreachPrompt(prompt: string): void {
+  try {
+    if (prompt.trim() && prompt.trim() !== OUTREACH_DEFAULT_PROMPT) localStorage.setItem(OUTREACH_PROMPT_KEY, prompt.trim())
+    else localStorage.removeItem(OUTREACH_PROMPT_KEY)
+  } catch { /* ignore */ }
+}
+
+async function loadSenderResume(userId: string | null): Promise<string> {
+  if (!userId) return ''
+  const parts: string[] = []
+  // Uploaded PDF/DOCX slots (a, b, c) — pulls from in-memory cache if already extracted
+  for (const slot of ['a', 'b', 'c'] as ResumeSlot[]) {
+    const signedUrl = await getResumeSignedUrl(userId, slot)
+    if (signedUrl) {
+      const text = await getResumeText(userId, slot, signedUrl)
+      if (text.trim()) { parts.push(text.trim()); break } // use first populated slot
+    }
+  }
+  // Pasted text (from AiPanel text input)
+  try {
+    const pasted = localStorage.getItem(`ai_panel_resume_text_${userId}`) ?? ''
+    if (pasted.trim() && parts.length === 0) parts.push(pasted.trim())
+  } catch { /* ignore */ }
+  return parts.join('\n\n')
+}
+
+function buildOutreachPrompt(contact: Contact, apps: AppLink[], senderResume: string): string {
+  const lines: string[] = []
+
+  lines.push('--- RECIPIENT (the contact you are writing TO) ---')
+  lines.push(`Name: ${contact.name}`)
+  if (contact.company) lines.push(`Company: ${contact.company}`)
+  if (apps.length > 0) lines.push(`Linked job(s): ${apps.map((a) => a.title).join(', ')}`)
+  if (contact.notes) lines.push(`Notes: ${contact.notes}`)
+
+  if (senderResume.trim()) {
+    lines.push('')
+    lines.push('--- SENDER (the job seeker writing the message — extract their name from this resume) ---')
+    lines.push(senderResume.trim().slice(0, 3000))
+  }
+
+  return lines.join('\n')
+}
+
+function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onStopEditing }: {
+  phase: AiPhase
+  dots: number
+  draft: string
+  limitHit: boolean
+  isEditing: boolean
+  onClose: () => void
+  onStopEditing: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const [promptInput, setPromptInput] = useState(() => loadOutreachPrompt())
+
+  function handleCopy() {
+    navigator.clipboard.writeText(draft).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 800)
+  }
+
+  function handleSavePrompt() {
+    saveOutreachPrompt(promptInput)
+    onStopEditing()
+  }
+
+  function handleResetPrompt() {
+    setPromptInput(OUTREACH_DEFAULT_PROMPT)
+    saveOutreachPrompt(OUTREACH_DEFAULT_PROMPT)
+  }
+
+  if (isEditing) {
+    return (
+      <div className="border border-border bg-bg mt-1 p-3 font-pixel text-xs">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-muted text-[10px] tracking-widest">// EDIT DRAFT PROMPT</span>
+          <button onClick={onStopEditing} className="text-muted hover:text-primary text-[10px] transition-none">✕ CLOSE</button>
+        </div>
+        <textarea
+          value={promptInput}
+          onChange={(e) => setPromptInput(e.target.value)}
+          rows={6}
+          className="w-full bg-surface border border-border text-primary font-pixel text-[10px] p-2 resize-y leading-relaxed focus:outline-none focus:border-secondary"
+          spellCheck={false}
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            onClick={handleSavePrompt}
+            className="text-[10px] px-2 py-0.5 border border-secondary text-secondary hover:opacity-80 transition-none"
+          >
+            SAVE
+          </button>
+          <button
+            onClick={handleResetPrompt}
+            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-primary hover:text-primary transition-none"
+          >
+            RESET DEFAULT
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border border-border bg-bg mt-1 p-3 font-pixel text-xs">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-muted text-[10px] tracking-widest">// AI OUTREACH DRAFT</span>
+        <button onClick={onClose} className="text-muted hover:text-primary text-[10px] transition-none">✕ CLOSE</button>
+      </div>
+
+      {phase === 'generating' && (
+        <div className="text-secondary text-[10px] animate-pulse">GEN{'.'.repeat(dots + 1)}</div>
+      )}
+
+      {limitHit && phase === 'idle' && (
+        <div className="flex items-center gap-3">
+          <span className="text-warning text-[10px]">// MONTHLY LIMIT REACHED</span>
+          <button
+            onClick={() => createCheckoutSession().catch(() => {})}
+            className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:opacity-80 transition-none"
+          >
+            UPGRADE — $8/mo
+          </button>
+        </div>
+      )}
+
+      {!limitHit && draft && phase !== 'generating' && (
+        <>
+          <pre className="text-primary text-[11px] whitespace-pre-wrap leading-relaxed mb-2 font-pixel">{draft}</pre>
+          <button
+            onClick={handleCopy}
+            className="text-[10px] px-2 py-0.5 border border-border text-muted hover:border-primary hover:text-primary transition-none"
+          >
+            {copied ? '✓ COPIED' : 'COPY'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Desktop table row ─────────────────────────────────────────────────────────
 
 interface ContactXpPopup { id: number; x: number; y: number }
 
-function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours }: {
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours, aiPhase, aiDots, isAiActive, isAiEditing, aiDraft, aiLimitHit, onAiClick, onAiRightClick, onStopEditing }: {
   contact: Contact
   apps?: AppLink[]
   onPing: (id: string) => void
@@ -318,6 +482,15 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   onToggle?: (id: string) => void
   onExpChange?: (id: string, exp: number) => void
   cooldownHours: number
+  aiPhase: AiPhase
+  aiDots: number
+  isAiActive: boolean
+  isAiEditing: boolean
+  aiDraft: string
+  aiLimitHit: boolean
+  onAiClick: () => void
+  onAiRightClick: (e: React.MouseEvent) => void
+  onStopEditing: () => void
 }) {
   const [commBonus, setCommBonus] = useState(contact.commExp ?? 0)
   const [popups, setPopups] = useState<ContactXpPopup[]>([])
@@ -430,7 +603,34 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       <td className="px-2 py-1 w-[100px] text-right">
         <PingButton contactId={contact.id} lastCommAt={contact.lastCommAt} cooldownHours={cooldownHours} onPing={onPing} onComm={handleComm} />
       </td>
+
+      {/* AI Outreach */}
+      <td className="px-2 py-1 w-[80px] text-right">
+        <AiButton
+          label="DRAFT"
+          phase={isAiActive ? aiPhase : 'idle'}
+          dots={aiDots}
+          onClick={onAiClick}
+          onContextMenu={onAiRightClick}
+          title="Left-click: generate · Right-click: edit prompt"
+        />
+      </td>
     </tr>
+    {(isAiActive || isAiEditing) && (
+      <tr>
+        <td colSpan={deleteMode ? 10 : 9} className="px-3 pb-3 pt-0 bg-surface/30 border-b border-border">
+          <ContactAiDrawer
+            phase={aiPhase}
+            dots={aiDots}
+            draft={aiDraft}
+            limitHit={aiLimitHit}
+            isEditing={isAiEditing}
+            onClose={onAiClick}
+            onStopEditing={onStopEditing}
+          />
+        </td>
+      </tr>
+    )}
     </>
   )
 }
@@ -495,9 +695,10 @@ interface ContactListProps {
   onTotalFiltered?: (n: number) => void
   onExpChange?: (id: string, exp: number) => void
   cooldownHours?: number
+  userId?: string | null
 }
 
-export default function ContactList({ contacts, sortBy, sortDir = 'asc', search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168 }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, sortDir = 'asc', search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168, userId = null }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -513,6 +714,52 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
   }, [sorted.length, onTotalFiltered])
 
   const paged = pageSize ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted
+
+  const ai = useAI()
+  const [activeAiContactId, setActiveAiContactId] = useState<string | null>(null)
+  const [editingAiContactId, setEditingAiContactId] = useState<string | null>(null)
+  const [aiDraft, setAiDraft] = useState('')
+  const [aiLimitHit, setAiLimitHit] = useState(false)
+  const senderResumeRef = useRef<string>('')
+
+  useEffect(() => {
+    loadSenderResume(userId).then((text) => { senderResumeRef.current = text })
+  }, [userId])
+
+  function handleAiClick(contact: Contact, apps: AppLink[]) {
+    if (activeAiContactId === contact.id) {
+      setActiveAiContactId(null)
+      setEditingAiContactId(null)
+      setAiDraft('')
+      setAiLimitHit(false)
+      ai.cancel()
+      return
+    }
+    ai.cancel()
+    setAiDraft('')
+    setAiLimitHit(false)
+    setEditingAiContactId(null)
+    setActiveAiContactId(contact.id)
+    ai.run({
+      system: loadOutreachPrompt(),
+      prompt: buildOutreachPrompt(contact, apps ?? [], senderResumeRef.current),
+      onComplete: (result) => setAiDraft(result),
+      onError: (msg) => {
+        const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
+        setAiLimitHit(isLimit)
+        if (!isLimit) setAiDraft(`> ERROR: ${msg}`)
+      },
+    })
+  }
+
+  function handleAiRightClick(e: React.MouseEvent, contactId: string) {
+    e.preventDefault()
+    setActiveAiContactId(null)
+    setAiDraft('')
+    setAiLimitHit(false)
+    ai.cancel()
+    setEditingAiContactId(contactId)
+  }
 
   if (mobile) {
     return (
@@ -537,11 +784,33 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col">ACTION</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px]" scope="col">DRAFT</th>
           </tr>
         </thead>
         <tbody>
           {paged.map((c) => (
-            <ContactRow key={c.id} contact={c} apps={jobsByContact[c.id]} onPing={onPing} onOpenDetail={onOpenDetail} onOpenJob={onOpenJob} deleteMode={deleteMode} checked={selected?.has(c.id)} onToggle={onToggle} onExpChange={onExpChange} cooldownHours={cooldownHours} />
+            <ContactRow
+              key={c.id}
+              contact={c}
+              apps={jobsByContact[c.id]}
+              onPing={onPing}
+              onOpenDetail={onOpenDetail}
+              onOpenJob={onOpenJob}
+              deleteMode={deleteMode}
+              checked={selected?.has(c.id)}
+              onToggle={onToggle}
+              onExpChange={onExpChange}
+              cooldownHours={cooldownHours}
+              aiPhase={ai.phase}
+              aiDots={ai.dots}
+              isAiActive={activeAiContactId === c.id}
+              isAiEditing={editingAiContactId === c.id}
+              aiDraft={aiDraft}
+              aiLimitHit={aiLimitHit}
+              onAiClick={() => handleAiClick(c, jobsByContact[c.id] ?? [])}
+              onAiRightClick={(e) => handleAiRightClick(e, c.id)}
+              onStopEditing={() => setEditingAiContactId(null)}
+            />
           ))}
         </tbody>
       </table>

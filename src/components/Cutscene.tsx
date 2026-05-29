@@ -66,6 +66,18 @@ export default function Cutscene({
   const [scrollDone, setScrollDone] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  // Skip on Enter or Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        playCreditsBlip()
+        onComplete()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onComplete])
+
   // Play audio on mount
   useEffect(() => {
     if (!audioSrc) return

@@ -4,7 +4,7 @@ import { Terminal, Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
-import { calculateXp } from '@/services/xpService'
+import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS, JOB_CAP } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
@@ -762,6 +762,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const { xp, bumpXp } = useXp(userId)
+
   // ── Job list state — all mutations go through the hook ──────────────────────
   const {
     jobs,
@@ -771,7 +773,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     updateJobDetails,
     deleteJobs,
     pendingFocusIdRef,
-  } = useJobList(userId)
+  } = useJobList(userId, bumpXp)
 
   // ── UI-only state (rendering concerns, not job-list state) ──────────────────
   const [popups, setPopups] = useState<XpPopup[]>([])
@@ -971,7 +973,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           className="cursor-pointer hover:opacity-80 transition-opacity"
           title="View Story Map"
         >
-          <XpTracker xp={calculateXp(committedCount)} />
+          <XpTracker xp={xp} />
         </button>
       </div>
 

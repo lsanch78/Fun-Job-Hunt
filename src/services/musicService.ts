@@ -68,3 +68,10 @@ export async function deleteTrack(id: string): Promise<void> {
   const { error } = await supabase.from('music_tracks').delete().eq('id', id)
   if (error) console.error('[musicService] deleteTrack:', error.message)
 }
+
+/** Delete all tracks for a user. */
+export async function deleteAllTracks(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('music_tracks').delete().eq('user_id', userId)
+  if (error) console.error('[musicService] deleteAllTracks:', error.message)
+  return { error: error?.message ?? null }
+}

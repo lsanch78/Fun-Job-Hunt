@@ -2,14 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
+import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { WORKDAY_KEYS } from '@/lib/workdayKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
+import { resetProfileXp } from '@/services/xpService'
+import { upsertScratchPad } from '@/services/scratchPadService'
+import { deleteAllResumes } from '@/services/resumeService'
+import { deleteAllTracks } from '@/services/musicService'
+import { deleteAllLinks } from '@/services/quickCastService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { createCheckoutSession, openPortalSession } from '@/services/subscriptionService'
-import type { Job } from '@/types'
+import type { Job, Contact } from '@/types'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal:     'Classic Terminal',
@@ -49,13 +55,36 @@ function jobsToCSV(jobs: Job[]): string {
   return [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
 }
 
+function contactsToCSV(contacts: Contact[]): string {
+  const headers = ['ID', 'Name', 'Company', 'Email', 'LinkedIn', 'GitHub', 'Twitter', 'Discord', 'Comm XP', 'Last Interaction', 'Last Comm', 'Notes', 'Created At']
+  const rows = contacts.map((c) => [
+    c.id,
+    c.name,
+    c.company ?? '',
+    c.email ?? '',
+    c.linkedin ?? '',
+    c.github ?? '',
+    c.twitter ?? '',
+    c.discord ?? '',
+    String(c.commExp),
+    c.lastInteractionAt ?? '',
+    c.lastCommAt ?? '',
+    c.notes ?? '',
+    c.createdAt,
+  ])
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+  return [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
+}
+
 export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
   const { isSubscribed, subscription, refresh } = useSubscription()
   const [exporting, setExporting] = useState(false)
-  const [resetConfirm, setResetConfirm] = useState(false)
+  const [exportingContacts, setExportingContacts] = useState(false)
+  const [confirmTarget, setConfirmTarget] = useState<'jobs' | 'contacts' | 'full' | null>(null)
+  const [fullResetPhrase, setFullResetPhrase] = useState('')
   const [resetting, setResetting] = useState(false)
-  const [resetDone, setResetDone] = useState(false)
+  const [resetDone, setResetDone] = useState<'jobs' | 'contacts' | 'full' | null>(null)
   const [checkoutPending, setCheckoutPending] = useState(false)
 
   const initialGhost = readAutoGhostSetting()
@@ -138,18 +167,86 @@ export default function SettingsPage() {
     setTimeout(() => setApiKeySaved(false), 2000)
   }
 
-  async function handleReset() {
+  async function handleDeleteJobs() {
     if (!userId) return
     setResetting(true)
     await Promise.all([deleteAllJobs(userId), deleteAllWorkdays(userId)])
-    // Clear local caches
     localStorage.removeItem(`fjobhunt:jobs:${userId}`)
     localStorage.removeItem(`fjobhunt:workdays:${userId}`)
     localStorage.removeItem(WORKDAY_KEYS.punchIn)
     localStorage.removeItem(WORKDAY_KEYS.workdayId)
     setResetting(false)
-    setResetConfirm(false)
-    setResetDone(true)
+    setConfirmTarget(null)
+    setResetDone('jobs')
+  }
+
+  async function handleDeleteContacts() {
+    if (!userId) return
+    setResetting(true)
+    await deleteAllContacts(userId)
+    setResetting(false)
+    setConfirmTarget(null)
+    setResetDone('contacts')
+  }
+
+  async function handleFullReset() {
+    if (!userId) return
+    setResetting(true)
+    await Promise.all([
+      deleteAllJobs(userId),
+      deleteAllWorkdays(userId),
+      deleteAllContacts(userId),
+      deleteAllResumes(userId),
+      deleteAllTracks(userId),
+      deleteAllLinks(userId),
+      resetProfileXp(userId),
+      upsertScratchPad(userId, { notes: '', list: '' }),
+      supabase.from('game_progress').upsert({ user_id: userId, employed: false }),
+    ])
+    const keys = [
+      // jobs + workdays
+      `fjobhunt:jobs:${userId}`,
+      `fjobhunt:workdays:${userId}`,
+      WORKDAY_KEYS.punchIn,
+      WORKDAY_KEYS.workdayId,
+      // scratch pad
+      `fjobhunt:scratchpad:${userId}`,
+      `fjobhunt:scratchlist:${userId}`,
+      // xp
+      `xp:${userId}`,
+      // music
+      'fjobhunt:music:tracks',
+      'fjobhunt:music:resume',
+      // AI panel
+      `ai_panel_slots_${userId}`,
+      `ai_panel_resume_text_${userId}`,
+      // quickcast
+      `fjobhunt:quickcast:links:${userId}`,
+      // tutorial
+      `fjobhunt:tutorial_seen:${userId}`,
+    ]
+    keys.forEach((k) => localStorage.removeItem(k))
+    window.location.reload()
+  }
+
+  async function handleExportContacts() {
+    setExportingContacts(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const contacts = await fetchContacts(user.id)
+      if (contacts.length === 0) return
+      const csv = contactsToCSV(contacts)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExportingContacts(false)
+    }
   }
 
   async function handleExport() {
@@ -305,43 +402,74 @@ export default function SettingsPage() {
             {exporting ? '  Exporting…' : '  Export jobs to CSV'}
           </button>
 
+          <button
+            onClick={handleExportContacts}
+            disabled={exportingContacts}
+            className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+          >
+            {exportingContacts ? '  Exporting…' : '  Export contacts to CSV'}
+          </button>
+
           <div className="flex flex-col gap-3">
-            {!resetConfirm && !resetDone && (
+            {/* ── Delete all jobs ── */}
+            {confirmTarget !== 'jobs' && (
               <button
-                onClick={() => setResetConfirm(true)}
-                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none"
+                onClick={() => { setConfirmTarget('jobs'); setResetDone(null) }}
+                disabled={resetting}
+                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
               >
-                {'  Reset job hunt'}
+                {'  Delete all jobs'}
               </button>
             )}
-
-            {resetConfirm && !resetDone && (
+            {confirmTarget === 'jobs' && (
               <div className="flex flex-col gap-3">
-                <p className="text-xs text-red-500 px-1">
-                  This will permanently delete all jobs and activity logs. This cannot be undone.
-                </p>
+                <p className="text-xs text-red-500 px-1">Permanently deletes all jobs and activity logs. Cannot be undone.</p>
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleReset}
-                    disabled={resetting}
-                    className="text-left text-xs px-4 py-3 border-2 border-red-500 text-red-500 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-                  >
-                    {resetting ? '  Deleting…' : '  Yes, delete everything'}
+                  <button onClick={handleDeleteJobs} disabled={resetting} className="text-left text-xs px-4 py-3 border-2 border-red-500 text-red-500 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none">
+                    {resetting ? '  Deleting…' : '  Yes, delete all jobs'}
                   </button>
-                  <button
-                    onClick={() => setResetConfirm(false)}
-                    disabled={resetting}
-                    className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-                  >
+                  <button onClick={() => setConfirmTarget(null)} disabled={resetting} className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none">
                     {'  Cancel'}
                   </button>
                 </div>
               </div>
             )}
+            {resetDone === 'jobs' && <p className="text-xs text-secondary px-1">All jobs deleted.</p>}
 
-            {resetDone && (
-              <p className="text-xs text-secondary px-1">Job hunt reset. All data deleted.</p>
+            {/* ── Delete all contacts ── */}
+            {confirmTarget !== 'contacts' && (
+              <button
+                onClick={() => { setConfirmTarget('contacts'); setResetDone(null) }}
+                disabled={resetting}
+                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+              >
+                {'  Delete all contacts'}
+              </button>
             )}
+            {confirmTarget === 'contacts' && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-red-500 px-1">Permanently deletes all contacts and comm history. Cannot be undone.</p>
+                <div className="flex gap-3">
+                  <button onClick={handleDeleteContacts} disabled={resetting} className="text-left text-xs px-4 py-3 border-2 border-red-500 text-red-500 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-none">
+                    {resetting ? '  Deleting…' : '  Yes, delete all contacts'}
+                  </button>
+                  <button onClick={() => setConfirmTarget(null)} disabled={resetting} className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none">
+                    {'  Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {resetDone === 'contacts' && <p className="text-xs text-secondary px-1">All contacts deleted.</p>}
+
+            {/* ── Full reset ── */}
+            <button
+              onClick={() => { setConfirmTarget('full'); setFullResetPhrase(''); setResetDone(null) }}
+              disabled={resetting}
+              className="text-left text-xs px-4 py-3 border-2 border-red-900 text-red-700 hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+            >
+              {'  Full reset — wipe everything'}
+            </button>
+            {resetDone === 'full' && <p className="text-xs text-secondary px-1">Full reset complete. Starting fresh.</p>}
           </div>
         </div>
       </section>
@@ -455,6 +583,46 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+
+      {/* ── Full reset modal ── */}
+      {confirmTarget === 'full' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="bg-bg border-2 border-red-500 p-8 flex flex-col gap-5 w-full max-w-md font-pixel">
+            <h2 className="text-sm text-red-500">FULL RESET</h2>
+            <p className="text-xs text-red-400 leading-relaxed">
+              This permanently deletes ALL jobs, contacts, activity logs, resumes, music playlists, and scratch pad, and resets your XP to 0. This cannot be undone.
+            </p>
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] text-muted tracking-widest">TYPE TO CONFIRM</label>
+              <p className="text-[10px] text-red-400 font-mono">I am deleting all of my job search information</p>
+              <input
+                type="text"
+                value={fullResetPhrase}
+                onChange={(e) => setFullResetPhrase(e.target.value)}
+                placeholder="type the phrase above"
+                className="bg-transparent border border-red-900 text-primary font-pixel text-[10px] px-3 py-2 outline-none focus:border-red-500 placeholder-muted"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleFullReset}
+                disabled={resetting || fullResetPhrase !== 'I am deleting all of my job search information'}
+                className="text-left text-xs px-4 py-3 border-2 border-red-500 text-red-500 hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed transition-none"
+              >
+                {resetting ? '  Resetting…' : '  Wipe everything'}
+              </button>
+              <button
+                onClick={() => { setConfirmTarget(null); setFullResetPhrase('') }}
+                disabled={resetting}
+                className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+              >
+                {'  Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

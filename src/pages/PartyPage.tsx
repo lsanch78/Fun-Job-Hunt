@@ -351,6 +351,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
             pageSize={PAGE_SIZE}
             onTotalFiltered={setTotalFiltered}
             cooldownHours={cooldownHours}
+            userId={userId}
             onExpChange={(id, exp) => {
               const now = new Date().toISOString()
               setContacts((prev) => prev.map((c) => c.id === id ? { ...c, commExp: exp, lastCommAt: now } : c))

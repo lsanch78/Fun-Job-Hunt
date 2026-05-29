@@ -73,6 +73,13 @@ export async function deleteLink(id: string): Promise<void> {
   if (error) console.error('[quickCastService] deleteLink:', error.message)
 }
 
+/** Delete all links for a user. */
+export async function deleteAllLinks(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('quick_cast_links').delete().eq('user_id', userId)
+  if (error) console.error('[quickCastService] deleteAllLinks:', error.message)
+  return { error: error?.message ?? null }
+}
+
 /** Replace all positions after a reorder. Fire-and-forget bulk update. */
 export async function reorderLinks(links: QuickCastLink[]): Promise<void> {
   const updates = links.map((l, i) =>

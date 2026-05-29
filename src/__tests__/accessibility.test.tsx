@@ -78,7 +78,7 @@ jest.mock('@/services/workdayService', () => ({
 }))
 
 jest.mock('@/services/xpService', () => ({
-  calculateXp: jest.fn().mockReturnValue({ xp: 0, rank: 0 }),
+  useXp: jest.fn().mockReturnValue({ xp: 0, bumpXp: jest.fn() }),
   getRankInfo: jest.fn().mockReturnValue({ rank: 0, title: 'Rookie', xpIntoRank: 0, xpForNextRank: 100 }),
 }))
 
