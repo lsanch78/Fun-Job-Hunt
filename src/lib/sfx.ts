@@ -1,13 +1,14 @@
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
+
 // ── Mute state ────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'fjobhunt:sfx:muted'
-
 export function isSfxMuted(): boolean {
-  try { return localStorage.getItem(STORAGE_KEY) === 'true' } catch { return false }
+  return lsGet<boolean>(SK.sfxMuted, false)
 }
 
 export function setSfxMuted(muted: boolean): void {
-  try { localStorage.setItem(STORAGE_KEY, muted ? 'true' : 'false') } catch { /* ignore */ }
+  lsSet(SK.sfxMuted, muted)
   window.dispatchEvent(new CustomEvent('fjobhunt:sfx-muted-change', { detail: muted }))
 }
 
@@ -775,6 +776,7 @@ export function playMusicBlip(): void {
 
 /** Rising blip for auth success: 440 → 880 Hz. */
 export function playAuthBlip(): void {
+  if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator(); const gain = ctx.createGain()

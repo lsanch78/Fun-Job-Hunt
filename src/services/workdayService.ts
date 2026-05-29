@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 export interface WorkdayRow {
   id: string
@@ -9,27 +11,13 @@ export interface WorkdayRow {
 }
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
-function workdayCacheKey(userId: string): string {
-  return `fjobhunt:workdays:${userId}`
-}
-
 export function readWorkdayCache(userId: string): WorkdayRow[] {
-  try {
-    const raw = localStorage.getItem(workdayCacheKey(userId))
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as WorkdayRow[]) : []
-  } catch {
-    return []
-  }
+  const parsed = lsGet<unknown>(SK.workdays(userId), [])
+  return Array.isArray(parsed) ? (parsed as WorkdayRow[]) : []
 }
 
 export function writeWorkdayCache(userId: string, rows: WorkdayRow[]): void {
-  try {
-    localStorage.setItem(workdayCacheKey(userId), JSON.stringify(rows))
-  } catch {
-    console.error('[workdayService] writeWorkdayCache failed')
-  }
+  lsSet(SK.workdays(userId), rows)
 }
 
 // Insert a new workday row when the user punches in.

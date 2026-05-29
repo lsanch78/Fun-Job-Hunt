@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet, lsRemove } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 // Returns the XP delta for committing the nth job (1-indexed).
 // Every 10th job earns a double award.
@@ -20,21 +22,22 @@ export async function resetProfileXp(userId: string): Promise<{ error: string | 
     .from('game_progress')
     .upsert({ user_id: userId, xp: 0, updated_at: new Date().toISOString() })
   if (error) console.error('[xpService] resetProfileXp:', error.message)
-  try { localStorage.removeItem(`xp:${userId}`) } catch { /* ignore */ }
+  // Remove both the new key and the legacy key (xp:${userId} → fjobhunt:xp:${userId})
+  lsRemove(SK.xp(userId))
+  lsRemove(`xp:${userId}`)
   return { error: error?.message ?? null }
 }
 
-const xpCacheKey = (userId: string) => `xp:${userId}`
-
 function readXpCache(userId: string): number | null {
-  try {
-    const raw = localStorage.getItem(xpCacheKey(userId))
-    return raw !== null ? Number(raw) : null
-  } catch { return null }
+  // Check new key first, fall back to legacy key from before the rename
+  const fromNew = lsGet<number | null>(SK.xp(userId), null)
+  if (fromNew !== null) return fromNew
+  const fromLegacy = lsGet<number | null>(`xp:${userId}`, null)
+  return fromLegacy
 }
 
 function writeXpCache(userId: string, xp: number): void {
-  try { localStorage.setItem(xpCacheKey(userId), String(xp)) } catch {}
+  lsSet(SK.xp(userId), xp)
 }
 
 export function useXp(userId: string | null): { xp: number | null; bumpXp: (delta: number) => void } {

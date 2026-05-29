@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
 import { startTerminalHum, playAuthBlip as playBlip } from '@/lib/sfx'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 type Screen = 'title' | 'email' | 'code'
 type AuthError = string | null
@@ -42,7 +44,7 @@ export default function AuthPage() {
   const [error,         setError]         = useState<AuthError>(null)
   const [loading,       setLoading]       = useState(false)
   const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
-  const [soundOn,       setSoundOn]       = useState(() => localStorage.getItem('fjobhunt:auth_sound') === '1')
+  const [soundOn,       setSoundOn]       = useState(() => lsGet<number>(SK.authSound, 0) === 1)
   const stopHumRef  = useRef<(() => void) | null>(null)
   const introRef    = useRef<HTMLAudioElement | null>(null)
   const nonceRef    = useRef<string | null>(null)
@@ -130,7 +132,7 @@ export default function AuthPage() {
       stopHumRef.current = null
       if (introRef.current) { introRef.current.pause(); introRef.current.src = ''; introRef.current = null }
       setSoundOn(false)
-      localStorage.setItem('fjobhunt:auth_sound', '0')
+      lsSet(SK.authSound, 0)
     } else {
       stopHumRef.current = startTerminalHum()
       const audio = new Audio('/intro.mp3')
@@ -138,7 +140,7 @@ export default function AuthPage() {
       audio.play().catch(() => {})
       introRef.current = audio
       setSoundOn(true)
-      localStorage.setItem('fjobhunt:auth_sound', '1')
+      lsSet(SK.authSound, 1)
     }
   }
 

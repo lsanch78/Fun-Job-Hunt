@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { THEMES, type Theme } from '@/config/game'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
-const STORAGE_KEY = 'fjobhunt:theme'
-const CUSTOM_COLORS_KEY = 'fjobhunt:custom-colors'
 const DEFAULT_THEME: Theme = 'terminal'
 
 export interface CustomColors {
@@ -62,24 +62,20 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return (THEMES as readonly string[]).includes(stored ?? '')
+    const stored = lsGet<string>(SK.theme, '')
+    return (THEMES as readonly string[]).includes(stored)
       ? (stored as Theme)
       : DEFAULT_THEME
   })
 
   const [customColors, setCustomColorsState] = useState<CustomColors>(() => {
-    try {
-      const stored = localStorage.getItem(CUSTOM_COLORS_KEY)
-      return stored ? { ...DEFAULT_CUSTOM_COLORS, ...JSON.parse(stored) } : DEFAULT_CUSTOM_COLORS
-    } catch {
-      return DEFAULT_CUSTOM_COLORS
-    }
+    const stored = lsGet<Partial<CustomColors> | null>(SK.customColors, null)
+    return stored ? { ...DEFAULT_CUSTOM_COLORS, ...stored } : DEFAULT_CUSTOM_COLORS
   })
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem(STORAGE_KEY, theme)
+    lsSet(SK.theme, theme)
     if (theme === 'custom') {
       applyCustomColors(customColors)
     } else {
@@ -99,7 +95,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   function setCustomColors(c: CustomColors) {
     setCustomColorsState(c)
-    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(c))
+    lsSet(SK.customColors, c)
     if (theme === 'custom') applyCustomColors(c)
   }
 

@@ -1,21 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
-
-const SCRATCH_PAD_KEY  = 'fjobhunt:scratchpad'
-const SCRATCH_LIST_KEY = 'fjobhunt:scratchlist'
-const SCRATCH_TAB_KEY  = 'fjobhunt:scratchtab'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 interface CheckItem { id: string; text: string; done: boolean }
-
-function readList(): CheckItem[] {
-  try {
-    const raw = localStorage.getItem(SCRATCH_LIST_KEY)
-    return raw ? (JSON.parse(raw) as CheckItem[]) : []
-  } catch { return [] }
-}
-function saveList(items: CheckItem[]) {
-  try { localStorage.setItem(SCRATCH_LIST_KEY, JSON.stringify(items)) } catch { /* noop */ }
-}
 
 type SyncStatus = 'synced' | 'syncing'
 
@@ -35,13 +23,9 @@ export default function MobileScratchPad({
   userId: string | null
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<'pad' | 'list'>(() => {
-    try { return (localStorage.getItem(SCRATCH_TAB_KEY) as 'pad' | 'list') ?? 'pad' } catch { return 'pad' }
-  })
-  const [text, setText] = useState(() => {
-    try { return localStorage.getItem(SCRATCH_PAD_KEY) ?? '' } catch { return '' }
-  })
-  const [items, setItems] = useState<CheckItem[]>(readList)
+  const [tab, setTab] = useState<'pad' | 'list'>(() => lsGet<string>(SK.scratchTab, 'pad') as 'pad' | 'list')
+  const [text, setText] = useState(() => userId ? lsGet<string>(SK.scratchPad(userId), '') : '')
+  const [items, setItems] = useState<CheckItem[]>(() => userId ? lsGet<CheckItem[]>(SK.scratchList(userId), []) : [])
   const [newItem, setNewItem] = useState('')
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced')
 
@@ -58,13 +42,13 @@ export default function MobileScratchPad({
       if (rec) {
         if (rec.notes) {
           setText(rec.notes)
-          try { localStorage.setItem(SCRATCH_PAD_KEY, rec.notes) } catch { /* noop */ }
+          if (userId) lsSet(SK.scratchPad(userId), rec.notes)
         }
         if (rec.list) {
           try {
             const parsed = JSON.parse(rec.list) as CheckItem[]
             setItems(parsed)
-            saveList(parsed)
+            if (userId) lsSet(SK.scratchList(userId), parsed)
           } catch { /* noop */ }
         }
       }
@@ -89,11 +73,11 @@ export default function MobileScratchPad({
 
   function switchTab(t: 'pad' | 'list') {
     setTab(t)
-    try { localStorage.setItem(SCRATCH_TAB_KEY, t) } catch { /* noop */ }
+    lsSet(SK.scratchTab, t)
   }
 
   function persistText(val: string) {
-    try { localStorage.setItem(SCRATCH_PAD_KEY, val) } catch { /* noop */ }
+    if (userId) lsSet(SK.scratchPad(userId), val)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
@@ -104,7 +88,7 @@ export default function MobileScratchPad({
   }
 
   function persistItems(next: CheckItem[]) {
-    saveList(next)
+    if (userId) lsSet(SK.scratchList(userId), next)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveListTimer.current) clearTimeout(saveListTimer.current)

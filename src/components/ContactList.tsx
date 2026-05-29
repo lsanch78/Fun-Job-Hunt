@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
+import { lsGet, lsSet, lsRemove } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
 import { useAI } from '@/hooks/useAI'
@@ -319,17 +321,13 @@ You will be given:
 
 Write a concise, warm outreach message from the SENDER to the RECIPIENT. Feel genuine and human — not templated or salesy. Keep it to 3–4 sentences: a brief opener, a reference to the role or company, and a low-pressure ask (coffee chat, quick call, or just to connect). Do not use filler like "I hope this email finds you well." Do not sign off with a name. Output only the message body.`
 
-const OUTREACH_PROMPT_KEY = 'fjobhunt:outreach_custom_prompt'
-
 function loadOutreachPrompt(): string {
-  try { return localStorage.getItem(OUTREACH_PROMPT_KEY) || OUTREACH_DEFAULT_PROMPT } catch { return OUTREACH_DEFAULT_PROMPT }
+  return lsGet<string>(SK.outreachPrompt, '') || OUTREACH_DEFAULT_PROMPT
 }
 
 function saveOutreachPrompt(prompt: string): void {
-  try {
-    if (prompt.trim() && prompt.trim() !== OUTREACH_DEFAULT_PROMPT) localStorage.setItem(OUTREACH_PROMPT_KEY, prompt.trim())
-    else localStorage.removeItem(OUTREACH_PROMPT_KEY)
-  } catch { /* ignore */ }
+  if (prompt.trim() && prompt.trim() !== OUTREACH_DEFAULT_PROMPT) lsSet(SK.outreachPrompt, prompt.trim())
+  else lsRemove(SK.outreachPrompt)
 }
 
 async function loadSenderResume(userId: string | null): Promise<string> {
@@ -344,10 +342,8 @@ async function loadSenderResume(userId: string | null): Promise<string> {
     }
   }
   // Pasted text (from AiPanel text input)
-  try {
-    const pasted = localStorage.getItem(`ai_panel_resume_text_${userId}`) ?? ''
-    if (pasted.trim() && parts.length === 0) parts.push(pasted.trim())
-  } catch { /* ignore */ }
+  const pasted = lsGet<string>(SK.aiPanelText(userId), '')
+  if (pasted.trim() && parts.length === 0) parts.push(pasted.trim())
   return parts.join('\n\n')
 }
 

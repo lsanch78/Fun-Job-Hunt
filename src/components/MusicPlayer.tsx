@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { playMusicBlip } from '@/lib/sfx'
 import { Music } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import {
   fetchTracks as dbFetchTracks,
   createTrack as dbCreateTrack,
@@ -16,10 +18,6 @@ interface Track {
   title: string
 }
 
-const STORAGE_TRACKS = 'fjobhunt:music:tracks'
-const STORAGE_VOLUME = 'fjobhunt:music:volume'
-const STORAGE_RESUME = 'fjobhunt:music:resume'
-const STORAGE_SHUFFLE = 'fjobhunt:music:shuffle'
 const MAX_TRACKS = 50 // see docs/SCALABILITY.md
 
 interface ResumeState {
@@ -29,15 +27,11 @@ interface ResumeState {
 }
 
 function saveResume(state: ResumeState) {
-  try { localStorage.setItem(STORAGE_RESUME, JSON.stringify(state)) } catch { /* ignore */ }
+  lsSet(SK.musicResume, state)
 }
 
 function loadResume(): ResumeState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_RESUME)
-    if (raw) return JSON.parse(raw) as ResumeState
-  } catch { /* ignore */ }
-  return null
+  return lsGet<ResumeState | null>(SK.musicResume, null)
 }
 
 const DEFAULT_TRACKS: Track[] = [
@@ -49,33 +43,17 @@ const DEFAULT_TRACKS: Track[] = [
 ]
 
 function loadTracks(): Track[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_TRACKS)
-    if (raw) {
-      const parsed = JSON.parse(raw) as Track[]
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_TRACKS
+  const parsed = lsGet<Track[]>(SK.musicTracks, [])
+  return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TRACKS
 }
 
 function loadVolume(): number {
-  try {
-    const raw = localStorage.getItem(STORAGE_VOLUME)
-    if (raw !== null) {
-      const n = Number(raw)
-      if (!isNaN(n)) return Math.min(100, Math.max(0, n))
-    }
-  } catch { /* ignore */ }
-  return 80
+  const n = lsGet<number>(SK.musicVolume, 80)
+  return !isNaN(n) ? Math.min(100, Math.max(0, n)) : 80
 }
 
 function loadShuffle(): boolean {
-  try {
-    const raw = localStorage.getItem(STORAGE_SHUFFLE)
-    if (raw !== null) return raw === 'true'
-  } catch { /* ignore */ }
-  return true // on by default
+  return lsGet<boolean>(SK.musicShuffle, true)
 }
 
 function extractVideoId(url: string): string | null {
@@ -168,17 +146,17 @@ export default function MusicPlayer() {
 
   // Persist tracks to localStorage (fallback for signed-out users)
   useEffect(() => {
-    localStorage.setItem(STORAGE_TRACKS, JSON.stringify(tracks))
+    lsSet(SK.musicTracks, tracks)
   }, [tracks])
 
   // Persist volume
   useEffect(() => {
-    localStorage.setItem(STORAGE_VOLUME, String(volume))
+    lsSet(SK.musicVolume, volume)
   }, [volume])
 
   // Persist shuffle
   useEffect(() => {
-    localStorage.setItem(STORAGE_SHUFFLE, String(shuffle))
+    lsSet(SK.musicShuffle, shuffle)
   }, [shuffle])
 
   // Close on outside click

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
+import { lsGet, lsSet, lsRemove } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import { fetchModels, streamCompletion, getAiProvider, fetchUsage, type AiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { useSubscription } from '@/lib/SubscriptionContext'
@@ -84,32 +86,25 @@ const labelStyle: React.CSSProperties = {
 }
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
-function slotPrefKey(userId: string)     { return `ai_panel_slots_${userId}` }
-function resumeTextKey(userId: string)   { return `ai_panel_resume_text_${userId}` }
 
 function loadSlotPref(userId: string, occupied: ResumeSlot[]): ResumeSlot[] {
-  try {
-    const raw = localStorage.getItem(slotPrefKey(userId))
-    if (!raw) return occupied                                   // default: all occupied
-    const saved = JSON.parse(raw) as ResumeSlot[]
-    const valid = saved.filter((s) => occupied.includes(s))    // drop stale slots
-    return valid.length > 0 ? valid : occupied                 // if all stale, reset to all
-  } catch { return occupied }
+  const saved = lsGet<ResumeSlot[] | null>(SK.aiPanelSlots(userId), null)
+  if (!saved) return occupied
+  const valid = saved.filter((s) => occupied.includes(s))
+  return valid.length > 0 ? valid : occupied
 }
 
 function saveSlotPref(userId: string, slots: ResumeSlot[]) {
-  try { localStorage.setItem(slotPrefKey(userId), JSON.stringify(slots)) } catch { /* ignore */ }
+  lsSet(SK.aiPanelSlots(userId), slots)
 }
 
 function loadResumeText(userId: string): string {
-  try { return localStorage.getItem(resumeTextKey(userId)) ?? '' } catch { return '' }
+  return lsGet<string>(SK.aiPanelText(userId), '')
 }
 
 function saveResumeText(userId: string, text: string) {
-  try {
-    if (text.trim()) localStorage.setItem(resumeTextKey(userId), text)
-    else localStorage.removeItem(resumeTextKey(userId))
-  } catch { /* ignore */ }
+  if (text.trim()) lsSet(SK.aiPanelText(userId), text)
+  else lsRemove(SK.aiPanelText(userId))
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

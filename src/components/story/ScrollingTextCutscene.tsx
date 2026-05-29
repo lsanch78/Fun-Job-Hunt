@@ -82,9 +82,11 @@ export default function ScrollingTextCutscene({
   useEffect(() => {
     if (!audioSrc) return
     const audio = new Audio(audioSrc)
-    audio.volume = isSfxMuted() ? 0 : 0.8
-    audio.play().catch(() => {})
     audioRef.current = audio
+    if (!isSfxMuted()) {
+      audio.volume = 0.8
+      audio.play().catch(() => {})
+    }
     return () => { audio.pause(); audio.src = '' }
   }, [audioSrc])
 
