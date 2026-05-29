@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { playSelectClick, playScratchOpen, playScratchClose } from '@/lib/sfx'
 import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 // ── Sync badge ────────────────────────────────────────────────────────────────
 
@@ -16,13 +18,6 @@ function SyncBadge({ status }: { status: 'synced' | 'syncing' | null }) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SCRATCH_TAB_KEY    = 'fjobhunt:scratchtab'
-const SCRATCH_HEIGHT_KEY = 'fjobhunt:scratchheight'
-const SCRATCH_OPEN_KEY   = 'fjobhunt:scratchopen'
-
-const scratchPadKey  = (uid: string) => `fjobhunt:scratchpad:${uid}`
-const scratchListKey = (uid: string) => `fjobhunt:scratchlist:${uid}`
-
 const SCRATCH_MIN_H = 120
 const SCRATCH_MAX_H = 600
 const SCRATCH_DEF_H = 220
@@ -32,15 +27,9 @@ interface CheckItem { id: string; text: string; done: boolean }
 // ── ScratchPad ────────────────────────────────────────────────────────────────
 
 export default function ScratchPad({ userId }: { userId: string | null }) {
-  const [open, setOpen] = useState<boolean>(() => {
-    try { return localStorage.getItem(SCRATCH_OPEN_KEY) === 'true' } catch { return false }
-  })
-  const [tab, setTab] = useState<'pad' | 'list'>(() => {
-    try { return (localStorage.getItem(SCRATCH_TAB_KEY) as 'pad' | 'list') ?? 'pad' } catch { return 'pad' }
-  })
-  const [height, setHeight] = useState<number>(() => {
-    try { return Number(localStorage.getItem(SCRATCH_HEIGHT_KEY)) || SCRATCH_DEF_H } catch { return SCRATCH_DEF_H }
-  })
+  const [open, setOpen] = useState<boolean>(() => lsGet<boolean>(SK.scratchOpen, false))
+  const [tab, setTab] = useState<'pad' | 'list'>(() => lsGet<string>(SK.scratchTab, 'pad') as 'pad' | 'list')
+  const [height, setHeight] = useState<number>(() => lsGet<number>(SK.scratchHeight, SCRATCH_DEF_H))
   const [text, setText] = useState('')
   const [items, setItems] = useState<CheckItem[]>([])
   const [newItem, setNewItem] = useState('')
@@ -55,24 +44,22 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     if (!userId) return
-    try {
-      const cachedText = localStorage.getItem(scratchPadKey(userId))
-      if (cachedText) setText(cachedText)
-      const cachedList = localStorage.getItem(scratchListKey(userId))
-      if (cachedList) setItems(JSON.parse(cachedList) as CheckItem[])
-    } catch { /* noop */ }
+    const cachedText = lsGet<string | null>(SK.scratchPad(userId), null)
+    if (cachedText) setText(cachedText)
+    const cachedList = lsGet<CheckItem[] | null>(SK.scratchList(userId), null)
+    if (cachedList) setItems(cachedList)
     setSyncStatus('syncing')
     fetchScratchPad(userId).then((rec) => {
       if (rec) {
         if (rec.notes) {
           setText(rec.notes)
-          try { localStorage.setItem(scratchPadKey(userId), rec.notes) } catch { /* noop */ }
+          lsSet(SK.scratchPad(userId), rec.notes)
         }
         if (rec.list) {
           try {
             const parsed = JSON.parse(rec.list) as CheckItem[]
             setItems(parsed)
-            try { localStorage.setItem(scratchListKey(userId), JSON.stringify(parsed)) } catch { /* noop */ }
+            lsSet(SK.scratchList(userId), parsed)
           } catch { /* noop */ }
         }
       }
@@ -92,18 +79,18 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     setOpen((o) => {
       const next = !o
       next ? playScratchOpen() : playScratchClose()
-      try { localStorage.setItem(SCRATCH_OPEN_KEY, String(next)) } catch { /* noop */ }
+      lsSet(SK.scratchOpen, next)
       return next
     })
   }
 
   function switchTab(t: 'pad' | 'list') {
     setTab(t)
-    try { localStorage.setItem(SCRATCH_TAB_KEY, t) } catch { /* noop */ }
+    lsSet(SK.scratchTab, t)
   }
 
   function persistText(val: string) {
-    if (userId) try { localStorage.setItem(scratchPadKey(userId), val) } catch { /* noop */ }
+    if (userId) lsSet(SK.scratchPad(userId), val)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
@@ -114,7 +101,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
   }
 
   function persistItems(next: CheckItem[]) {
-    if (userId) try { localStorage.setItem(scratchListKey(userId), JSON.stringify(next)) } catch { /* noop */ }
+    if (userId) lsSet(SK.scratchList(userId), next)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveListTimer.current) clearTimeout(saveListTimer.current)
@@ -208,7 +195,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     function onUp(ev: PointerEvent) {
       isDragging.current = false
       const final = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
-      try { localStorage.setItem(SCRATCH_HEIGHT_KEY, String(final)) } catch { /* noop */ }
+      lsSet(SK.scratchHeight, final)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }

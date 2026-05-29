@@ -2,23 +2,26 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { WORKDAY } from '@/config/game'
 import { startWorkday, endWorkday } from '@/services/workdayService'
 import { playPunchIn, playPunchOut } from '@/lib/sfx'
-import { WORKDAY_KEYS } from '@/lib/workdayKeys'
+import { lsGet, lsSet, lsRemove } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 // ── Storage helpers (private to this module) ──────────────────────────────────
 
 function savePunchIn(isoString: string) {
-  localStorage.setItem(WORKDAY_KEYS.punchIn, isoString)
+  lsSet(SK.workdayPunchIn, isoString)
 }
 
 function loadPunchIn(): Date | null {
-  const raw = localStorage.getItem(WORKDAY_KEYS.punchIn)
+  const raw = lsGet<string | null>(SK.workdayPunchIn, null)
+    ?? lsGet<string | null>('workday_punch_in', null)  // legacy key
   if (!raw) return null
   const d = new Date(raw)
   return isNaN(d.getTime()) ? null : d
 }
 
 function clearPunchIn() {
-  localStorage.removeItem(WORKDAY_KEYS.punchIn)
+  lsRemove(SK.workdayPunchIn)
+  lsRemove('workday_punch_in')  // legacy key
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -46,8 +49,10 @@ export function useWorkdayTracking(userId: string | null): WorkdayTrackingState 
   // ── Punch-out ───────────────────────────────────────────────────────────────
 
   const doPunchOut = useCallback((at?: Date) => {
-    const workdayId = localStorage.getItem(WORKDAY_KEYS.workdayId)
-    localStorage.removeItem(WORKDAY_KEYS.workdayId)
+    const workdayId = lsGet<string | null>(SK.workdayId, null)
+      ?? lsGet<string | null>('workday_id', null)  // legacy key
+    lsRemove(SK.workdayId)
+    lsRemove('workday_id')  // legacy key
     clearPunchIn()
     setPunchIn(null)
     playPunchOut()
@@ -67,11 +72,11 @@ export function useWorkdayTracking(userId: string | null): WorkdayTrackingState 
       const t = new Date()
       savePunchIn(t.toISOString())
       playPunchIn()
-      if (!localStorage.getItem(WORKDAY_KEYS.workdayId)) {
-        localStorage.setItem(WORKDAY_KEYS.workdayId, 'pending')
+      if (!(lsGet<string | null>(SK.workdayId, null) ?? lsGet<string | null>('workday_id', null))) {
+        lsSet(SK.workdayId, 'pending')
         startWorkday(userId, t).then((id) => {
-          if (id) localStorage.setItem(WORKDAY_KEYS.workdayId, id)
-          else localStorage.removeItem(WORKDAY_KEYS.workdayId)
+          if (id) lsSet(SK.workdayId, id)
+          else lsRemove(SK.workdayId)
         })
       }
       return t

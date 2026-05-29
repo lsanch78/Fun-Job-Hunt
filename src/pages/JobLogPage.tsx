@@ -9,8 +9,10 @@ import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS, JOB_CAP } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
 import AppDetailCard from '@/components/AppDetailCard'
-import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
+import TutorialOverlay from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 interface JobRowHandle {
   focusFirstInput(): void
@@ -503,28 +505,19 @@ const DEFAULT_COLS: ColConfig[] = [
   { key: 'notes',    visible: false, width: COL_DEFS.notes.defaultWidth    },
 ]
 
-const COL_CONFIG_KEY = 'fjobhunt:col_config'
-
 function readColConfig(): ColConfig[] {
-  try {
-    const raw = localStorage.getItem(COL_CONFIG_KEY)
-    if (!raw) return DEFAULT_COLS
-    const parsed = JSON.parse(raw) as ColConfig[]
-    // Merge: keep saved order/visibility/width, add any new default cols, backfill width
-    const savedKeys = new Set(parsed.map((c) => c.key))
-    const withDefaults = parsed.map((c) => ({
-      ...c,
-      width: c.width ?? COL_DEFS[c.key]?.defaultWidth ?? 120,
-    }))
-    const merged = [...withDefaults, ...DEFAULT_COLS.filter((c) => !savedKeys.has(c.key))]
-    return merged
-  } catch {
-    return DEFAULT_COLS
-  }
+  const parsed = lsGet<ColConfig[] | null>(SK.colConfig, null)
+  if (!parsed) return DEFAULT_COLS
+  const savedKeys = new Set(parsed.map((c) => c.key))
+  const withDefaults = parsed.map((c) => ({
+    ...c,
+    width: c.width ?? COL_DEFS[c.key]?.defaultWidth ?? 120,
+  }))
+  return [...withDefaults, ...DEFAULT_COLS.filter((c) => !savedKeys.has(c.key))]
 }
 
 function writeColConfig(cols: ColConfig[]): void {
-  try { localStorage.setItem(COL_CONFIG_KEY, JSON.stringify(cols)) } catch { /* noop */ }
+  lsSet(SK.colConfig, cols)
 }
 
 // ── Column context menu ───────────────────────────────────────────────────────
@@ -683,8 +676,6 @@ const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'all',   label: 'ALL TIME' },
 ]
 
-const TIME_RANGE_KEY = 'fjobhunt:time_range'
-
 function getTimeRangeCutoff(range: TimeRange): string | null {
   if (range === 'all') return null
   const d = new Date()
@@ -780,10 +771,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [search, setSearch] = useState('')
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
   const [sort, setSort] = useState<SortState | null>(null)
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
-    const saved = localStorage.getItem(TIME_RANGE_KEY)
-    return (saved as TimeRange | null) ?? 'today'
-  })
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.timeRange, 'today') as TimeRange)
   const [page, setPage] = useState(1)
   const [deleteMode, setDeleteMode] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
@@ -855,7 +843,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
-    localStorage.setItem(TIME_RANGE_KEY, r)
+    lsSet(SK.timeRange, r)
   }
 
   const cutoff = getTimeRangeCutoff(timeRange)
@@ -886,7 +874,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
     if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY(userId)) === 'true' } catch { return false } })()
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId), false)
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }

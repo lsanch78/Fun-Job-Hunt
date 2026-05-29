@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { playBootBlip, playExitBlip, playTutorialPage as playPage } from '@/lib/sfx'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
+import { lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 ensureCrtStyles()
 
-// ── Step data ─────────────────────────────────────────────────────────────────
+// Kept for backward compat — callers (JobLogPage, MobileJobLogPage) read with raw localStorage
+export const TUTORIAL_SEEN_KEY = SK.tutorialSeen
 
-const TUTORIAL_SEEN_KEY = (userId: string) => `fjobhunt:tutorial_seen:${userId}`
+// ── Step data ─────────────────────────────────────────────────────────────────
 
 interface TutorialStep {
   id: string
@@ -215,7 +218,7 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
   }, [step])
 
   function markSeen() {
-    try { localStorage.setItem(TUTORIAL_SEEN_KEY(userId), 'true') } catch { /* ignore */ }
+    lsSet(SK.tutorialSeen(userId), true)
   }
   function handleNext() {
     if (step < activeSteps.length - 1) { playPage('forward'); setStep((s) => s + 1) }
@@ -476,4 +479,3 @@ export default function TutorialOverlay({ onDone, userId, mobileMode = false }: 
   )
 }
 
-export { TUTORIAL_SEEN_KEY }

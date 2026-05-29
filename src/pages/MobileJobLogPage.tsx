@@ -4,9 +4,11 @@ import type { JobStatus } from '@/types'
 import AppDetailCard from '@/components/AppDetailCard'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
 import MobileScratchPad from '@/components/MobileScratchPad'
-import TutorialOverlay, { TUTORIAL_SEEN_KEY } from '@/components/TutorialOverlay'
+import TutorialOverlay from '@/components/TutorialOverlay'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { useJobList } from '@/hooks/useJobList'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 
 // ── Shared filter helpers ─────────────────────────────────────────────────────
 type SortField = 'company' | 'date' | 'status'
@@ -33,8 +35,6 @@ function applyFilters(jobs: import('@/types').Job[], search: string, hidden: Set
   }
   return visible
 }
-
-const TIME_RANGE_KEY = 'fjobhunt:time_range'
 
 function getTimeRangeCutoff(range: TimeRange): string | null {
   if (range === 'all') return null
@@ -64,10 +64,7 @@ export default function MobileJobLogPage({
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortState | null>(null)
   const [hidden, setHidden] = useState<Set<JobStatus>>(new Set())
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
-    const saved = localStorage.getItem(TIME_RANGE_KEY)
-    return (saved as TimeRange | null) ?? 'today'
-  })
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.timeRange, 'today') as TimeRange)
   const [page, setPage] = useState(1)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
@@ -95,7 +92,7 @@ export default function MobileJobLogPage({
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
     if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = (() => { try { return localStorage.getItem(TUTORIAL_SEEN_KEY(userId)) === 'true' } catch { return false } })()
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId), false)
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }
@@ -135,7 +132,7 @@ export default function MobileJobLogPage({
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
-    localStorage.setItem(TIME_RANGE_KEY, r)
+    lsSet(SK.timeRange, r)
   }
 
   function toggleHide(status: JobStatus) {
