@@ -965,6 +965,177 @@ export function playUniverseClose(): void {
   } catch { /* AudioContext blocked */ }
 }
 
+// ── DialogueScene ─────────────────────────────────────────────────────────────
+
+/** Single deep vocal-tick for the Mysterious Voice streaming text. */
+export function playDialogueTick(): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const t0 = ctx.currentTime
+    const dur = 0.10
+
+    // Slight pitch randomness so it doesn't sound robotic
+    const baseFreq = 55 + (Math.random() - 0.5) * 9
+
+    // Sawtooth — harmonically rich, vowel-like source
+    const osc = ctx.createOscillator()
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(baseFreq, t0)
+    osc.frequency.linearRampToValueAtTime(baseFreq * 1.08, t0 + dur * 0.4)
+    osc.frequency.linearRampToValueAtTime(baseFreq * 0.96, t0 + dur)
+
+    // Bandpass sweep — lower register, darker vowel shape
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.setValueAtTime(260, t0)
+    bp.frequency.exponentialRampToValueAtTime(600, t0 + dur * 0.5)
+    bp.frequency.exponentialRampToValueAtTime(330, t0 + dur)
+    bp.Q.value = 3.5
+
+    // Smooth breathy envelope — slow attack, gradual decay
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, t0)
+    gain.gain.linearRampToValueAtTime(0.14, t0 + dur * 0.3)
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+
+    osc.connect(bp); bp.connect(gain); gain.connect(ctx.destination)
+    osc.start(t0); osc.stop(t0 + dur + 0.01)
+
+    setTimeout(() => ctx.close(), 200)
+  } catch { /* AudioContext blocked */ }
+}
+
+/** Confirm / advance sound for DialogueScene — bright two-note sine chime. */
+export function playDialogueConfirm(): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const t0 = ctx.currentTime
+
+    // Two ascending sine tones — clean, bright, airy
+    const notes = [
+      { freq: 220, start: 0,    dur: 0.20 },
+      { freq: 330, start: 0.09, dur: 0.26 },
+    ]
+    notes.forEach(({ freq, start, dur }) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, t0 + start)
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t0 + start)
+      gain.gain.linearRampToValueAtTime(0.07, t0 + start + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur)
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.start(t0 + start); osc.stop(t0 + start + dur + 0.01)
+    })
+
+    setTimeout(() => ctx.close(), 400)
+  } catch { /* AudioContext blocked */ }
+}
+
+// ── Weather ───────────────────────────────────────────────────────────────────
+
+/** Continuous rain layer. Returns a teardown function to stop it. */
+export function startRain(): () => void {
+  if (isSfxMuted()) return () => {}
+  try {
+    const ctx = new AudioContext()
+
+    const bufLen = ctx.sampleRate * 4
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1
+
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.loop = true
+    src.playbackRate.value = 0.5  // slow down for a softer texture
+
+    // High-pass to remove sub-rumble
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 400
+
+    // Aggressive low-pass to keep it warm and dull, not harsh
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = 2400
+
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+
+    src.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(ctx.destination)
+
+    // Suspend before starting so no audio plays until gain ramp is scheduled
+    ctx.suspend().then(() => {
+      src.start()
+      gain.gain.setValueAtTime(0, ctx.currentTime)
+      gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 3.0)
+      ctx.resume()
+    })
+
+    return () => {
+      try {
+        const t = ctx.currentTime
+        gain.gain.cancelScheduledValues(t)
+        gain.gain.setValueAtTime(gain.gain.value, t)
+        gain.gain.linearRampToValueAtTime(0, t + 0.8)
+        setTimeout(() => ctx.close(), 900)
+      } catch { /* ignore */ }
+    }
+  } catch {
+    return () => {}
+  }
+}
+
+/**
+ * Single thunder crack. `intensity` 0–1 scales volume and low-end weight.
+ * Returns duration in ms so callers can sync a flash.
+ */
+export function playThunder(intensity = 0.7): void {
+  if (isSfxMuted()) return
+  try {
+    const ctx = new AudioContext()
+    const t0 = ctx.currentTime
+    const dur = 1.4 + intensity * 1.2
+
+    // Sub-bass rumble — the main body of the thunder
+    const rumbleLen = Math.ceil(ctx.sampleRate * dur)
+    const rumbleBuf = ctx.createBuffer(1, rumbleLen, ctx.sampleRate)
+    const rd = rumbleBuf.getChannelData(0)
+    for (let i = 0; i < rumbleLen; i++) rd[i] = Math.random() * 2 - 1
+    const rumbleSrc = ctx.createBufferSource(); rumbleSrc.buffer = rumbleBuf
+    const rumbleHp = ctx.createBiquadFilter()
+    rumbleHp.type = 'highpass'; rumbleHp.frequency.value = 40
+    const rumbleLp = ctx.createBiquadFilter()
+    rumbleLp.type = 'lowpass'; rumbleLp.frequency.value = 900
+    const rumbleGain = ctx.createGain()
+    rumbleGain.gain.setValueAtTime(0, t0)
+    rumbleGain.gain.linearRampToValueAtTime(0.65 * intensity, t0 + 0.05)
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+    rumbleSrc.connect(rumbleHp); rumbleHp.connect(rumbleLp); rumbleLp.connect(rumbleGain); rumbleGain.connect(ctx.destination)
+    rumbleSrc.start(t0); rumbleSrc.stop(t0 + dur + 0.01)
+
+    // Mid-body roll — adds fullness without brightness
+    const bodyLen = Math.ceil(ctx.sampleRate * (dur * 0.6))
+    const bodyBuf = ctx.createBuffer(1, bodyLen, ctx.sampleRate)
+    const bd = bodyBuf.getChannelData(0)
+    for (let i = 0; i < bodyLen; i++) bd[i] = Math.random() * 2 - 1
+    const bodySrc = ctx.createBufferSource(); bodySrc.buffer = bodyBuf
+    const bodyBp = ctx.createBiquadFilter()
+    bodyBp.type = 'bandpass'; bodyBp.frequency.value = 300; bodyBp.Q.value = 0.7
+    const bodyGain = ctx.createGain()
+    bodyGain.gain.setValueAtTime(0, t0)
+    bodyGain.gain.linearRampToValueAtTime(0.35 * intensity, t0 + 0.04)
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, t0 + dur * 0.6)
+    bodySrc.connect(bodyBp); bodyBp.connect(bodyGain); bodyGain.connect(ctx.destination)
+    bodySrc.start(t0); bodySrc.stop(t0 + dur * 0.6 + 0.01)
+
+    setTimeout(() => ctx.close(), (dur + 0.2) * 1000)
+  } catch { /* AudioContext blocked */ }
+}
+
 // ── TutorialOverlay ───────────────────────────────────────────────────────────
 
 /** Page-turn click for tutorial navigation. Same shape as playConsoleBlip. */

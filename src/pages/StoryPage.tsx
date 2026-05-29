@@ -6,8 +6,17 @@ import type { Job } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker from '@/components/XpTracker'
-import Cutscene from '@/components/Cutscene'
+import ScrollingTextCutscene from '@/components/story/ScrollingTextCutscene'
 import { useXp, getRankInfo } from '@/services/xpService'
+import { SCENES } from '@/components/story/scenes'
+import type { ComponentType } from 'react'
+
+// Rank → scene component. Add entries here as new scenes are written.
+const RANK_SCENES: Partial<Record<number, ComponentType<{ onComplete: () => void }>>> = {
+  1: SCENES[0].component,
+}
+
+const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
 // ── S-path node positions ─────────────────────────────────────────────────────
 const NODE_COLS = 4
@@ -189,7 +198,26 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   const [cutscene, setCutscene] = useState(false)
   const [midgameCutscene, setMidgameCutscene] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
+  const [devMenuOpen, setDevMenuOpen] = useState(false)
+  const [activeScene, setActiveScene] = useState<number | null>(null)
+  const [activeRankScene, setActiveRankScene] = useState<number | null>(null)
+  const [seenScenes, setSeenScenes] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem('fjobhunt:seen-scenes')
+      return stored ? new Set(JSON.parse(stored) as number[]) : new Set()
+    } catch { return new Set() }
+  })
   const midgameLines = buildMidgameText(jobs)
+
+  function handleRankSceneComplete(rank: number) {
+    setActiveRankScene(null)
+    setSeenScenes(prev => {
+      const next = new Set(prev)
+      next.add(rank)
+      try { localStorage.setItem('fjobhunt:seen-scenes', JSON.stringify([...next])) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   useEffect(() => { playStoryChime() }, [])
 
@@ -254,9 +282,15 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   return (
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
 
+      {/* Rank dialogue scenes */}
+      {activeRankScene !== null && (() => {
+        const Scene = RANK_SCENES[activeRankScene]
+        return Scene ? <Scene onComplete={() => handleRankSceneComplete(activeRankScene)} /> : null
+      })()}
+
       {/* Mid-game cutscene — fires once at rank 6 */}
       {midgameCutscene && (
-        <Cutscene
+        <ScrollingTextCutscene
           lines={midgameLines}
           audioSrc="/middle.mp3"
           duration={MIDGAME_SCROLL_DURATION}
@@ -271,7 +305,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
       {/* Victory cutscene */}
       {cutscene && (
-        <Cutscene
+        <ScrollingTextCutscene
           lines={CREDITS_TEXT}
           audioSrc="/congratulations.mp3"
           duration={SCROLL_DURATION}
@@ -281,11 +315,46 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       )}
 
 
+      {/* Dev scene preview — only in DEV_BYPASS mode */}
+      {DEV_BYPASS && activeScene !== null && (() => {
+        const Scene = SCENES[activeScene].component
+        return <Scene onComplete={() => setActiveScene(null)} />
+      })()}
+
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 shrink-0 min-h-[100px]">
-        <div>
-          <h1 className="text-sm tracking-widest">STORY</h1>
-          <p className="text-muted text-xs mt-1">your hunt, chapter by chapter</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-sm tracking-widest">STORY</h1>
+            <p className="text-muted text-xs mt-1">your hunt, chapter by chapter</p>
+          </div>
+
+          {/* Dev scene picker */}
+          {DEV_BYPASS && (
+            <div className="relative ml-2">
+              <button
+                onClick={() => setDevMenuOpen(o => !o)}
+                className="text-[9px] text-muted border border-border px-2 py-1 hover:opacity-70 tracking-widest"
+                title="Dev: preview scenes"
+              >
+                ☰
+              </button>
+              {devMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 bg-surface border border-border z-40 min-w-[180px] flex flex-col">
+                  <div className="text-[8px] text-muted tracking-widest px-3 py-2 border-b border-border">SCENES</div>
+                  {SCENES.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setActiveScene(i); setDevMenuOpen(false) }}
+                      className="text-[9px] text-primary text-left px-3 py-2 hover:bg-border"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <button className="cursor-default">
@@ -385,33 +454,45 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                     />
                   )}
 
-                  {rank === MIDGAME_RANK && !locked ? (
-                    <button
-                      onClick={handleMidgameCutscene}
-                      className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg} hover:opacity-70 transition-none`}
-                      style={isGold ? { borderColor: '#f5c518' } : undefined}
-                      title="Play cutscene"
-                    >
-                      <span
-                        className={`text-xl ${textColor}`}
-                        style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  {(() => {
+                    const hasScene = !!RANK_SCENES[rank]
+                    const isMidgame = rank === MIDGAME_RANK
+                    const clickable = !locked && (hasScene || isMidgame)
+                    const unseen = hasScene && !seenScenes.has(rank)
+                    const symbol = locked ? '▨' : (unseen ? '▶' : avatarChar)
+
+                    function handleNodeClick() {
+                      if (isMidgame) return handleMidgameCutscene()
+                      if (hasScene) setActiveRankScene(rank)
+                    }
+
+                    return clickable ? (
+                      <button
+                        onClick={handleNodeClick}
+                        className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg} hover:opacity-70 transition-none`}
+                        style={isGold ? { borderColor: '#f5c518' } : undefined}
                       >
-                        {avatarChar}
-                      </span>
-                    </button>
-                  ) : (
-                    <div
-                      className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg}`}
-                      style={isGold ? { borderColor: '#f5c518' } : undefined}
-                    >
-                      <span
-                        className={`text-xl ${textColor}`}
-                        style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        <span
+                          className={`text-xl ${textColor}`}
+                          style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {symbol}
+                        </span>
+                      </button>
+                    ) : (
+                      <div
+                        className={`w-full h-full rounded-full flex items-center justify-center select-none ${nodeBg}`}
+                        style={isGold ? { borderColor: '#f5c518' } : undefined}
                       >
-                        {locked ? '▨' : avatarChar}
-                      </span>
-                    </div>
-                  )}
+                        <span
+                          className={`text-xl ${textColor}`}
+                          style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {symbol}
+                        </span>
+                      </div>
+                    )
+                  })()}
 
                   <div className="absolute -top-1 -right-1 text-[9px] text-muted leading-none bg-bg px-0.5">
                     {rank}

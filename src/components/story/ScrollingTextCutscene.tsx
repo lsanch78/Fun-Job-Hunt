@@ -3,7 +3,7 @@ import { isSfxMuted, playCreditsBlip } from '@/lib/sfx'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface CutsceneProps {
+export interface ScrollingTextCutsceneProps {
   /** Lines of text to scroll. Empty string = spacer row. */
   lines: string[]
   /** Path to an audio file to play on mount (e.g. '/congratulations.mp3'). Optional. */
@@ -55,14 +55,14 @@ function lineClasses(line: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function Cutscene({
+export default function ScrollingTextCutscene({
   lines,
   audioSrc,
   duration,
   onComplete,
   continueLabel = 'CONTINUE  →',
   fadeIn = false,
-}: CutsceneProps) {
+}: ScrollingTextCutsceneProps) {
   const [scrollDone, setScrollDone] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
