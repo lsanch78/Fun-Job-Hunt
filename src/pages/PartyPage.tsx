@@ -13,6 +13,31 @@ import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
 
+// ── Time range ────────────────────────────────────────────────────────────────
+type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
+
+const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
+  { value: 'today', label: 'TODAY'    },
+  { value: '7d',    label: 'LAST 7D'  },
+  { value: '30d',   label: 'LAST 30D' },
+  { value: 'year',  label: 'YEAR'     },
+  { value: 'all',   label: 'ALL TIME' },
+]
+
+function getTimeRangeCutoff(range: TimeRange): string | null {
+  if (range === 'all') return null
+  const d = new Date()
+  if (range === 'today') {
+    return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+  }
+  if (range === '7d')   d.setDate(d.getDate() - 6)
+  if (range === '30d')  d.setDate(d.getDate() - 29)
+  if (range === 'year') d.setFullYear(d.getFullYear() - 1)
+  return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+}
+
+const PARTY_TIME_RANGE_KEY = 'fjobhunt:party_time_range'
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PartyPage({ userId }: { userId: string | null }) {
@@ -20,8 +45,13 @@ export default function PartyPage({ userId }: { userId: string | null }) {
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [sortBy, setSortBy] = useState<SortBy>('recent')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [search, setSearch] = useState('')
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const saved = localStorage.getItem(PARTY_TIME_RANGE_KEY)
+    return (saved as TimeRange | null) ?? 'all'
+  })
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
@@ -144,7 +174,20 @@ export default function PartyPage({ userId }: { userId: string | null }) {
     setDeleteMode(false)
   }
 
-  useEffect(() => { setPage(1) }, [search, sortBy])
+  useEffect(() => { setPage(1) }, [search, sortBy, sortDir, timeRange])
+
+  function handleTimeRange(r: TimeRange) {
+    setTimeRange(r)
+    localStorage.setItem(PARTY_TIME_RANGE_KEY, r)
+  }
+
+  const cutoff = getTimeRangeCutoff(timeRange)
+  const rangeContacts = contacts.filter((c) => {
+    if (cutoff === null) return true
+    const dateStr = c.createdAt.slice(0, 10)
+    if (timeRange === 'today') return dateStr === cutoff
+    return dateStr >= cutoff
+  })
 
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
@@ -189,45 +232,75 @@ export default function PartyPage({ userId }: { userId: string | null }) {
         </div>
       </div>
 
-      {/* Sort + search toolbar */}
-      <div className="px-4 py-2 border-b border-border flex items-center gap-x-4 gap-y-2">
-        <SearchBar value={search} onChange={setSearch} placeholder="search contacts…" />
-        <div className="flex items-center gap-1">
-          <span className="text-muted text-[10px] mr-1 select-none">SORT</span>
-          {SORT_OPTIONS.map(({ key, label }) => (
+      {/* Filter / sort toolbar */}
+      <div className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
+        {/* Row 1: search + sort + delete */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-center gap-1.5 min-w-[160px]">
+            <SearchBar value={search} onChange={setSearch} placeholder="search contacts…" />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-muted text-[10px] mr-1 select-none">SORT</span>
+            {SORT_OPTIONS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  if (sortBy === key) {
+                    if (sortDir === 'asc') { setSortDir('desc') }
+                    else { setSortBy('recent'); setSortDir('asc') }
+                  } else {
+                    setSortBy(key)
+                    setSortDir('asc')
+                  }
+                }}
+                className={`text-[10px] px-2 py-0.5 border transition-none ${
+                  sortBy === key
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted hover:border-secondary hover:text-secondary'
+                }`}
+              >
+                {label}{sortBy === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 ml-auto">
+            {deleteMode && selected.size > 0 && (
+              <button
+                onClick={handleDelete}
+                className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:border-secondary hover:text-secondary transition-none"
+              >
+                DELETE {selected.size} CONTACT{selected.size !== 1 ? 'S' : ''}
+              </button>
+            )}
             <button
-              key={key}
-              onClick={() => setSortBy(key)}
-              className={`text-[10px] px-2 py-0.5 border transition-none
-                ${sortBy === key
+              onClick={toggleDeleteMode}
+              className={`text-[10px] px-2 py-0.5 border transition-none flex items-center gap-1 ${
+                deleteMode
+                  ? 'border-warning text-warning hover:border-secondary hover:text-secondary'
+                  : 'border-border text-muted hover:border-secondary hover:text-secondary'
+              }`}
+              title={deleteMode ? 'Cancel' : 'Delete mode'}
+            >
+              {deleteMode ? 'X' : <Trash width={12} height={12} />}
+            </button>
+          </div>
+        </div>
+        {/* Row 2: time range */}
+        <div className="flex items-center gap-1">
+          <span className="text-muted text-[10px] mr-1 select-none">RANGE</span>
+          {TIME_RANGE_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => handleTimeRange(value)}
+              className={`text-[10px] px-2 py-0.5 border transition-none ${
+                timeRange === value
                   ? 'border-primary text-primary'
                   : 'border-border text-muted hover:border-secondary hover:text-secondary'
-                }`}
+              }`}
             >
               {label}
             </button>
           ))}
-        </div>
-        <div className="flex items-center gap-1 ml-auto">
-          {deleteMode && selected.size > 0 && (
-            <button
-              onClick={handleDelete}
-              className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:border-secondary hover:text-secondary transition-none"
-            >
-              DELETE {selected.size} CONTACT{selected.size !== 1 ? 'S' : ''}
-            </button>
-          )}
-          <button
-            onClick={toggleDeleteMode}
-            className={`text-[10px] px-2 py-0.5 border transition-none flex items-center gap-1 ${
-              deleteMode
-                ? 'border-warning text-warning hover:border-secondary hover:text-secondary'
-                : 'border-border text-muted hover:border-secondary hover:text-secondary'
-            }`}
-            title={deleteMode ? 'Cancel' : 'Delete mode'}
-          >
-            {deleteMode ? 'X' : <Trash width={12} height={12} />}
-          </button>
         </div>
       </div>
 
@@ -263,8 +336,9 @@ export default function PartyPage({ userId }: { userId: string | null }) {
             }}
           >
           <ContactList
-            contacts={contacts}
+            contacts={rangeContacts}
             sortBy={sortBy}
+            sortDir={sortDir}
             search={search}
             onPing={handlePing}
             onOpenDetail={setDetailContactId}

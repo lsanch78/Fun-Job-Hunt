@@ -24,8 +24,8 @@ const THEME_LABELS: Record<Theme, string> = {
 const NAV_LINKS = [
   { label: 'JOBS',        to: '/jobs' },
   { label: 'PARTY', to: '/party' },
-  { label: 'STATS',       to: '/stats' },
   { label: 'STORY',       to: '/story' },
+  { label: 'STATS',       to: '/stats' },
   { label: 'CREDITS',     to: '/credits' },
 ]
 

@@ -6,7 +6,7 @@ import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
 
 export type { Contact }
-export type SortBy = 'exp' | 'name' | 'company' | 'date'
+export type SortBy = 'exp' | 'name' | 'company' | 'date' | 'recent'
 
 // ── Exp helpers ───────────────────────────────────────────────────────────────
 
@@ -201,6 +201,9 @@ function PingButton({ contactId, lastCommAt, cooldownHours, onPing, onComm }: {
 
 function sortContacts(contacts: Contact[], sortBy: SortBy): Contact[] {
   return [...contacts].sort((a, b) => {
+    if (sortBy === 'recent') {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    }
     if (sortBy === 'date') {
       if (!a.lastInteractionAt && !b.lastInteractionAt) return 0
       if (!a.lastInteractionAt) return 1
@@ -477,6 +480,7 @@ function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
 interface ContactListProps {
   contacts: Contact[]
   sortBy: SortBy
+  sortDir?: 'asc' | 'desc'
   search?: string
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
@@ -493,7 +497,7 @@ interface ContactListProps {
   cooldownHours?: number
 }
 
-export default function ContactList({ contacts, sortBy, search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168 }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, sortDir = 'asc', search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168 }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -502,7 +506,7 @@ export default function ContactList({ contacts, sortBy, search = '', onPing, onO
         c.email?.toLowerCase().includes(q)
       )
     : contacts
-  const sorted = sortContacts(filtered, sortBy)
+  const sorted = sortDir === 'desc' ? [...sortContacts(filtered, sortBy)].reverse() : sortContacts(filtered, sortBy)
 
   useEffect(() => {
     onTotalFiltered?.(sorted.length)
