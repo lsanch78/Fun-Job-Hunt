@@ -48,4 +48,17 @@ export const SK = {
   musicVolume:  'fjobhunt:music:volume',
   musicResume:  'fjobhunt:music:resume',
   musicShuffle: 'fjobhunt:music:shuffle',
+
+  // ── Auth page ─────────────────────────────────────────────────────────────────
+  authSound: 'fjobhunt:auth_sound',
+
+  // ── Job log UI ────────────────────────────────────────────────────────────────
+  colConfig:  'fjobhunt:col_config',
+  timeRange:  'fjobhunt:time_range',
+
+  // ── Party page ────────────────────────────────────────────────────────────────
+  partyTimeRange: 'fjobhunt:party_time_range',
+
+  // ── Contacts ──────────────────────────────────────────────────────────────────
+  outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 } as const

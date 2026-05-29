@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { lsGet, lsSet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
 import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
@@ -36,8 +38,6 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
   return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
 }
 
-const PARTY_TIME_RANGE_KEY = 'fjobhunt:party_time_range'
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PartyPage({ userId }: { userId: string | null }) {
@@ -48,10 +48,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
   const [sortBy, setSortBy] = useState<SortBy>('recent')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [search, setSearch] = useState('')
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
-    const saved = localStorage.getItem(PARTY_TIME_RANGE_KEY)
-    return (saved as TimeRange | null) ?? 'all'
-  })
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.partyTimeRange, 'all') as TimeRange)
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
@@ -178,7 +175,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
-    localStorage.setItem(PARTY_TIME_RANGE_KEY, r)
+    lsSet(SK.partyTimeRange, r)
   }
 
   const cutoff = getTimeRangeCutoff(timeRange)
