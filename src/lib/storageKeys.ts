@@ -40,6 +40,9 @@ export const SK = {
   musicResume:  'fjobhunt:music:resume',
   musicShuffle: 'fjobhunt:music:shuffle',
 
+  // ── Story inputs ─────────────────────────────────────────────────────────────
+  storyInputs:    (uid: string) => `fjobhunt:story-inputs:${uid}`,
+
   // ── UI state ─────────────────────────────────────────────────────────────────
   authSound:      'fjobhunt:auth_sound',
   colConfig:      'fjobhunt:col_config',
