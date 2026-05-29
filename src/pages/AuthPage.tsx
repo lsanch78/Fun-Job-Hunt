@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import introMp3 from '@/assets/music/1-intro.mp3'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
@@ -135,7 +136,7 @@ export default function AuthPage() {
       lsSet(SK.authSound, 0)
     } else {
       stopHumRef.current = startTerminalHum()
-      const audio = new Audio('/intro.mp3')
+      const audio = new Audio(introMp3)
       audio.volume = 0.8
       audio.play().catch(() => {})
       introRef.current = audio

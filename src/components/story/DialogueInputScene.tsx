@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { playDialogueConfirm, playDialogueTick } from '@/lib/sfx'
 import RainOverlay from './RainOverlay'
+import ResumeStormOverlay from './ResumeStormOverlay'
+import HeartwaveOverlay from './HeartwaveOverlay'
+import ResumeTimePassingOverlay from './ResumeTimePassingOverlay'
 import type { DialogueWeather } from './DialogueScene'
 
 export interface DialogueInputSceneProps {
@@ -99,6 +102,9 @@ export default function DialogueInputScene({
       style={{ fontFamily: '"Press Start 2P", monospace' }}
     >
       {weather === 'rainThunder' && <RainOverlay />}
+      {weather === 'resumeStorm' && <ResumeStormOverlay />}
+      {weather === 'heartwave' && <HeartwaveOverlay />}
+      {weather === 'resumeTimePassing' && <ResumeTimePassingOverlay />}
 
       <div className="w-full max-w-lg flex flex-col gap-2" style={{ zIndex: 1 }}>
         {speaker && (

@@ -1,19 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
-import { readCache, fetchJobs } from '@/services/jobService'
-import type { Job } from '@/types'
+import { readCache } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
 import XpTracker from '@/components/XpTracker'
-import ScrollingTextCutscene from '@/components/story/ScrollingTextCutscene'
+import { Movement } from '@/components/story/scenes/6-Movement'
+import { Victory } from '@/components/story/scenes/11-Victory'
 import { useXp, getRankInfo } from '@/services/xpService'
 import { SCENES } from '@/components/story/scenes'
 import type { ComponentType } from 'react'
 
 // Rank → scene component. Add entries here as new scenes are written.
 const RANK_SCENES: Partial<Record<number, ComponentType<{ onComplete: () => void }>>> = {
-  1: SCENES[0].component,
+  1:  SCENES.find(s => s.label === '1-Intro')?.component,
+  4:  SCENES.find(s => s.label === '4-Nerve')?.component,
+  6:  Movement,
+  8:  SCENES.find(s => s.label === '8-Heart')?.component,
+  10: SCENES.find(s => s.label === '10-Run')?.component,
 }
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
@@ -115,73 +119,13 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
 }
 
 // ── Cutscene ──────────────────────────────────────────────────────────────────
-const MIDGAME_RANK = 6
-const AI_BUMP_RANK = 5 // rank at which AI generations increase
+const AI_BUMP_RANK = 5
 
-// Per-rank reward hints shown on the story map node
 const RANK_REWARDS: Partial<Record<number, string>> = {
-  [AI_BUMP_RANK]:    '✦ 20 AI uses/mo',
-  [MIDGAME_RANK]:    '▶ play cutscene',
-  7:                 '✦ 30 AI uses/mo',
+  [AI_BUMP_RANK]: '20 free AI credits/mo',
+  7:              '30 free AI credits/mo',
 }
 
-function buildMidgameText(jobs: Job[]): string[] {
-  const total     = jobs.length
-  const applied   = jobs.filter(j => j.status === 'APPLIED').length
-  const screens   = jobs.filter(j => j.status === 'PHONE_SCREEN').length
-  const interviews= jobs.filter(j => j.status === 'INTERVIEW').length
-  const offers    = jobs.filter(j => j.status === 'OFFER').length
-  const rejected  = jobs.filter(j => j.status === 'REJECTED').length
-  const ghosted   = jobs.filter(j => j.status === 'GHOSTED').length
-
-  const totalLabel = total > 0 ? String(total) : 'dozens of'
-  const responseRate = total > 0
-    ? Math.round(((screens + interviews + offers) / total) * 100)
-    : null
-
-  return [
-    `You've sent ${totalLabel} applications into the void.`,
-    '',
-    ...(total > 0 ? [
-      'BY THE NUMBERS',
-      '',
-      ...(applied    > 0 ? [`${applied} still waiting`]          : []),
-      ...(screens    > 0 ? [`${screens} phone screen${screens  === 1 ? '' : 's'}`] : []),
-      ...(interviews > 0 ? [`${interviews} interview${interviews === 1 ? '' : 's'}`] : []),
-      ...(offers     > 0 ? [`${offers} offer${offers === 1 ? '' : 's'}`]             : []),
-      ...(rejected   > 0 ? [`${rejected} rejection${rejected   === 1 ? '' : 's'}`]  : []),
-      ...(ghosted    > 0 ? [`${ghosted} ghost${ghosted         === 1 ? '' : 'ed you'}` ] : []),
-      '',
-      ...(responseRate !== null ? [`${responseRate}% response rate`,''] : []),
-    ] : []),
-    'These numbers are not a reflection of your worth, they are a reflection of the work you\'re willing to put in.',
-    '— F Job Hunt —',
-  ]
-}
-
-const MIDGAME_SCROLL_DURATION = 38000
-
-const CREDITS_TEXT = [
-  '— Fun Job Hunt —',
-  '',
-  '',
-  'Original Music by Farewell Blu for Intro, Mid-game, and Victory themes',
-  '',
-  '',
-  'FROM THE DEV',
-  '',
-  'Hi! Congratulations on your successful job hunt!',
-  '',
-  'I worked food and beverage for 10 years before pursuing a software engineering degree at ASU and my biggest takeaway from that experience was that a little bit of dignity in the process goes a long way.',
-  'I made this app to help me navigate my first "office" job hunting experience in a way that felt fun and rewarding.',
-  'If it brought you joy in any capacity, please reach out. I\'m always happy to make a new friend!',
-  '',
-  'Thank you,',
-  'Luis'
-]
-
-// Total scroll duration in ms — tune to match song intro
-const SCROLL_DURATION = 55000
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
@@ -196,8 +140,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
   const [togglingEmployed, setTogglingEmployed] = useState(false)
   const [fanfare, setFanfare] = useState(false)
   const [cutscene, setCutscene] = useState(false)
-  const [midgameCutscene, setMidgameCutscene] = useState(false)
-  const [jobs, setJobs] = useState<Job[]>([])
   const [devMenuOpen, setDevMenuOpen] = useState(false)
   const [activeScene, setActiveScene] = useState<number | null>(null)
   const [activeRankScene, setActiveRankScene] = useState<number | null>(null)
@@ -207,8 +149,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       return stored ? new Set(JSON.parse(stored) as number[]) : new Set()
     } catch { return new Set() }
   })
-  const midgameLines = buildMidgameText(jobs)
-
   function handleRankSceneComplete(rank: number) {
     setActiveRankScene(null)
     setSeenScenes(prev => {
@@ -226,13 +166,9 @@ export default function StoryPage({ userId }: { userId: string | null }) {
     let cancelled = false
 
     async function init() {
-      const [progressResult, dbJobs] = await Promise.all([
-        supabase.from('game_progress').select('employed').eq('user_id', userId!).single(),
-        fetchJobs(userId!),
-      ])
+      const progressResult = await supabase.from('game_progress').select('employed').eq('user_id', userId!).single()
       if (cancelled) return
       if (progressResult.data) setEmployed(!!progressResult.data.employed)
-      setJobs(dbJobs)
       setLoading(false)
     }
 
@@ -270,11 +206,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
   const { rank: currentRank, progress, isMax } = getRankInfo(xp ?? 0)
 
-  function handleMidgameCutscene() {
-    window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    setTimeout(() => setMidgameCutscene(true), 600)
-  }
-
   // When employed, treat every node as fully unlocked
   const effectiveRank = employed ? 12 : currentRank
   const effectiveProgress = employed ? 1 : progress
@@ -288,29 +219,11 @@ export default function StoryPage({ userId }: { userId: string | null }) {
         return Scene ? <Scene onComplete={() => handleRankSceneComplete(activeRankScene)} /> : null
       })()}
 
-      {/* Mid-game cutscene — fires once at rank 6 */}
-      {midgameCutscene && (
-        <ScrollingTextCutscene
-          lines={midgameLines}
-          audioSrc="/middle.mp3"
-          duration={MIDGAME_SCROLL_DURATION}
-          onComplete={() => {
-            setMidgameCutscene(false)
-            window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
-          }}
-          continueLabel="KEEP GOING  →"
-          fadeIn
-        />
-      )}
 
       {/* Victory cutscene */}
       {cutscene && (
-        <ScrollingTextCutscene
-          lines={CREDITS_TEXT}
-          audioSrc="/congratulations.mp3"
-          duration={SCROLL_DURATION}
+        <Victory
           onComplete={handleCutsceneComplete}
-          fadeIn
         />
       )}
 
@@ -456,13 +369,11 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
                   {(() => {
                     const hasScene = !!RANK_SCENES[rank]
-                    const isMidgame = rank === MIDGAME_RANK
-                    const clickable = !locked && (hasScene || isMidgame)
+                    const clickable = !locked && hasScene
                     const unseen = hasScene && !seenScenes.has(rank)
                     const symbol = locked ? '▨' : (unseen ? '▶' : avatarChar)
 
                     function handleNodeClick() {
-                      if (isMidgame) return handleMidgameCutscene()
                       if (hasScene) setActiveRankScene(rank)
                     }
 
@@ -515,9 +426,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                       </div>
                     )}
 
-                    {!isCurrent && !locked && !isGold && (
-                      <div className="text-[9px] text-muted mt-0.5">✓ unlocked</div>
-                    )}
+
                     {locked && rank < 11 && (
                       <div className="text-[9px] text-muted mt-0.5">
                         {RANK_THRESHOLDS[rank]} XP
@@ -526,7 +435,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
                     {/* Reward hint — shown on locked and current nodes */}
                     {(locked || isCurrent) && RANK_REWARDS[rank] && (
-                      <div className="text-[9px] text-secondary mt-0.5 opacity-70">
+                      <div className="text-[9px] text-primary mt-0.5 opacity-30">
                         {RANK_REWARDS[rank]}
                       </div>
                     )}
@@ -553,7 +462,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
       {/* Big "I Got a Job!" button */}
       {!loading && (
-        <div className="shrink-0 flex flex-col items-center gap-3 py-6 border-t border-border">
+        <div className="shrink-0 flex flex-col items-center gap-3 py-6">
           {employed ? (
             <div
               className="text-center"

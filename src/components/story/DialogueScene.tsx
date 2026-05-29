@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { isSfxMuted, playDialogueTick, playDialogueConfirm, startRain, playThunder } from '@/lib/sfx'
 import RainOverlay from './RainOverlay'
+import ResumeStormOverlay from './ResumeStormOverlay'
+import HeartwaveOverlay from './HeartwaveOverlay'
+import ResumeTimePassingOverlay from './ResumeTimePassingOverlay'
 
 export interface DialogueLine {
   speaker?: string
   text: string
 }
 
-export type DialogueWeather = 'rainThunder'
+export type DialogueWeather = 'rainThunder' | 'resumeStorm' | 'heartwave' | 'resumeTimePassing'
 
 export interface DialogueSceneProps {
   lines: DialogueLine[]
@@ -184,8 +187,11 @@ export default function DialogueScene({
       }}
       onClick={advance}
     >
-      {/* Rain */}
+      {/* Weather */}
       {weather === 'rainThunder' && <RainOverlay />}
+      {weather === 'resumeStorm' && <ResumeStormOverlay />}
+      {weather === 'heartwave' && <HeartwaveOverlay />}
+      {weather === 'resumeTimePassing' && <ResumeTimePassingOverlay />}
 
       {/* Lightning flash overlay */}
       {lightning && (

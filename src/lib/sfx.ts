@@ -1008,6 +1008,88 @@ export function playDialogueTick(): void {
   } catch { /* AudioContext blocked */ }
 }
 
+/** Looping ambient job-submission keyboard bursts — low volume background thudding. Returns a teardown fn. */
+export function startThudAmbience(): () => void {
+  if (isSfxMuted()) return () => {}
+  let stopped = false
+
+  function burst() {
+    if (stopped) return
+    try {
+      const ctx = new AudioContext()
+      const keyCount = 5 + Math.floor(Math.random() * 5)
+      const spacing = 0.045 + Math.random() * 0.02
+      for (let i = 0; i < keyCount; i++) {
+        const t = ctx.currentTime + i * spacing + Math.random() * 0.015
+        const bufLen = ctx.sampleRate * 0.025
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate)
+        const data = buf.getChannelData(0)
+        for (let s = 0; s < bufLen; s++) data[s] = Math.random() * 2 - 1
+        const src = ctx.createBufferSource(); src.buffer = buf
+        const bp = ctx.createBiquadFilter()
+        bp.type = 'bandpass'; bp.frequency.value = 1000 + Math.random() * 5200; bp.Q.value = 1.2
+        const gain = ctx.createGain()
+        gain.gain.setValueAtTime(0, t)
+        gain.gain.linearRampToValueAtTime(0.06, t + 0.002)
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.022)
+        src.connect(bp); bp.connect(gain); gain.connect(ctx.destination)
+        src.start(t); src.stop(t + 0.03)
+      }
+      setTimeout(() => ctx.close(), 1000)
+    } catch { /* AudioContext blocked */ }
+
+    // Random gap between bursts: 1.5–4s
+    setTimeout(burst, 1500 + Math.random() * 2500)
+  }
+
+  burst()
+  return () => { stopped = true }
+}
+
+/** Looping ambient keyboard chatter — low volume background typing. Returns a teardown fn. */
+export function startTypingAmbience(): () => void {
+  if (isSfxMuted()) return () => {}
+  let stopped = false
+
+  function tick() {
+    if (stopped) return
+    try {
+      const ctx = new AudioContext()
+      const t0 = ctx.currentTime
+      const dur = 0.08
+
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      const baseFreq = 55 + (Math.random() - 0.5) * 9
+      osc.frequency.setValueAtTime(baseFreq, t0)
+      osc.frequency.linearRampToValueAtTime(baseFreq * 1.08, t0 + dur * 0.4)
+      osc.frequency.linearRampToValueAtTime(baseFreq * 0.96, t0 + dur)
+
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.setValueAtTime(260, t0)
+      bp.frequency.exponentialRampToValueAtTime(600, t0 + dur * 0.5)
+      bp.frequency.exponentialRampToValueAtTime(330, t0 + dur)
+      bp.Q.value = 3.5
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t0)
+      gain.gain.linearRampToValueAtTime(0.04, t0 + dur * 0.3)
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+
+      osc.connect(bp); bp.connect(gain); gain.connect(ctx.destination)
+      osc.start(t0); osc.stop(t0 + dur + 0.01)
+      setTimeout(() => ctx.close(), 200)
+    } catch { /* AudioContext blocked */ }
+
+    // Random interval between keystrokes: 80–220ms
+    setTimeout(tick, 80 + Math.random() * 140)
+  }
+
+  tick()
+  return () => { stopped = true }
+}
+
 /** Confirm / advance sound for DialogueScene — bright two-note sine chime. */
 export function playDialogueConfirm(): void {
   if (isSfxMuted()) return

@@ -80,7 +80,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Recurse -Depth 2)",
       "PowerShell(ls -R \"c:\\\\effjobhunt\")",
       "PowerShell(head -100)",
-      "Bash(Remove-Item \"c:\\\\effjobhunt\\\\src\\\\components\\\\AddContactModal.tsx\")"
+      "Bash(Remove-Item \"c:\\\\effjobhunt\\\\src\\\\components\\\\AddContactModal.tsx\")",
+      "Bash(ffmpeg -i \"/c/effjobhunt/src/assets/music/4-run.wav\" -codec:a libmp3lame -q:a 2 \"/c/effjobhunt/src/assets/music/4-run.mp3\" -y)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"
