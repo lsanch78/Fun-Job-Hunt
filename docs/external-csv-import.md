@@ -157,6 +157,19 @@ As lenses are placed, the column data renders formatted:
 
 ## Open Questions
 
-- Should `/import` be reachable without auth (upload + map locally, then prompt to sign up before writing)? Could be a strong conversion moment.
 - Do we want a "download sample CSV" link so users know what a clean import looks like?
 - Cap on import row count? Current `JOB_CAP` is 1000 — surface this clearly if a user's file exceeds it.
+
+---
+
+## Auth Gate Strategy
+
+`/import` is **public** — no account required to upload, map, and preview.
+
+Auth is only required at the moment the user hits **Import**. At that point:
+1. Serialize the confirmed column mapping + parsed rows into `sessionStorage`
+2. Redirect to `/auth`
+3. On successful auth, `/auth` checks `sessionStorage` for a pending import and redirects to `/import?resume=1`
+4. Import page reads the pending data, runs the insert, clears `sessionStorage`
+
+This mirrors the landing page demo philosophy — get the user invested in their data before asking for paperwork. By the time they see the sign-up form they've already mapped their 50 jobs and have a reason to complete it.
