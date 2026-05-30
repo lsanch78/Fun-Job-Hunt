@@ -9,7 +9,7 @@ import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialAc
 import { lsGet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import { STORY_STEPS } from '@/lib/tutorialSteps'
-import XpTracker from '@/components/XpTracker'
+import XpTracker from '@/components/hud/XpTracker'
 import { Movement } from '@/components/story/scenes/6-Movement'
 import { Victory } from '@/components/story/scenes/11-Victory'
 import { useXp, getRankInfo } from '@/services/xpService'

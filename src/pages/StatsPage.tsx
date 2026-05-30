@@ -4,7 +4,7 @@ import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/wor
 import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
 import type { Job, Contact } from '@/types'
-import XpTracker from '@/components/XpTracker'
+import XpTracker from '@/components/hud/XpTracker'
 import { useXp } from '@/services/xpService'
 
 // ── Formatters ────────────────────────────────────────────────────────────────

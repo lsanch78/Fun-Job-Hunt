@@ -1,7 +1,7 @@
 jest.mock('@/lib/supabase', () => ({ supabase: {} }))
 
 import { render, screen } from '@testing-library/react'
-import XpTracker from '@/components/XpTracker'
+import XpTracker from '@/components/hud/XpTracker'
 import { getRankInfo } from '@/services/xpService'
 
 // Mock sfx to avoid AudioContext issues in level-up tests

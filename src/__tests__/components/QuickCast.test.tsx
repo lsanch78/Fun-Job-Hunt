@@ -103,7 +103,7 @@ jest.mock('pixelarticons/react', () => {
 
 // ---------- Imports ----------
 
-import QuickCast from '@/components/QuickCast'
+import QuickCast from '@/components/hud/QuickCast'
 import { fetchLinks, createLink } from '@/services/quickCastService'
 
 // ---------- Tests ----------
