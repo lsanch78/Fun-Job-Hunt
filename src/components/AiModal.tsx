@@ -30,7 +30,7 @@ type ConnectionStatus = 'checking' | 'connected' | 'not_connected'
 type PanelView        = 'form' | 'output'
 type QuickKey     = 'cover_letter' | 'why_good_fit' | 'custom'
 
-interface AiPanelProps {
+interface AiModalProps {
   userId: string
   resumeSlots: Partial<Record<ResumeSlot, ResumeSlotRecord>>
   onClose: () => void
@@ -88,27 +88,27 @@ const labelStyle: React.CSSProperties = {
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
 function loadSlotPref(userId: string, occupied: ResumeSlot[]): ResumeSlot[] {
-  const saved = lsGet<ResumeSlot[] | null>(SK.aiPanelSlots(userId), null)
+  const saved = lsGet<ResumeSlot[] | null>(SK.aiModalSlots(userId), null)
   if (!saved) return occupied
   const valid = saved.filter((s) => occupied.includes(s))
   return valid.length > 0 ? valid : occupied
 }
 
 function saveSlotPref(userId: string, slots: ResumeSlot[]) {
-  lsSet(SK.aiPanelSlots(userId), slots)
+  lsSet(SK.aiModalSlots(userId), slots)
 }
 
 function loadResumeText(userId: string): string {
-  return lsGet<string>(SK.aiPanelText(userId), '')
+  return lsGet<string>(SK.aiModalText(userId), '')
 }
 
 function saveResumeText(userId: string, text: string) {
-  if (text.trim()) lsSet(SK.aiPanelText(userId), text)
-  else lsRemove(SK.aiPanelText(userId))
+  if (text.trim()) lsSet(SK.aiModalText(userId), text)
+  else lsRemove(SK.aiModalText(userId))
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function AiPanel({ userId, resumeSlots, onClose, initialOutput }: AiPanelProps) {
+export default function AiModal({ userId, resumeSlots, onClose, initialOutput }: AiModalProps) {
   const { isSubscribed } = useSubscription()
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 

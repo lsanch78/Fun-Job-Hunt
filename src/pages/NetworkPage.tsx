@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-import TutorialOverlay from '@/components/TutorialOverlay'
+import TutorialModal from '@/components/TutorialModal'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { NETWORK_STEPS } from '@/lib/tutorialSteps'
 import ContactList, { type SortBy } from '@/components/ContactList'
-import ContactDetailCard from '@/components/ContactDetailCard'
-import AppDetailCard from '@/components/AppDetailCard'
+import ContactDetailModal from '@/components/ContactDetailModal'
+import JobDetailModal from '@/components/JobDetailModal'
 import SearchBar from '@/components/SearchBar'
 import NetworkBackdrop from '@/components/NetworkBackdrop'
 import type { Contact, Job } from '@/types'
@@ -415,7 +415,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
 
       {/* Contact detail card */}
       {detailContactId && (
-        <ContactDetailCard
+        <ContactDetailModal
           contacts={contacts}
           contactId={detailContactId}
           onClose={() => { handleDetailClose(); refreshJobsByContact() }}
@@ -429,7 +429,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
 
       {/* App detail card — opened from an Apps chip */}
       {detailJobId && (
-        <AppDetailCard
+        <JobDetailModal
           jobs={jobs}
           jobId={detailJobId}
           userId={userId}
@@ -441,7 +441,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
       )}
 
       {showTutorial && userId && (
-        <TutorialOverlay steps={NETWORK_STEPS} screen="network" userId={userId} onDone={() => setShowTutorial(false)} />
+        <TutorialModal steps={NETWORK_STEPS} screen="network" userId={userId} onDone={() => setShowTutorial(false)} />
       )}
     </div>
   )

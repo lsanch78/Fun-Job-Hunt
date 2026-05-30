@@ -341,8 +341,8 @@ async function loadSenderResume(userId: string | null): Promise<string> {
       if (text.trim()) { parts.push(text.trim()); break } // use first populated slot
     }
   }
-  // Pasted text (from AiPanel text input)
-  const pasted = lsGet<string>(SK.aiPanelText(userId), '')
+  // Pasted text (from AiModal text input)
+  const pasted = lsGet<string>(SK.aiModalText(userId), '')
   if (pasted.trim() && parts.length === 0) parts.push(pasted.trim())
   return parts.join('\n\n')
 }

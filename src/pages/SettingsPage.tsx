@@ -217,10 +217,12 @@ export default function SettingsPage() {
       `xp:${userId}`,                               // legacy xp key
       SK.musicTracks,
       SK.musicResume,
-      SK.aiPanelSlots(userId),
-      `ai_panel_slots_${userId}`,                   // legacy AI panel key
-      SK.aiPanelText(userId),
-      `ai_panel_resume_text_${userId}`,             // legacy AI panel key
+      SK.aiModalSlots(userId),
+      `ai_panel_slots_${userId}`,                   // legacy AI modal key
+      `fjobhunt:ai-panel-slots:${userId}`,          // legacy AI modal key (pre-rename)
+      SK.aiModalText(userId),
+      `ai_panel_resume_text_${userId}`,             // legacy AI modal key
+      `fjobhunt:ai-panel-text:${userId}`,           // legacy AI modal key (pre-rename)
       SK.commCooldown(userId),
       `fjobhunt:${userId}:comm-cooldown-hours`,     // legacy comm cooldown key
       SK.quickcastLinks(userId),

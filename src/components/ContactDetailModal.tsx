@@ -8,7 +8,7 @@ ensureCrtStyles()
 
 interface JobOption { id: string; title: string; company: string }
 
-interface ContactDetailCardProps {
+interface ContactDetailModalProps {
   contacts: Contact[]
   contactId: string
   onClose: () => void
@@ -40,7 +40,7 @@ function JobsPanel({ contactId, userId, lockedJob, onPendingChange }: JobsPanelP
 
   useEffect(() => {
     if (isNew) {
-      // Pre-populate with lockedJob if coming from AppDetailCard
+      // Pre-populate with lockedJob if coming from JobDetailModal
       const initial = lockedJob ? [lockedJob] : []
       setLinked(initial)
       onPendingChange?.(initial)
@@ -200,7 +200,7 @@ const LIMITS = {
   notes:    1000,
 } as const
 
-export default function ContactDetailCard({
+export default function ContactDetailModal({
   contacts,
   contactId,
   onClose,
@@ -209,7 +209,7 @@ export default function ContactDetailCard({
   userId,
   lockedJob,
   fullScreen = false,
-}: ContactDetailCardProps) {
+}: ContactDetailModalProps) {
   const currentIdx = contacts.findIndex((c) => c.id === contactId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')

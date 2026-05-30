@@ -19,7 +19,7 @@ export const crtBoxShadow = [
   'inset 0 0 10px 2px rgba(57,255,20,0.06)',
 ].join(', ')
 
-// Semantic font size scale — sized against TutorialOverlay as the readability baseline
+// Semantic font size scale — sized against TutorialModal as the readability baseline
 export const CRT_FONT = {
   chrome: '13px',   // decorative chrome: header labels, ESC button, close ✕
   btn:    '14px',   // buttons, footer hints

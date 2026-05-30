@@ -59,7 +59,7 @@ interface Props {
   compact?: boolean
 }
 
-export default function TutorialOverlay({ steps, screen, userId, onDone, compact = false }: Props) {
+export default function TutorialModal({ steps, screen, userId, onDone, compact = false }: Props) {
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)

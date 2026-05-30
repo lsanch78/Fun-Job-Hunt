@@ -8,14 +8,14 @@ import {
 } from '@/services/contactService'
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
-import ContactDetailCard from '@/components/ContactDetailCard'
+import ContactDetailModal from '@/components/ContactDetailModal'
 import AiButton from '@/components/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
 
 ensureCrtStyles()
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface AppDetailCardProps {
+interface JobDetailModalProps {
   jobs: Job[]
   jobId: string
   userId: string | null
@@ -207,9 +207,9 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
         </div>
       )}
 
-      {/* ContactDetailCard — new or edit */}
+      {/* ContactDetailModal — new or edit */}
       {cardContact && (
-        <ContactDetailCard
+        <ContactDetailModal
           contacts={cardContact.id.startsWith('new-') ? [cardContact] : linked}
           contactId={cardContact.id}
           onClose={() => setCardContact(null)}
@@ -228,10 +228,10 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
   )
 }
 
-// ── AppDetailCard ─────────────────────────────────────────────────────────────
+// ── JobDetailModal ────────────────────────────────────────────────────────────
 const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
 
-export default function AppDetailCard({ jobs, jobId, userId, onClose, onChange, fullScreen = false }: AppDetailCardProps) {
+export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false }: JobDetailModalProps) {
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [page, setPage] = useState<1 | 2>(1)

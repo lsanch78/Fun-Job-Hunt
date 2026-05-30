@@ -24,7 +24,7 @@ import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import ResumeModal from '@/components/ResumeModal'
-import AiPanel from '@/components/AiPanel'
+import AiModal from '@/components/AiModal'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
 import { fetchModels, streamCompletion } from '@/services/aiService'
 import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
@@ -283,7 +283,7 @@ export default function QuickCast() {
   const [showResume,     setShowResume]     = useState(false)
   const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
   const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
-  const [aiPanelOpen,    setAiPanelOpen]    = useState(false)
+  const [aiModalOpen,    setAiModalOpen]    = useState(false)
   const [ollamaStatus,   setOllamaStatus]   = useState<'unknown' | 'connected' | 'not_connected'>('unknown')
 
   // AI quick-generate (right-click submenu)
@@ -877,7 +877,7 @@ export default function QuickCast() {
               data-tutorial="ai-assistant"
               onClick={() => {
                 if (aiGenerating) return
-                setAiPanelOpen((prev) => !prev)
+                setAiModalOpen((prev) => !prev)
               }}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -887,7 +887,7 @@ export default function QuickCast() {
               className={[
                 'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
                 'border transition-none select-none cursor-pointer',
-                aiPanelOpen
+                aiModalOpen
                   ? 'border-primary text-primary'
                   : aiResult && !aiGenerating
                   ? 'qc-ai-ready'
@@ -961,14 +961,14 @@ export default function QuickCast() {
       </div>
 
       {/* AI panel — fixed centered overlay */}
-      {aiPanelOpen && userId && (
+      {aiModalOpen && userId && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto">
-            <AiPanel
+            <AiModal
               userId={userId}
               resumeSlots={resumeSlots}
               initialOutput={aiResult ?? undefined}
-              onClose={() => { setAiPanelOpen(false); setAiResult(null) }}
+              onClose={() => { setAiModalOpen(false); setAiResult(null) }}
             />
           </div>
         </div>

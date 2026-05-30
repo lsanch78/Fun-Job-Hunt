@@ -8,8 +8,8 @@ import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { JOB_CAP } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
-import AppDetailCard from '@/components/AppDetailCard'
-import TutorialOverlay from '@/components/TutorialOverlay'
+import JobDetailModal from '@/components/JobDetailModal'
+import TutorialModal from '@/components/TutorialModal'
 import { JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { lsGet, lsSet } from '@/lib/storage'
@@ -570,7 +570,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
       {/* Application detail card */}
       {detailJobId && (
-        <AppDetailCard
+        <JobDetailModal
           jobs={jobs.filter((j) => j.committed)}
           jobId={detailJobId}
           userId={userId}
@@ -580,7 +580,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       )}
 
       {/* Tutorial overlay */}
-      {showTutorial && userId && <TutorialOverlay steps={JOB_LOG_STEPS} screen="job-log" userId={userId} onDone={() => setShowTutorial(false)} />}
+      {showTutorial && userId && <TutorialModal steps={JOB_LOG_STEPS} screen="job-log" userId={userId} onDone={() => setShowTutorial(false)} />}
 
     </div>
   )

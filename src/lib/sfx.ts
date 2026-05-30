@@ -318,7 +318,7 @@ export function playTrash(count = 1): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── AppDetailCard ─────────────────────────────────────────────────────────────
+// ── JobDetailModal ────────────────────────────────────────────────────────────
 
 /** Rising three-note boot blip (220 → 440 → 880 Hz). */
 export function playBootBlip(): void {
@@ -1220,7 +1220,7 @@ export function playThunder(intensity = 0.7): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── TutorialOverlay ───────────────────────────────────────────────────────────
+// ── TutorialModal ─────────────────────────────────────────────────────────────
 
 /** Page-turn click for tutorial navigation. Same shape as playConsoleBlip. */
 export function playTutorialPage(dir: 'forward' | 'back' = 'forward'): void {

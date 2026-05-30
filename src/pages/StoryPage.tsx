@@ -4,7 +4,7 @@ import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
-import TutorialOverlay from '@/components/TutorialOverlay'
+import TutorialModal from '@/components/TutorialModal'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { lsGet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
@@ -485,7 +485,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       </div>
 
       {showTutorial && userId && (
-        <TutorialOverlay steps={STORY_STEPS} screen="story" userId={userId} onDone={() => setShowTutorial(false)} />
+        <TutorialModal steps={STORY_STEPS} screen="story" userId={userId} onDone={() => setShowTutorial(false)} />
       )}
 
       {/* Big "I Got a Job!" button */}

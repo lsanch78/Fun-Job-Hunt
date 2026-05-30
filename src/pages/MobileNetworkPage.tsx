@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import ContactList, { type SortBy } from '@/components/ContactList'
-import ContactDetailCard from '@/components/ContactDetailCard'
-import AppDetailCard from '@/components/AppDetailCard'
+import ContactDetailModal from '@/components/ContactDetailModal'
+import JobDetailModal from '@/components/JobDetailModal'
 import SearchBar from '@/components/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
@@ -175,7 +175,7 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
 
       {/* Contact detail card */}
       {detailContactId && (
-        <ContactDetailCard
+        <ContactDetailModal
           contacts={contacts}
           contactId={detailContactId}
           onClose={() => { handleDetailClose(); refreshJobsByContact() }}
@@ -190,7 +190,7 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
 
       {/* App detail card — opened from an Apps chip */}
       {detailJobId && (
-        <AppDetailCard
+        <JobDetailModal
           jobs={jobs}
           jobId={detailJobId}
           userId={userId}

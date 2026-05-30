@@ -26,8 +26,8 @@ export const SK = {
   // ── AI assistant ─────────────────────────────────────────────────────────────
   aiProvider:   'fjobhunt:ai:provider',
   aiApiKey:     'fjobhunt:ai:apikey',
-  aiPanelSlots: (uid: string) => `fjobhunt:ai-panel-slots:${uid}`,
-  aiPanelText:  (uid: string) => `fjobhunt:ai-panel-text:${uid}`,
+  aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,
+  aiModalText:  (uid: string) => `fjobhunt:ai-modal-text:${uid}`,
 
   // ── Theme & display ──────────────────────────────────────────────────────────
   theme:        'fjobhunt:theme',

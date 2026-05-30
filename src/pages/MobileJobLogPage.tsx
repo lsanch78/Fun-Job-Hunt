@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { JobStatus } from '@/types'
-import AppDetailCard from '@/components/AppDetailCard'
+import JobDetailModal from '@/components/JobDetailModal'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
 import MobileScratchPad from '@/components/MobileScratchPad'
-import TutorialOverlay from '@/components/TutorialOverlay'
+import TutorialModal from '@/components/TutorialModal'
 import { MOBILE_JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { useJobList } from '@/hooks/useJobList'
@@ -262,9 +262,9 @@ export default function MobileJobLogPage({
         </div>
       )}
 
-      {/* AppDetailCard — full-screen on mobile */}
+      {/* JobDetailModal — full-screen on mobile */}
       {detailJobId && detailJob && (
-        <AppDetailCard
+        <JobDetailModal
           jobs={jobs}
           jobId={detailJobId}
           userId={userId}
@@ -281,7 +281,7 @@ export default function MobileJobLogPage({
 
       {/* Tutorial overlay */}
       {showTutorial && userId && (
-        <TutorialOverlay steps={MOBILE_JOB_LOG_STEPS} screen="mobile-job-log" userId={userId} onDone={() => setShowTutorial(false)} compact />
+        <TutorialModal steps={MOBILE_JOB_LOG_STEPS} screen="mobile-job-log" userId={userId} onDone={() => setShowTutorial(false)} compact />
       )}
     </div>
   )
