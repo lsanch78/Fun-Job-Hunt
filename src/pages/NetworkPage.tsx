@@ -7,7 +7,7 @@ import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialAc
 import { NETWORK_STEPS } from '@/lib/tutorialSteps'
 import ContactList, { type SortBy } from '@/components/contacts/ContactList'
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
-import JobDetailModal from '@/components/JobDetailModal'
+import JobDetailModal from '@/components/joblog/JobDetailModal'
 import SearchBar from '@/components/SearchBar'
 import NetworkBackdrop from '@/components/NetworkBackdrop'
 import type { Contact, Job } from '@/types'
