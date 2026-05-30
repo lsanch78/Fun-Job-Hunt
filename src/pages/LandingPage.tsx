@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { playLinkBlip } from '@/lib/sfx'
 import JobLogDemo from '@/components/landing/JobLogDemo'
+import NetworkDemo from '@/components/landing/NetworkDemo'
 
 // ── Scanline animation keyframes injected once ─────────────────────────────
 const KEYFRAMES = `
@@ -175,6 +176,15 @@ export default function LandingPage() {
         <JobLogDemo mouse={mouse} />
         <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
           ↑ TYPE A COMPANY + ROLE AND HIT ENTER — EARN XP AS YOU GO
+        </p>
+      </section>
+
+      {/* ── Network Demo ─────────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
+        <SectionHeader title="NETWORK" sub="MAP YOUR CONNECTIONS" />
+        <NetworkDemo mouse={mouse} />
+        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
+          ↑ ADD CONTACTS AND PING THEM — WATCH THE GRAPH GROW
         </p>
       </section>
 
