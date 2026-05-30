@@ -22,6 +22,7 @@ import NetworkPage from '@/pages/NetworkPage'
 import MobileNetworkPage from '@/pages/MobileNetworkPage'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
+import MobileUnsupported from '@/components/shell/MobileUnsupported'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -73,6 +74,12 @@ function ProtectedRoute({
       <WorkdayBar userId={userId} inline />
     </div>
   )
+}
+
+function MobileGatedRoute({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile()
+  if (isMobile) return <MobileUnsupported />
+  return <>{children}</>
 }
 
 function NetworkRoute({ session }: { session: Session | null | undefined }) {
@@ -135,7 +142,9 @@ export default function App() {
             path="/stats"
             element={
               <ProtectedRoute session={session}>
-                <StatsPage userId={session?.user?.id ?? null} />
+                <MobileGatedRoute>
+                  <StatsPage userId={session?.user?.id ?? null} />
+                </MobileGatedRoute>
               </ProtectedRoute>
             }
           />
@@ -143,7 +152,9 @@ export default function App() {
             path="/story"
             element={
               <ProtectedRoute session={session}>
-                <StoryPage userId={session?.user?.id ?? null} />
+                <MobileGatedRoute>
+                  <StoryPage userId={session?.user?.id ?? null} />
+                </MobileGatedRoute>
               </ProtectedRoute>
             }
           />
@@ -151,7 +162,9 @@ export default function App() {
             path="/settings"
             element={
               <ProtectedRoute session={session}>
-                <SettingsPage />
+                <MobileGatedRoute>
+                  <SettingsPage />
+                </MobileGatedRoute>
               </ProtectedRoute>
             }
           />
@@ -159,7 +172,9 @@ export default function App() {
             path="/credits"
             element={
               <ProtectedRoute session={session}>
-                <CreditsPage />
+                <MobileGatedRoute>
+                  <CreditsPage />
+                </MobileGatedRoute>
               </ProtectedRoute>
             }
           />
@@ -167,7 +182,9 @@ export default function App() {
             path="/dev"
             element={
               <ProtectedRoute session={session}>
-                <DevPortalPage />
+                <MobileGatedRoute>
+                  <DevPortalPage />
+                </MobileGatedRoute>
               </ProtectedRoute>
             }
           />
