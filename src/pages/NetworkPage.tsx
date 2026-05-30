@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
+import TutorialOverlay from '@/components/TutorialOverlay'
+import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
+import { NETWORK_STEPS } from '@/lib/tutorialSteps'
 import ContactList, { type SortBy } from '@/components/ContactList'
 import ContactDetailCard from '@/components/ContactDetailCard'
 import AppDetailCard from '@/components/AppDetailCard'
@@ -41,6 +45,8 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NetworkPage({ userId }: { userId: string | null }) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showTutorial, setShowTutorial] = useState(false)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
@@ -70,6 +76,26 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [networkMapView])
+
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setShowTutorial(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
+
+  useEffect(() => {
+    registerTutorialTrigger(() => setShowTutorial(true))
+    if (!userId) return () => { unregisterTutorialTrigger() }
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'network'), false)
+    if (!seen) {
+      const id = setTimeout(() => setShowTutorial(true), 800)
+      return () => { clearTimeout(id); unregisterTutorialTrigger() }
+    }
+    return () => { unregisterTutorialTrigger() }
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -200,7 +226,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
+      <div data-tutorial="network-header" className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
         <div>
           <h1 className="text-sm tracking-widest">NETWORK</h1>
           <p className="text-muted text-xs mt-1">
@@ -230,7 +256,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
       </div>
 
       {/* Filter / sort toolbar */}
-      <div className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
+      <div data-tutorial="network-toolbar" className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
         {/* Row 1: search + sort + delete */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-1.5 min-w-[160px]">
@@ -302,7 +328,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
       </div>
 
       {/* Scrollable content */}
-      <div className="overflow-hidden flex-1 relative">
+      <div data-tutorial="network-list" className="overflow-hidden flex-1 relative">
 
         {/* Animated network backdrop */}
         {!loading && contacts.length > 0 && (
@@ -412,6 +438,10 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             setJobs((prev) => prev.map((j) => j.id === updated.id ? updated : j))
           }
         />
+      )}
+
+      {showTutorial && userId && (
+        <TutorialOverlay steps={NETWORK_STEPS} screen="network" userId={userId} onDone={() => setShowTutorial(false)} />
       )}
     </div>
   )

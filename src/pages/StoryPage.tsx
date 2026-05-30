@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { readCache } from '@/services/jobService'
 import { supabase } from '@/lib/supabase'
 import { playStoryChime, playFanfare } from '@/lib/sfx'
+import TutorialOverlay from '@/components/TutorialOverlay'
+import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
+import { lsGet } from '@/lib/storage'
+import { SK } from '@/lib/storageKeys'
+import { STORY_STEPS } from '@/lib/tutorialSteps'
 import XpTracker from '@/components/XpTracker'
 import { Movement } from '@/components/story/scenes/6-Movement'
 import { Victory } from '@/components/story/scenes/11-Victory'
@@ -132,6 +137,8 @@ const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '�
 
 export default function StoryPage({ userId }: { userId: string | null }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showTutorial, setShowTutorial] = useState(false)
   const { xp } = useXp(userId)
   const [employed, setEmployed] = useState(false)
   const [loading, setLoading] = useState(() => {
@@ -158,6 +165,26 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       return next
     })
   }
+
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setShowTutorial(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
+
+  useEffect(() => {
+    registerTutorialTrigger(() => setShowTutorial(true))
+    if (!userId) return () => { unregisterTutorialTrigger() }
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'story'), false)
+    if (!seen) {
+      const id = setTimeout(() => setShowTutorial(true), 800)
+      return () => { clearTimeout(id); unregisterTutorialTrigger() }
+    }
+    return () => { unregisterTutorialTrigger() }
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { playStoryChime() }, [])
 
@@ -206,9 +233,8 @@ export default function StoryPage({ userId }: { userId: string | null }) {
 
   const { rank: currentRank, progress, isMax } = getRankInfo(xp ?? 0)
 
-  // When employed, treat every node as fully unlocked
-  const effectiveRank = employed ? 12 : currentRank
-  const effectiveProgress = employed ? 1 : progress
+  const effectiveRank = currentRank
+  const effectiveProgress = progress
 
   return (
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
@@ -276,7 +302,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
       </div>
 
       {/* Map */}
-      <div className="flex-1 overflow-auto flex items-center justify-center py-8 px-4">
+      <div data-tutorial="story-map" className="flex-1 overflow-auto flex items-center justify-center py-8 px-4">
         {loading ? (
           <div className="text-muted text-xs mt-16 animate-pulse">LOADING MAP…</div>
         ) : (
@@ -294,7 +320,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                 const toRank   = NODE_POSITIONS[i + 1].rank
                 const unlocked = fromRank <= effectiveRank && toRank <= effectiveRank
                 const partial  = fromRank <= effectiveRank && toRank > effectiveRank
-                const goldLine = employed
                 return (
                   <g key={i}>
                     <line
@@ -308,7 +333,7 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                         x1={seg.x1} y1={seg.y1}
                         x2={unlocked ? seg.x2 : seg.x1 + (seg.x2 - seg.x1) * effectiveProgress}
                         y2={unlocked ? seg.y2 : seg.y1 + (seg.y2 - seg.y1) * effectiveProgress}
-                        stroke={goldLine ? '#f5c518' : 'var(--color-secondary)'}
+                        stroke={employed ? '#f5c518' : 'var(--color-secondary)'}
                         strokeWidth="2"
                       />
                     )}
@@ -322,11 +347,10 @@ export default function StoryPage({ userId }: { userId: string | null }) {
               const { x, y } = nodeCenter(col, row)
               const isEmployedNode = rank === 11
 
-              // When employed: every node is gold
               const isGold    = employed
-              const unlocked  = employed ? true : rank < currentRank
-              const isCurrent = employed ? false : rank === currentRank
-              const locked    = employed ? false : rank > currentRank
+              const unlocked  = rank < currentRank
+              const isCurrent = rank === currentRank
+              const locked    = rank > currentRank
 
               const avatarChar = STORY_AVATAR_CHARS[(rank - 1) % STORY_AVATAR_CHARS.length]
 
@@ -460,9 +484,13 @@ export default function StoryPage({ userId }: { userId: string | null }) {
         )}
       </div>
 
+      {showTutorial && userId && (
+        <TutorialOverlay steps={STORY_STEPS} screen="story" userId={userId} onDone={() => setShowTutorial(false)} />
+      )}
+
       {/* Big "I Got a Job!" button */}
       {!loading && (
-        <div className="shrink-0 flex flex-col items-center gap-3 py-6">
+        <div data-tutorial="story-got-job" className="shrink-0 flex flex-col items-center gap-3 py-6">
           {employed ? (
             <div
               className="text-center"

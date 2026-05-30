@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { MessageText } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeContext'
@@ -31,6 +31,7 @@ const NAV_LINKS = [
 
 export default function NavBar() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -81,6 +82,15 @@ export default function NavBar() {
     else document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
+
+  // Pages that support ?tutorial=1 deep-link; others fall back to /jobs
+  const TUTORIAL_PAGES = ['/jobs', '/network', '/story']
+  function handleTutorial() {
+    playProfileBlip()
+    if (hasTutorialTrigger()) { fireTutorial(); return }
+    const base = TUTORIAL_PAGES.find((p) => pathname.startsWith(p)) ?? '/jobs'
+    navigate(`${base}?tutorial=1`)
+  }
 
   async function handleSignOut() {
     playSignOutBlip()
@@ -170,12 +180,7 @@ export default function NavBar() {
         {/* Tutorial + Feedback */}
         <div className="px-4 py-3 border-b border-border flex flex-col gap-1">
           <button
-            onClick={() => {
-              setDrawerOpen(false)
-              playProfileBlip()
-              if (hasTutorialTrigger()) fireTutorial()
-              else navigate('/jobs?tutorial=1')
-            }}
+            onClick={() => { setDrawerOpen(false); handleTutorial() }}
             className={`w-full text-left py-2 text-[10px] transition-none ${tutorialActive ? 'text-primary' : 'text-muted'}`}
           >
             ? HELP / TUTORIAL
@@ -270,7 +275,7 @@ export default function NavBar() {
 
         {/* Tutorial help button */}
         <button
-          onClick={() => { playProfileBlip(); if (hasTutorialTrigger()) { fireTutorial() } else { navigate('/jobs?tutorial=1') } }}
+          onClick={handleTutorial}
           className={`w-6 h-6 border flex items-center justify-center leading-none hover:opacity-80 font-pixel text-xs ${tutorialActive ? 'bg-primary text-bg border-primary' : 'bg-surface text-muted border-border hover:text-primary hover:border-primary'}`}
           title="Help / Tutorial"
         >

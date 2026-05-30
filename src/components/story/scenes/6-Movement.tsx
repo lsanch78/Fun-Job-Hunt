@@ -89,7 +89,7 @@ function buildLines(jobs: Job[]): string[] {
       '',
       ...(responseRate !== null ? [`${responseRate}% response rate`, ''] : []),
     ] : []),
-    "These numbers are not a reflection of your worth, they are a reflection of the work you're willing to put in.",
+    "These numbers are a reflection of the work you're willing to put in.",
     '— F Job Hunt —',
   ]
 }

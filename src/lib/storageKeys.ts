@@ -48,6 +48,6 @@ export const SK = {
   colConfig:      'fjobhunt:col_config',
   timeRange:      'fjobhunt:time_range',
   networkTimeRange: 'fjobhunt:network_time_range',
-  tutorialSeen:   (uid: string) => `fjobhunt:tutorial_seen:${uid}`,
+  tutorialSeen:   (uid: string, screen: string) => `fjobhunt:tutorial_seen:${screen}:${uid}`,
   globalStats:    'fjobhunt:global_stats',
 } as const

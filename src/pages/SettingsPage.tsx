@@ -224,7 +224,10 @@ export default function SettingsPage() {
       SK.commCooldown(userId),
       `fjobhunt:${userId}:comm-cooldown-hours`,     // legacy comm cooldown key
       SK.quickcastLinks(userId),
-      SK.tutorialSeen(userId),
+      SK.tutorialSeen(userId, 'job-log'),
+      SK.tutorialSeen(userId, 'mobile-job-log'),
+      SK.tutorialSeen(userId, 'network'),
+      SK.tutorialSeen(userId, 'story'),
     ]
     keys.forEach((k) => lsRemove(k))
     window.location.reload()

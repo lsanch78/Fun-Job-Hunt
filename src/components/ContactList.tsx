@@ -596,12 +596,12 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       </td>
 
       {/* Comm */}
-      <td className="px-2 py-1 w-[100px] text-right">
+      <td data-tutorial="network-comm" className="px-2 py-1 w-[100px] text-right">
         <PingButton contactId={contact.id} lastCommAt={contact.lastCommAt} cooldownHours={cooldownHours} onPing={onPing} onComm={handleComm} />
       </td>
 
       {/* AI Outreach */}
-      <td className="px-2 py-1 w-[80px] text-right">
+      <td data-tutorial="network-draft" className="px-2 py-1 w-[80px] text-right">
         <AiButton
           label="DRAFT"
           phase={isAiActive ? aiPhase : 'idle'}

@@ -5,6 +5,7 @@ import AppDetailCard from '@/components/AppDetailCard'
 import MobileJobList, { type SortState, type TimeRange } from '@/components/MobileJobList'
 import MobileScratchPad from '@/components/MobileScratchPad'
 import TutorialOverlay from '@/components/TutorialOverlay'
+import { MOBILE_JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { useJobList } from '@/hooks/useJobList'
 import { lsGet, lsSet } from '@/lib/storage'
@@ -92,7 +93,7 @@ export default function MobileJobLogPage({
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
     if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = lsGet<boolean>(SK.tutorialSeen(userId), false)
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'mobile-job-log'), false)
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }
@@ -280,7 +281,7 @@ export default function MobileJobLogPage({
 
       {/* Tutorial overlay */}
       {showTutorial && userId && (
-        <TutorialOverlay userId={userId} onDone={() => setShowTutorial(false)} mobileMode />
+        <TutorialOverlay steps={MOBILE_JOB_LOG_STEPS} screen="mobile-job-log" userId={userId} onDone={() => setShowTutorial(false)} compact />
       )}
     </div>
   )

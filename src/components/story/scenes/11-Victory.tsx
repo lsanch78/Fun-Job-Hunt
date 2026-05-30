@@ -7,7 +7,7 @@ const CREDITS_TEXT = [
   '— Fun Job Hunt —',
   '',
   '',
-  'Original Music by Farewell Blu for Intro, Mid-game, and Victory themes',
+  'Original Music by Farewell Blu for all cutscenes in story mode, including intro and outtro themes',
   '',
   '',
   'FROM THE DEV',

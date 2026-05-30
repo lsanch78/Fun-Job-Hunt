@@ -10,6 +10,7 @@ import { JOB_LIMITS, JOB_CAP } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay from '@/components/TutorialOverlay'
+import { JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
@@ -874,7 +875,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
     if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = lsGet<boolean>(SK.tutorialSeen(userId), false)
+    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'job-log'), false)
     if (!seen) {
       const id = setTimeout(() => setShowTutorial(true), 800)
       return () => { clearTimeout(id); unregisterTutorialTrigger() }
@@ -1311,7 +1312,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       )}
 
       {/* Tutorial overlay */}
-      {showTutorial && userId && <TutorialOverlay userId={userId} onDone={() => setShowTutorial(false)} />}
+      {showTutorial && userId && <TutorialOverlay steps={JOB_LOG_STEPS} screen="job-log" userId={userId} onDone={() => setShowTutorial(false)} />}
 
     </div>
   )
