@@ -4,8 +4,7 @@ import { parseCSVRow } from '@/lib/csvData'
 import { playLinkBlip, playThud } from '@/lib/sfx'
 import type { JobStatus } from '@/types'
 
-// ── DEV MODE: all backend calls are stubbed ───────────────────────────────────
-const DEV_STUB = true
+const DEV_STUB = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
