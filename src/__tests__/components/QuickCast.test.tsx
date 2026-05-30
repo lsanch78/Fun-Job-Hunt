@@ -86,7 +86,7 @@ jest.mock('@/components/ResumeModal', () => ({
   ),
 }))
 
-jest.mock('@/components/AiModal', () => ({
+jest.mock('@/components/ai/AiModal', () => ({
   __esModule: true,
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="ai-modal">
