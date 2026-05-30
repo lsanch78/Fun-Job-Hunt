@@ -8,7 +8,7 @@ import {
 } from '@/services/contactService'
 import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
-import ContactDetailModal from '@/components/ContactDetailModal'
+import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
 
