@@ -488,6 +488,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   onAiRightClick: (e: React.MouseEvent) => void
   onStopEditing: () => void
 }) {
+  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const [commBonus, setCommBonus] = useState(contact.commExp ?? 0)
   const [popups, setPopups] = useState<ContactXpPopup[]>([])
   const [maxPopup, setMaxPopup] = useState<{ x: number; y: number } | null>(null)
@@ -601,16 +602,18 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       </td>
 
       {/* AI Outreach */}
-      <td data-tutorial="network-draft" className="px-2 py-1 w-[80px] text-right">
-        <AiButton
-          label="DRAFT"
-          phase={isAiActive ? aiPhase : 'idle'}
-          dots={aiDots}
-          onClick={onAiClick}
-          onContextMenu={onAiRightClick}
-          title="Left-click: generate · Right-click: edit prompt"
-        />
-      </td>
+      {!aiDisabled && (
+        <td data-tutorial="network-draft" className="px-2 py-1 w-[80px] text-right">
+          <AiButton
+            label="DRAFT"
+            phase={isAiActive ? aiPhase : 'idle'}
+            dots={aiDots}
+            onClick={onAiClick}
+            onContextMenu={onAiRightClick}
+            title="Left-click: generate · Right-click: edit prompt"
+          />
+        </td>
+      )}
     </tr>
     {(isAiActive || isAiEditing) && (
       <tr>
@@ -711,6 +714,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
 
   const paged = pageSize ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted
 
+  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const ai = useAI()
   const [activeAiContactId, setActiveAiContactId] = useState<string | null>(null)
   const [editingAiContactId, setEditingAiContactId] = useState<string | null>(null)
@@ -780,7 +784,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col">ACTION</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px]" scope="col">DRAFT</th>
+            {!aiDisabled && <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px]" scope="col">DRAFT</th>}
           </tr>
         </thead>
         <tbody>

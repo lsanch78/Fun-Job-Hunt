@@ -24,6 +24,7 @@ export const SK = {
   outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 
   // ── AI assistant ─────────────────────────────────────────────────────────────
+  aiDisabled:   'fjobhunt:ai:disabled',
   aiProvider:   'fjobhunt:ai:provider',
   aiApiKey:     'fjobhunt:ai:apikey',
   aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,

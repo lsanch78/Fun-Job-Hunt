@@ -26,12 +26,13 @@ const PHOTOS: { src: string; caption?: string }[] = [
 
 import { useEffect, useRef, useState } from 'react'
 
+
 export default function CreditsPage() {
   const [booted, setBooted] = useState(false)
   const chimePlayed = useRef(false)
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
-    // Stagger the boot animation
     const t = setTimeout(() => setBooted(true), 100)
     return () => clearTimeout(t)
   }, [])
@@ -42,6 +43,18 @@ export default function CreditsPage() {
       playCreditsChime()
     }
   }, [booted])
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      // Normalize to -1..1 from screen center
+      setMouse({
+        x: (e.clientX / window.innerWidth) * 2 - 1,
+        y: (e.clientY / window.innerHeight) * 2 - 1,
+      })
+    }
+    window.addEventListener('mousemove', handleMove)
+    return () => window.removeEventListener('mousemove', handleMove)
+  }, [])
 
   return (
     <div className="h-full overflow-y-auto bg-bg font-pixel text-primary">
@@ -67,26 +80,19 @@ export default function CreditsPage() {
         {/* ── Photos gallery ── */}
         {PHOTOS.length > 0 && (
           <Section title="ME IN ACTION" delay="delay-100" booted={booted}>
-            <div className="grid grid-cols-3 gap-4">
+            <style>{`
+              @keyframes scanline-sweep {
+                0%   { top: -6px; opacity: 1; }
+                100% { top: 100%; opacity: 0; }
+              }
+              @keyframes scanlines-scroll {
+                0%   { background-position: 0 0; }
+                100% { background-position: 0 8px; }
+              }
+            `}</style>
+            <div className="grid grid-cols-3 gap-4" style={{ perspective: '800px' }}>
               {PHOTOS.map(({ src, caption }, i) => (
-                <figure key={i} className="flex flex-col gap-2">
-                  <div className="border border-border overflow-hidden">
-                    <img
-                      src={src}
-                      alt={caption ?? `photo ${i + 1}`}
-                      width={448}
-                      height={320}
-                      loading="eager"
-                      decoding="async"
-                      className="w-full h-40 object-cover object-top"
-                    />
-                  </div>
-                  {caption && (
-                    <figcaption className="body-text text-primary text-center leading-snug">
-                      {caption}
-                    </figcaption>
-                  )}
-                </figure>
+                <PhotoCard key={i} src={src} caption={caption} index={i} mouse={mouse} />
               ))}
             </div>
           </Section>
@@ -181,6 +187,92 @@ function Section({
       </h2>
       {children}
     </section>
+  )
+}
+
+const SCANLINE_DURATION = 1400
+const TILT_MAX = 18 // degrees
+
+function PhotoCard({
+  src,
+  caption,
+  index,
+  mouse,
+}: {
+  src: string
+  caption?: string
+  index: number
+  mouse: { x: number; y: number }
+}) {
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), SCANLINE_DURATION + index * 200)
+    return () => clearTimeout(t)
+  }, [index])
+
+  // Each card tilts at a slightly different depth so they move independently
+  const depth = 1 + index * 0.4
+  const rotX = -mouse.y * TILT_MAX * depth
+  const rotY = mouse.x * TILT_MAX * depth
+
+  return (
+    <figure className="flex flex-col gap-2" style={{ transformStyle: 'preserve-3d' }}>
+      <div
+        style={{
+          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
+          transition: 'transform 0.12s linear',
+          transformStyle: 'preserve-3d',
+          willChange: 'transform',
+        }}
+        className="border border-border overflow-hidden relative bg-bg"
+      >
+        {/* loading placeholder */}
+        <div
+          className="absolute inset-0 bg-border"
+          style={{
+            opacity: revealed ? 0 : 1,
+            transition: revealed ? 'opacity 0.4s' : 'none',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* scanline sweep (loading) */}
+        {!revealed && (
+          <div
+            className="absolute left-0 w-full h-1.5 bg-secondary"
+            style={{ opacity: 0.7, animation: 'scanline-sweep 0.6s linear infinite', top: '-6px' }}
+          />
+        )}
+        <img
+
+          src={src}
+          alt={caption ?? `photo ${index + 1}`}
+          width={448}
+          height={320}
+          loading="eager"
+          decoding="async"
+
+          className="w-full h-40 object-cover object-top block"
+          style={{ opacity: revealed ? 1 : 0, transition: revealed ? 'opacity 0.4s' : 'none' }}
+        />
+        {/* CRT scanline overlay — always visible once revealed */}
+        {revealed && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
+              animation: 'scanlines-scroll 0.3s linear infinite',
+              mixBlendMode: 'multiply',
+            }}
+          />
+        )}
+
+      </div>
+      {caption && (
+        <figcaption className="body-text text-primary text-center leading-snug">
+          {caption}
+        </figcaption>
+      )}
+    </figure>
   )
 }
 

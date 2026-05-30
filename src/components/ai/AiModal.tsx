@@ -26,8 +26,7 @@ const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type ConnectionStatus = 'checking' | 'connected' | 'not_connected'
-type PanelView        = 'form' | 'output'
+type PanelView = 'form' | 'output'
 type QuickKey     = 'cover_letter' | 'why_good_fit' | 'custom'
 
 interface AiModalProps {
@@ -112,9 +111,8 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   const { isSubscribed } = useSubscription()
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 
-  const [status,            setStatus]           = useState<ConnectionStatus>('checking')
-  const [models,            setModels]           = useState<string[]>([])
-  const [selectedModel,     setSelectedModel]    = useState<string>('')
+  const { connected, models } = fetchModels()
+  const [selectedModel,     setSelectedModel]    = useState<string>(() => models[0] ?? '')
   const [selectedSlots,     setSelectedSlots]    = useState<ResumeSlot[]>(() => loadSlotPref(userId, occupiedSlots))
   const [textInputActive,   setTextInputActive]  = useState(false)
   const [resumeTextInput,   setResumeTextInput]  = useState(() => loadResumeText(userId))
@@ -143,11 +141,6 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
 
     const p = getAiProvider()
     setProvider(p)
-    fetchModels().then(({ status: s, models: m }) => {
-      setStatus(s)
-      setModels(m)
-      if (m.length > 0) setSelectedModel(m[0])
-    })
     if (p === 'proxy') fetchUsage().then(setUsage)
 
     fetchAiSettings(userId).then(setAiSettings)
@@ -310,7 +303,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const canGenerate =
-    status === 'connected' &&
+    connected &&
     selectedModel !== '' &&
     promptText.trim().length > 0
   const displayOutput = isStreaming ? output + '▌' : output
@@ -339,17 +332,11 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
           // AI RESUME ASSISTANT
         </span>
         <div className="flex items-center gap-3">
-          {status === 'checking' && (
-            <span className="animate-pulse" style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
-              ○ CHECKING...
-            </span>
-          )}
-          {status === 'connected' && (
+          {connected ? (
             <span style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
               <span style={{ color: T.green }}>●</span> CONNECTED
             </span>
-          )}
-          {status === 'not_connected' && (
+          ) : (
             <span style={{ color: T.greenDim, fontSize: CRT_FONT.label }}>
               <span style={{ color: T.warn }}>○</span> NO API KEY
             </span>
@@ -380,11 +367,11 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={status !== 'connected' || models.length === 0}
+              disabled={!connected || models.length === 0}
               style={{
                 ...termSelect,
-                opacity: status !== 'connected' ? 0.35 : 1,
-                cursor: status !== 'connected' ? 'not-allowed' : 'pointer',
+                opacity: !connected ? 0.35 : 1,
+                cursor: !connected ? 'not-allowed' : 'pointer',
               }}
             >
               {models.length === 0
@@ -667,8 +654,8 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
           </div>
           {/* Dialog body */}
           <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1 }}>
-            <pre style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.body, color: status === 'not_connected' ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
-              {status === 'not_connected'
+            <pre style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.body, color: !connected ? T.warn : T.green, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.55', margin: 0 }}>
+              {!connected
                 ? `> No API key configured.\n>\n> Go to Settings → AI ASSISTANT\n> and enter your ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.\n>\n> Your key is stored locally in\n> your browser only — never sent\n> to our servers.`
                 : provider === 'proxy'
                   ? `> Claude connected (managed).\n>\n> You have a monthly free tier.\n> Upgrade to Pro for unlimited use.`

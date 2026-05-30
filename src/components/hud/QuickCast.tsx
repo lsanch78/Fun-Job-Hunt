@@ -27,6 +27,7 @@ import ResumeModal from '@/components/modals/ResumeModal'
 import AiModal from '@/components/ai/AiModal'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
 import { fetchModels, streamCompletion } from '@/services/aiService'
+
 import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
 import {
   fetchLinks as dbFetchLinks,
@@ -264,6 +265,7 @@ const PREMIUM_SLOTS: ResumeSlot[] = ['b', 'c']
 
 export default function QuickCast() {
   const { isSubscribed } = useSubscription()
+  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
 
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>([])
@@ -284,7 +286,6 @@ export default function QuickCast() {
   const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
   const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
   const [aiModalOpen,    setAiModalOpen]    = useState(false)
-  const [ollamaStatus,   setOllamaStatus]   = useState<'unknown' | 'connected' | 'not_connected'>('unknown')
 
   // AI quick-generate (right-click submenu)
   const [aiMenuOpen,     setAiMenuOpen]     = useState(false)
@@ -320,16 +321,6 @@ export default function QuickCast() {
       })
       fetchAiSettings(user.id).then(setAiSettings)
     })
-  }, [])
-
-  // Background Ollama status poll — checks once on mount, then every 15s
-  useEffect(() => {
-    function check() {
-      fetchModels().then(({ status }) => setOllamaStatus(status))
-    }
-    check()
-    const interval = setInterval(check, 15000)
-    return () => clearInterval(interval)
   }, [])
 
   // Persist links to localStorage whenever they change
@@ -566,7 +557,7 @@ export default function QuickCast() {
         : (aiSettings?.custom_prompt        || DEFAULT_PROMPTS.custom)
 
     // Pick first available model
-    const { models } = await fetchModels()
+    const { models } = fetchModels()
     if (models.length === 0) return
 
     // Assemble resume context from any occupied slots
@@ -872,6 +863,7 @@ export default function QuickCast() {
           </div>
 
           {/* ── Right zone: AI assistant ── */}
+          {!aiDisabled &&
           <div className="relative flex flex-col items-center" ref={aiMenuRef}>
             <button
               data-tutorial="ai-assistant"
@@ -881,7 +873,7 @@ export default function QuickCast() {
               }}
               onContextMenu={(e) => {
                 e.preventDefault()
-                if (ollamaStatus !== 'connected' || aiGenerating) return
+                if (aiGenerating) return
                 setAiMenuOpen((prev) => !prev)
               }}
               className={[
@@ -901,26 +893,14 @@ export default function QuickCast() {
               <span
                 className="font-pixel text-[7px] tracking-widest leading-none"
                 style={{
-                  color: aiGenerating
-                    ? '#22c55e'
-                    : aiResult
-                    ? '#7e22ce'
-                    : ollamaStatus === 'connected'
-                    ? '#22c55e'
-                    : ollamaStatus === 'not_connected'
-                    ? 'var(--color-warning)'
-                    : 'var(--color-dim)',
+                  color: aiGenerating ? '#22c55e' : aiResult ? '#7e22ce' : '#22c55e',
                 }}
               >
                 {aiGenerating
                   ? `GEN${'.'.repeat(aiGenDots + 1)}${'  '.repeat(2 - aiGenDots)}`
                   : aiResult
                   ? '● READY'
-                  : ollamaStatus === 'connected'
-                  ? '● ON'
-                  : ollamaStatus === 'not_connected'
-                  ? '○ OFF'
-                  : '· · ·'}
+                  : '● ON'}
               </span>
             </button>
 
@@ -955,13 +935,13 @@ export default function QuickCast() {
               </div>
             )}
 
-          </div>
+          </div>}
 
         </div>
       </div>
 
       {/* AI panel — fixed centered overlay */}
-      {aiModalOpen && userId && (
+      {!aiDisabled && aiModalOpen && userId && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto">
             <AiModal

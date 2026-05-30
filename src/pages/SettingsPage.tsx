@@ -5,7 +5,7 @@ import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhost
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
-import { lsRemove } from '@/lib/storage'
+import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
@@ -94,6 +94,7 @@ export default function SettingsPage() {
 
   const [userId,        setUserId]        = useState<string | null>(null)
   const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
+  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
   const [aiApiKey,      setAiApiKeyState]  = useState<string>(() => getAiApiKey())
   const [apiKeyVisible, setApiKeyVisible]  = useState(false)
@@ -153,6 +154,12 @@ export default function SettingsPage() {
     const parsed = Math.max(1, parseInt(ghostDays, 10) || 60)
     setGhostDays(String(parsed))
     writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
+  }
+
+  function handleAiDisabledToggle() {
+    const next = !aiDisabled
+    lsSet(SK.aiDisabled, next)
+    window.location.reload()
   }
 
   function handleProviderChange(p: AiProvider) {
@@ -525,9 +532,24 @@ export default function SettingsPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="text-sm mb-6 text-secondary">AI ASSISTANT</h2>
+        <h2 className="text-sm mb-6 text-secondary">AI SETTINGS</h2>
 
         <div className="flex flex-col gap-6">
+          {/* ── Disable AI toggle ── */}
+          <button
+            onClick={handleAiDisabledToggle}
+            className={`
+              text-left text-xs px-4 py-3 border-2 transition-none
+              ${aiDisabled
+                ? 'border-primary text-primary'
+                : 'border-muted text-muted hover:border-secondary hover:text-secondary'
+              }
+            `}
+          >
+            {aiDisabled ? '> Show all AI buttons' : '  Hide all AI buttons'}
+          </button>
+
+          {!aiDisabled && <>
           {/* ── Provider selector ── */}
           <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
@@ -586,6 +608,7 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+          </>}
         </div>
       </section>
 

@@ -48,7 +48,7 @@ jest.mock('@/services/aiService', () => ({
   getAiApiKey: jest.fn(() => ''),
   setAiApiKey: jest.fn(),
   fetchUsage: jest.fn().mockResolvedValue({ count: 0, limit: 20 }),
-  fetchModels: jest.fn().mockResolvedValue([]),
+  fetchModels: jest.fn().mockReturnValue({ connected: true, models: [] }),
   streamCompletion: jest.fn(),
   AI_MONTHLY_LIMIT: 20,
 }))

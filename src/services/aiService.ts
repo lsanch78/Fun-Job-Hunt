@@ -65,16 +65,12 @@ export async function fetchUsage(): Promise<{ count: number; limit: number; peri
 
 // ── Unified fetchModels ───────────────────────────────────────────────────────
 
-export async function fetchModels(): Promise<{
-  status: 'connected' | 'not_connected'
-  models: string[]
-}> {
+export function fetchModels(): { connected: boolean; models: string[] } {
   const provider = getAiProvider()
-  if (provider === 'proxy') return { status: 'connected', models: ['claude-haiku-4-5'] }
+  if (provider === 'proxy') return { connected: true, models: ['claude-haiku-4-5'] }
   const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS
   const apiKey = getAiApiKey()
-  if (!apiKey) return { status: 'not_connected', models }
-  return { status: 'connected', models }
+  return { connected: !!apiKey, models }
 }
 
 // ── Unified streamCompletion ──────────────────────────────────────────────────

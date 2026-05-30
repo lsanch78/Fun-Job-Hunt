@@ -25,10 +25,9 @@ export function useAI() {
   const run = useCallback(async ({ system, prompt, onComplete, onError }: RunParams) => {
     if (phase === 'generating') return
 
-    const { status, models } = await fetchModels()
-    if (status !== 'connected') {
-      const msg = 'AI not configured. Add an API key in Settings.'
-      onError?.(msg)
+    const { connected, models } = fetchModels()
+    if (!connected) {
+      onError?.('AI not configured. Add an API key in Settings.')
       return
     }
 
