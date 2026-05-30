@@ -496,6 +496,7 @@ export default function SettingsPage() {
               </p>
             )}
             <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
+            <p className="text-[10px] text-muted px-1">3 Total Resume Slots</p>
             <button
               onClick={() => openPortalSession().catch(() => {})}
               className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
@@ -509,7 +510,7 @@ export default function SettingsPage() {
               Free tier: {AI_MONTHLY_LIMIT_BASE}/mo → {AI_MONTHLY_LIMIT_RANK5}/mo at Rank 5 → {AI_MONTHLY_LIMIT_RANK7}/mo at Rank 7
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Pro: Unlimited AI generations
+              Pro: Unlimited AI generations · 3 Total Resume Slots
             </p>
             <button
               onClick={() => createCheckoutSession().catch(() => {})}

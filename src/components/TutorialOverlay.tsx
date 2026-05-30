@@ -266,6 +266,7 @@ export default function TutorialOverlay({ steps, screen, userId, onDone, compact
                     color: i === 0 ? T.green : T.greenDim,
                     opacity: i === 0 ? 1 : 0.85,
                     lineHeight: 1.4,
+                    whiteSpace: 'pre-line',
                   }}
                 >
                   {para}
