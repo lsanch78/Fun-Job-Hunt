@@ -1,7 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
 import { playLinkBlip, playPingBlip } from '@/lib/sfx'
+import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
+
+// ── Comm XP popup keyframes (injected once, same as ContactList) ───────────────
+const COMM_XP_STYLE = `
+@keyframes demo-comm-xp-pop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0px)   scale(0.7); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(-12px) scale(1.2); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-36px) scale(1.05); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-58px) scale(0.95); }
+}
+`
+if (typeof document !== 'undefined' && !document.getElementById('demo-comm-xp-keyframes')) {
+  const el = document.createElement('style')
+  el.id = 'demo-comm-xp-keyframes'
+  el.textContent = COMM_XP_STYLE
+  document.head.appendChild(el)
+}
+
+const DEMO_COOLDOWN_HOURS = 0.05 // 3 min cooldown in demo so it's actually usable
+const CONTACT_XP_PER_COMM = 5
 
 // ── Exp helpers (mirrors ContactList) ─────────────────────────────────────────
 function getExpRank(exp: number): { level: number; title: string; barColor: string } {
@@ -65,6 +85,57 @@ const DEMO_COMPANIES = [
   'Buy n Large', 'Omni Consumer Products', 'InGen', 'Rekall Inc',
 ]
 
+// ── CommButton — mirrors the real PingButton from ContactList ─────────────────
+function CommButton({ contactId, lastCommAt, onComm }: {
+  contactId: string
+  lastCommAt: string | null
+  onComm: (id: string, x: number, y: number) => void
+}) {
+  const [state, setState] = useState<'idle' | 'done'>('idle')
+  const [remaining, setRemaining] = useState(() => commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS))
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    setRemaining(commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS))
+    if (!lastCommAt) return
+    const interval = setInterval(() => {
+      const r = commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS)
+      setRemaining(r)
+      if (r <= 0) clearInterval(interval)
+    }, 15_000)
+    return () => clearInterval(interval)
+  }, [lastCommAt])
+
+  const locked = remaining > 0
+
+  function handleClick() {
+    if (state === 'done' || locked) return
+    playPingBlip()
+    const rect = btnRef.current?.getBoundingClientRect()
+    onComm(contactId, rect ? rect.left + rect.width / 2 : window.innerWidth / 2, rect ? rect.top : window.innerHeight / 2)
+    setState('done')
+    setTimeout(() => setState('idle'), 1500)
+  }
+
+  return (
+    <button
+      ref={btnRef}
+      onClick={e => { e.stopPropagation(); handleClick() }}
+      disabled={locked}
+      title={locked ? `Available in ${formatCooldown(remaining)}` : undefined}
+      className={`font-pixel text-[8px] px-3 py-3 border whitespace-nowrap transition-none w-[80px]
+        ${locked
+          ? 'border-border text-muted cursor-not-allowed'
+          : state === 'done'
+            ? 'border-primary text-bg bg-primary'
+            : 'border-secondary text-secondary hover:border-primary hover:text-primary'
+        }`}
+    >
+      {locked ? formatCooldown(remaining) : 'COMM'}
+    </button>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number } }) {
   const [contacts, setContacts] = useState<Contact[]>(SEED_CONTACTS)
@@ -75,6 +146,8 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
   const [revealed, setRevealed] = useState(false)
+  const [popups, setPopups] = useState<{ id: number; x: number; y: number }[]>([])
+  const popupCounter = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -106,11 +179,15 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
     inputRef.current?.focus()
   }
 
-  function handlePing(id: string) {
-    playPingBlip()
+  function handleComm(id: string, x: number, y: number) {
     const now = new Date().toISOString()
-    setContacts(prev => prev.map(c => c.id === id ? { ...c, lastInteractionAt: now, commExp: Math.min(100, (c.commExp ?? 0) + 15) } : c))
-    setExpOverrides(prev => ({ ...prev, [id]: Math.min(100, (prev[id] ?? 0) + 15) }))
+    setContacts(prev => prev.map(c =>
+      c.id === id ? { ...c, lastInteractionAt: now, commExp: Math.min(100, (c.commExp ?? 0) + CONTACT_XP_PER_COMM), lastCommAt: now } : c
+    ))
+    setExpOverrides(prev => ({ ...prev, [id]: Math.min(100, (prev[id] ?? 0) + CONTACT_XP_PER_COMM) }))
+    const pid = ++popupCounter.current
+    setPopups(prev => [...prev, { id: pid, x, y }])
+    setTimeout(() => setPopups(prev => prev.filter(p => p.id !== pid)), 1200)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -122,6 +199,24 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
   const rotY = mouse.x * TILT_MAX
 
   return (
+    <>
+      {/* XP popups */}
+      {popups.map(p => (
+        <div
+          key={p.id}
+          className="pointer-events-none fixed z-[9999] select-none font-pixel"
+          style={{
+            left: p.x,
+            top: p.y,
+            fontSize: '0.7rem',
+            color: '#22c55e',
+            animation: 'demo-comm-xp-pop 1.0s ease-out forwards',
+          }}
+        >
+          +{CONTACT_XP_PER_COMM} COMM XP
+        </div>
+      ))}
+
     <div
       style={{
         transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
@@ -212,13 +307,11 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
                     <ExpBar exp={expOverrides[contact.id] ?? contact.commExp} />
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={e => { e.stopPropagation(); handlePing(contact.id) }}
-                      className="text-[9px] px-2 py-0.5 border border-border text-muted hover:border-secondary hover:text-secondary transition-none whitespace-nowrap"
-                      title="Ping contact — boosts EXP"
-                    >
-                      PING
-                    </button>
+                    <CommButton
+                      contactId={contact.id}
+                      lastCommAt={contact.lastCommAt ?? null}
+                      onComm={handleComm}
+                    />
                   </td>
                 </tr>
               ))}
@@ -231,7 +324,7 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
           <span className="text-[9px] text-muted tracking-widest">
             {contacts.length} CONTACT{contacts.length !== 1 ? 'S' : ''} IN YOUR NETWORK
           </span>
-          <span className="text-[9px] text-muted tracking-widest">PING TO BOOST EXP</span>
+          <span className="text-[9px] text-muted tracking-widest">COMM TO BOOST EXP</span>
         </div>
 
         {/* CRT scanline overlay */}
@@ -249,5 +342,6 @@ export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number }
         )}
       </div>
     </div>
+    </>
   )
 }
