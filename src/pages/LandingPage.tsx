@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { playLinkBlip } from '@/lib/sfx'
 import JobLogDemo from '@/components/landing/JobLogDemo'
+import NetworkDemo from '@/components/landing/NetworkDemo'
+import QuickCastDemo from '@/components/landing/QuickCastDemo'
+import StoryDemo from '@/components/landing/StoryDemo'
 
 // ── Scanline animation keyframes injected once ─────────────────────────────
 const KEYFRAMES = `
@@ -109,11 +112,6 @@ export default function LandingPage() {
             transition: 'opacity 0.6s',
           }}
         >
-          {/* eyebrow */}
-          <p className="text-[9px] text-secondary tracking-widest mb-6 uppercase">
-            ▶ SILICON DREAMS PRESENTS
-          </p>
-
           {/* title */}
           <h1
             className="text-3xl sm:text-5xl text-primary mb-2 leading-none"
@@ -175,6 +173,33 @@ export default function LandingPage() {
         <JobLogDemo mouse={mouse} />
         <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
           ↑ TYPE A COMPANY + ROLE AND HIT ENTER — EARN XP AS YOU GO
+        </p>
+      </section>
+
+      {/* ── Network Demo ─────────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
+        <SectionHeader title="NETWORK" sub="MAP YOUR CONNECTIONS" />
+        <NetworkDemo mouse={mouse} />
+        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
+          ↑ ADD CONTACTS AND PING THEM — WATCH THE GRAPH GROW
+        </p>
+      </section>
+
+      {/* ── Story Demo ───────────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
+        <SectionHeader title="STORY MODE" sub="AN ORIGINAL NARRATIVE" />
+        <StoryDemo mouse={mouse} />
+        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
+          ↑ CLICK TO START · ORIGINAL MUSIC COMPOSED FOR THE HUNT
+        </p>
+      </section>
+
+      {/* ── QuickCast Demo ───────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
+        <SectionHeader title="QUICK CAST" sub="AI-POWERED RESUME TOOLS" />
+        <QuickCastDemo mouse={mouse} />
+        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
+          ↑ CLICK A RESUME SLOT · RIGHT-CLICK AI TO GENERATE COVER LETTERS INSTANTLY
         </p>
       </section>
 
