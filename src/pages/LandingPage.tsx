@@ -112,11 +112,6 @@ export default function LandingPage() {
             transition: 'opacity 0.6s',
           }}
         >
-          {/* eyebrow */}
-          <p className="text-[9px] text-secondary tracking-widest mb-6 uppercase">
-            ▶ SILICON DREAMS PRESENTS
-          </p>
-
           {/* title */}
           <h1
             className="text-3xl sm:text-5xl text-primary mb-2 leading-none"
