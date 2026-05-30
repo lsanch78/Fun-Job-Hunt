@@ -77,7 +77,7 @@ jest.mock('@/services/subscriptionService', () => ({
 }))
 
 // Mock child components that would require heavy setup
-jest.mock('@/components/ResumeModal', () => ({
+jest.mock('@/components/modals/ResumeModal', () => ({
   __esModule: true,
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="resume-modal">
@@ -86,7 +86,7 @@ jest.mock('@/components/ResumeModal', () => ({
   ),
 }))
 
-jest.mock('@/components/AiPanel', () => ({
+jest.mock('@/components/ai/AiModal', () => ({
   __esModule: true,
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="ai-panel">
@@ -103,7 +103,7 @@ jest.mock('pixelarticons/react', () => {
 
 // ---------- Imports ----------
 
-import QuickCast from '@/components/QuickCast'
+import QuickCast from '@/components/hud/QuickCast'
 import { fetchLinks, createLink } from '@/services/quickCastService'
 
 // ---------- Tests ----------
@@ -198,11 +198,10 @@ describe('QuickCast — existing links', () => {
 })
 
 describe('QuickCast — resume slots', () => {
-  it('renders all three resume slots (A, B, C) for all users', async () => {
+  it('renders slot A and lock icons for B and C on free accounts', async () => {
     await act(async () => { render(<QuickCast />) })
     expect(screen.getByText('A')).toBeInTheDocument()
-    expect(screen.getByText('B')).toBeInTheDocument()
-    expect(screen.getByText('C')).toBeInTheDocument()
+    expect(screen.getAllByText('🔒').length).toBeGreaterThanOrEqual(2)
   })
 })
 
