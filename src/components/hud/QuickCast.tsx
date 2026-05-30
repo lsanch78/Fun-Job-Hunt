@@ -594,8 +594,10 @@ export default function QuickCast() {
         setAiResult(accumulated)
         playAiDing()
       },
-      onError: () => {
+      onError: (msg) => {
         setAiGenerating(false)
+        setAiResult(`ERROR: ${msg}`)
+        setAiModalOpen(true)
       },
     })
   }
