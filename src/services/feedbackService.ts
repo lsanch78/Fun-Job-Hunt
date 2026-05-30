@@ -22,12 +22,14 @@ export interface FeedbackEntry {
   created_at: string
 }
 
+export type SubmitFeedbackResult = 'ok' | 'rate_limited' | 'error'
+
 export async function submitFeedback(payload: {
   userId: string
   topic: FeedbackTopic
   contact: string
   message: string
-}): Promise<boolean> {
+}): Promise<SubmitFeedbackResult> {
   const { error } = await supabase.from('feedback').insert({
     user_id: payload.userId,
     topic: payload.topic,
@@ -36,9 +38,11 @@ export async function submitFeedback(payload: {
   })
   if (error) {
     console.error('[feedback] submit:', error.message)
-    return false
+    // RLS WITH CHECK failure = policy violation, most likely rate limit
+    if (error.code === '42501') return 'rate_limited'
+    return 'error'
   }
-  return true
+  return 'ok'
 }
 
 export async function fetchAllFeedback(): Promise<FeedbackEntry[]> {

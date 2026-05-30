@@ -17,7 +17,7 @@
 
 BEGIN;
 
-SELECT plan(47);
+SELECT plan(60);
 
 -- ── Seed two test users ───────────────────────────────────────────────────────
 
@@ -58,6 +58,12 @@ VALUES ('00000000-0000-0000-0000-000000000001',3,to_char(now(),'YYYY-MM'));
 
 INSERT INTO public.subscriptions (user_id, status)
 VALUES ('00000000-0000-0000-0000-000000000001','active');
+
+INSERT INTO public.contacts (id, user_id, name)
+VALUES ('a0000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000001','Alice Contact');
+
+INSERT INTO public.job_contacts (job_id, contact_id)
+VALUES ('a0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000005');
 
 -- ── Helper: switch to Bob ─────────────────────────────────────────────────────
 
@@ -384,13 +390,22 @@ SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","r
 -- ══════════════════════════════════════════════════════════════
 
 INSERT INTO public.feedback (user_id, topic, message)
-VALUES ('00000000-0000-0000-0000-000000000002','bug','Something broke');
+VALUES ('00000000-0000-0000-0000-000000000002','Bug','Something broke');
 
 SELECT is(
   (SELECT count(*) FROM public.feedback),
   0::bigint,
   'Bob (non-dev email) cannot SELECT any feedback rows'
 );
+
+-- Bob cannot spoof Alice's user_id on a feedback insert
+SELECT throws_ok(
+  $$INSERT INTO public.feedback (user_id, topic, message)
+    VALUES ('00000000-0000-0000-0000-000000000001','Bug','Spoofed')$$,
+  '42501', NULL,
+  'Bob cannot INSERT feedback with Alice''s user_id'
+);
+
 
 SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","email":"alice@test.local"}';
 
@@ -401,7 +416,115 @@ SELECT is(
 );
 
 -- ══════════════════════════════════════════════════════════════
--- 11. Anon access: auth.uid() = NULL → no rows match user_id checks
+-- 11. contacts
+-- ══════════════════════════════════════════════════════════════
+
+SET LOCAL role = authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated","email":"bob@test.local"}';
+
+SELECT is(
+  (SELECT count(*) FROM public.contacts WHERE user_id = '00000000-0000-0000-0000-000000000001'),
+  0::bigint,
+  'Bob cannot SELECT Alice''s contacts'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.contacts (user_id, name)
+    VALUES ('00000000-0000-0000-0000-000000000001','Stolen Contact')$$,
+  '42501', NULL,
+  'Bob cannot INSERT a contact owned by Alice'
+);
+
+UPDATE public.contacts SET name = 'Pwned' WHERE id = 'a0000000-0000-0000-0000-000000000005';
+DELETE FROM public.contacts WHERE id = 'a0000000-0000-0000-0000-000000000005';
+
+RESET role;
+SELECT is(
+  (SELECT name FROM public.contacts WHERE id = 'a0000000-0000-0000-0000-000000000005'),
+  'Alice Contact',
+  'Bob UPDATE on Alice''s contact was blocked — name unchanged'
+);
+SELECT is(
+  (SELECT count(*) FROM public.contacts WHERE id = 'a0000000-0000-0000-0000-000000000005'),
+  1::bigint,
+  'Bob DELETE on Alice''s contact was blocked — row still exists'
+);
+
+-- Bob can manage his own contacts
+SET LOCAL role = authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated","email":"bob@test.local"}';
+
+INSERT INTO public.contacts (id, user_id, name)
+VALUES ('b0000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000002','Bob Contact');
+
+SELECT is(
+  (SELECT count(*) FROM public.contacts WHERE user_id = '00000000-0000-0000-0000-000000000002'),
+  1::bigint,
+  'Bob can SELECT his own contacts'
+);
+
+-- ══════════════════════════════════════════════════════════════
+-- 12. job_contacts
+-- ══════════════════════════════════════════════════════════════
+
+-- Bob tries to link Alice's contact to Alice's job (cross-table: neither belongs to Bob)
+SELECT throws_ok(
+  $$INSERT INTO public.job_contacts (job_id, contact_id)
+    VALUES ('a0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000005')$$,
+  '42501', NULL,
+  'Bob cannot INSERT a job_contact linking Alice''s job to Alice''s contact'
+);
+
+-- Bob tries to link his own contact to Alice's job (job ownership check blocks it)
+SELECT throws_ok(
+  $$INSERT INTO public.job_contacts (job_id, contact_id)
+    VALUES ('a0000000-0000-0000-0000-000000000001','b0000000-0000-0000-0000-000000000005')$$,
+  '42501', NULL,
+  'Bob cannot INSERT a job_contact linking Alice''s job to his own contact'
+);
+
+-- Bob tries to delete Alice's existing junction row
+DELETE FROM public.job_contacts
+WHERE job_id = 'a0000000-0000-0000-0000-000000000001'
+  AND contact_id = 'a0000000-0000-0000-0000-000000000005';
+
+RESET role;
+SELECT is(
+  (SELECT count(*) FROM public.job_contacts
+   WHERE job_id = 'a0000000-0000-0000-0000-000000000001'
+     AND contact_id = 'a0000000-0000-0000-0000-000000000005'),
+  1::bigint,
+  'Bob DELETE on Alice''s job_contact was blocked — row still exists'
+);
+
+-- Bob can link his own contact to his own job
+SET LOCAL role = authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated","email":"bob@test.local"}';
+
+INSERT INTO public.jobs (id, user_id, company, title, date_applied, status)
+VALUES ('b0000000-0000-0000-0000-000000000011','00000000-0000-0000-0000-000000000002','BobCorp2','Dev2','2025-01-03','APPLIED');
+
+INSERT INTO public.job_contacts (job_id, contact_id)
+VALUES ('b0000000-0000-0000-0000-000000000011','b0000000-0000-0000-0000-000000000005');
+
+SELECT is(
+  (SELECT count(*) FROM public.job_contacts
+   WHERE job_id = 'b0000000-0000-0000-0000-000000000011'
+     AND contact_id = 'b0000000-0000-0000-0000-000000000005'),
+  1::bigint,
+  'Bob can INSERT a job_contact linking his own job to his own contact'
+);
+
+-- Bob tries to SELECT Alice's job_contacts directly
+SELECT is(
+  (SELECT count(*) FROM public.job_contacts
+   WHERE job_id = 'a0000000-0000-0000-0000-000000000001'),
+  0::bigint,
+  'Bob cannot SELECT Alice''s job_contacts — gets 0 rows'
+);
+
+-- ══════════════════════════════════════════════════════════════
+-- 13. Anon access: auth.uid() = NULL → no rows match user_id checks
 -- ══════════════════════════════════════════════════════════════
 
 -- Clear JWT so auth.uid() returns NULL
@@ -417,6 +540,8 @@ SELECT is((SELECT count(*) FROM public.resume_slots),     0::bigint, 'Anon gets 
 SELECT is((SELECT count(*) FROM public.ai_settings),      0::bigint, 'Anon gets 0 rows from ai_settings');
 SELECT is((SELECT count(*) FROM public.ai_usage),         0::bigint, 'Anon gets 0 rows from ai_usage');
 SELECT is((SELECT count(*) FROM public.subscriptions),    0::bigint, 'Anon gets 0 rows from subscriptions');
+SELECT is((SELECT count(*) FROM public.contacts),         0::bigint, 'Anon gets 0 rows from contacts');
+SELECT is((SELECT count(*) FROM public.job_contacts),     0::bigint, 'Anon gets 0 rows from job_contacts');
 
 SELECT * FROM finish();
 
