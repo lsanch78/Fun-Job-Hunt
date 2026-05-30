@@ -86,10 +86,10 @@ jest.mock('@/components/ResumeModal', () => ({
   ),
 }))
 
-jest.mock('@/components/ai/AiModal', () => ({
+jest.mock('@/components/AiPanel', () => ({
   __esModule: true,
   default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="ai-modal">
+    <div data-testid="ai-panel">
       <button onClick={onClose}>Close AI</button>
     </div>
   ),
@@ -103,7 +103,7 @@ jest.mock('pixelarticons/react', () => {
 
 // ---------- Imports ----------
 
-import QuickCast from '@/components/hud/QuickCast'
+import QuickCast from '@/components/QuickCast'
 import { fetchLinks, createLink } from '@/services/quickCastService'
 
 // ---------- Tests ----------
