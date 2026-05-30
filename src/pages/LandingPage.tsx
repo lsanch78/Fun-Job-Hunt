@@ -4,6 +4,7 @@ import { playLinkBlip } from '@/lib/sfx'
 import JobLogDemo from '@/components/landing/JobLogDemo'
 import NetworkDemo from '@/components/landing/NetworkDemo'
 import QuickCastDemo from '@/components/landing/QuickCastDemo'
+import StoryDemo from '@/components/landing/StoryDemo'
 
 // ── Scanline animation keyframes injected once ─────────────────────────────
 const KEYFRAMES = `
@@ -186,6 +187,15 @@ export default function LandingPage() {
         <NetworkDemo mouse={mouse} />
         <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
           ↑ ADD CONTACTS AND PING THEM — WATCH THE GRAPH GROW
+        </p>
+      </section>
+
+      {/* ── Story Demo ───────────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
+        <SectionHeader title="STORY MODE" sub="AN ORIGINAL NARRATIVE" />
+        <StoryDemo mouse={mouse} />
+        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
+          ↑ CLICK TO START · ORIGINAL MUSIC COMPOSED FOR THE HUNT
         </p>
       </section>
 
