@@ -23,6 +23,7 @@ import MobileNetworkPage from '@/pages/MobileNetworkPage'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import MobileUnsupported from '@/components/shell/MobileUnsupported'
+import LandingPage from '@/pages/LandingPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -119,6 +120,7 @@ export default function App() {
       <SubscriptionProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/landing" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<Navigate to="/jobs" replace />} />
