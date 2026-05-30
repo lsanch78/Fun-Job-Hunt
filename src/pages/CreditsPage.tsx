@@ -76,7 +76,7 @@ export default function CreditsPage() {
                       alt={caption ?? `photo ${i + 1}`}
                       width={448}
                       height={320}
-                      loading="lazy"
+                      loading="eager"
                       decoding="async"
                       className="w-full h-40 object-cover object-top"
                     />
