@@ -24,6 +24,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import MobileUnsupported from '@/components/shell/MobileUnsupported'
 import LandingPage from '@/pages/LandingPage'
+import ImportPage from '@/pages/ImportPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -121,6 +122,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/import" element={<ImportPage userId={session?.user?.id ?? null} />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<Navigate to="/jobs" replace />} />
