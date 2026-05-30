@@ -83,6 +83,14 @@ function normalizeUrl(value: string, platform: string): string {
   return base ? base + value : value
 }
 
+const PLATFORM_BG: Record<string, string> = {
+  linkedin: '#0e2a45',
+  github:   '#1e1e1e',
+  twitter:  '#111827',
+  discord:  '#1e1f3b',
+  email:    '#1a2a1a',
+}
+
 interface SocialEntry { platform: string; value: string; label: string; icon: string }
 
 function buildSocials(contact: Contact): SocialEntry[] {
@@ -91,37 +99,74 @@ function buildSocials(contact: Contact): SocialEntry[] {
   if (contact.github)   entries.push({ platform: 'github',   value: contact.github,   label: 'GitHub',   icon: 'gh' })
   if (contact.twitter)  entries.push({ platform: 'twitter',  value: contact.twitter,  label: 'Twitter',  icon: 'tw' })
   if (contact.discord)  entries.push({ platform: 'discord',  value: contact.discord,  label: 'Discord',  icon: 'dc' })
-  if (contact.email)    entries.push({ platform: 'email',    value: contact.email,    label: 'Email',    icon: '✉' })
+  if (contact.email)    entries.push({ platform: 'email',    value: contact.email,    label: 'Email',    icon: '@' })
   return entries
 }
 
 function SocialIcons({ contact }: { contact: Contact }) {
   const socials = buildSocials(contact)
+  const [menu, setMenu] = useState<{ x: number; y: number; value: string; label: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
   if (socials.length === 0) return <span className="text-muted font-pixel text-[9px] flex items-center justify-center w-full h-full">—</span>
 
-  return (
-    <div className="flex items-center gap-1.5 px-2 py-1">
-      {socials.map(({ platform, value, label, icon }) => {
-        const href = platform === 'email'
-          ? `mailto:${value}`
-          : platform === 'discord'
-          ? '#'
-          : normalizeUrl(value, platform)
+  function handleContextMenu(e: React.MouseEvent, value: string, label: string) {
+    e.preventDefault()
+    setMenu({ x: e.clientX, y: e.clientY, value, label })
+    setCopied(false)
+  }
 
-        return (
-          <a
-            key={platform}
-            href={href}
-            target={platform === 'email' || platform === 'discord' ? undefined : '_blank'}
-            rel="noopener noreferrer"
-            title={`${label}: ${value}`}
-            className="font-pixel text-[8px] px-1.5 py-1.5 border border-border text-muted hover:text-primary hover:border-primary transition-none leading-none"
+  function handleCopy() {
+    navigator.clipboard.writeText(menu!.value).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setMenu(null), 600)
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-1.5 px-2 py-1">
+        {socials.map(({ platform, value, label, icon }) => {
+          const href = platform === 'email'
+            ? `mailto:${value}`
+            : platform === 'discord'
+            ? '#'
+            : normalizeUrl(value, platform)
+
+          return (
+            <a
+              key={platform}
+              href={href}
+              target={platform === 'email' || platform === 'discord' ? undefined : '_blank'}
+              rel="noopener noreferrer"
+              title={`${label}: ${value}`}
+              onContextMenu={(e) => handleContextMenu(e, value, label)}
+              className="font-pixel text-[8px] w-[34px] h-[34px] flex items-center justify-center border border-border text-muted hover:text-primary hover:border-primary transition-none leading-none"
+              style={{ backgroundColor: PLATFORM_BG[platform] ?? '#1a1a1a' }}
+            >
+              {icon}
+            </a>
+          )
+        })}
+      </div>
+      {menu && createPortal(
+        <>
+          <div className="fixed inset-0 z-[210]" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }} />
+          <div
+            className="fixed z-[211] border border-border bg-bg py-0.5 min-w-[160px]"
+            style={{ top: menu.y, left: menu.x }}
           >
-            {icon}
-          </a>
-        )
-      })}
-    </div>
+            <div className="px-2 py-1 font-pixel text-[8px] text-muted border-b border-border mb-0.5 truncate">{menu.label}: {menu.value}</div>
+            <button
+              onClick={handleCopy}
+              className="w-full text-left px-2 py-1 font-pixel text-[9px] text-muted hover:text-primary hover:bg-surface transition-none"
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -192,7 +237,7 @@ function PingButton({ contactId, lastCommAt, cooldownHours, onPing, onComm }: {
       onClick={handleClick}
       disabled={locked}
       title={locked ? `Available in ${formatCooldown(remaining)}` : undefined}
-      className={`font-pixel text-[8px] px-2 py-1 border whitespace-nowrap transition-none w-[60px]
+      className={`font-pixel text-[8px] px-3 py-3 border whitespace-nowrap transition-none w-[80px]
         ${locked
           ? 'border-border text-muted cursor-not-allowed'
           : state === 'done'
@@ -275,11 +320,11 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
   if (!apps || apps.length === 0) return <span className="text-muted font-pixel text-[9px] flex items-center justify-center w-full h-full">—</span>
 
   return (
-    <div className="relative h-full">
+    <div className="relative">
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
-        className={`font-pixel text-xs px-2 border-0 border-l leading-none transition-none whitespace-nowrap w-full h-full
+        className={`font-pixel text-xs px-2 py-3 border leading-none transition-none whitespace-nowrap w-full
           ${open ? 'border-secondary text-secondary bg-surface' : 'border-border text-muted hover:border-secondary hover:text-secondary hover:bg-surface/50'}`}
       >
         {apps.length} app{apps.length !== 1 ? 's' : ''} {open ? '▲' : '▼'}
@@ -587,7 +632,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       </td>
 
       {/* Socials */}
-      <td className="p-0">
+      <td className="p-0 w-px whitespace-nowrap">
         <SocialIcons contact={contact} />
       </td>
 
@@ -597,7 +642,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       </td>
 
       {/* Comm */}
-      <td data-tutorial="network-comm" className="px-2 py-1 w-[100px] text-right">
+      <td data-tutorial="network-comm" className="p-0 w-[100px] text-center">
         <PingButton contactId={contact.id} lastCommAt={contact.lastCommAt} cooldownHours={cooldownHours} onPing={onPing} onComm={handleComm} />
       </td>
 
@@ -780,11 +825,11 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
             <th className="w-6 px-2 py-2" scope="col"><span className="sr-only">Details</span></th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">NAME</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">COMPANY</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">APPS</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted" scope="col">SOCIALS</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted text-center" scope="col">APPS</th>
+            <th className="px-2 py-2 font-normal text-[10px] text-muted text-center" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
-            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px]" scope="col">ACTION</th>
-            {!aiDisabled && <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px]" scope="col">DRAFT</th>}
+            <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px] text-center" scope="col">ACTION</th>
+            {!aiDisabled && <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px] text-center" scope="col">DRAFT</th>}
           </tr>
         </thead>
         <tbody>
