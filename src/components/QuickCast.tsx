@@ -22,6 +22,7 @@ import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
+import { useSubscription } from '@/lib/SubscriptionContext'
 import ResumeModal from '@/components/ResumeModal'
 import AiPanel from '@/components/AiPanel'
 import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
@@ -259,7 +260,11 @@ function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: Res
 
 // ── QuickCast ─────────────────────────────────────────────────────────────────
 
+const PREMIUM_SLOTS: ResumeSlot[] = ['b', 'c']
+
 export default function QuickCast() {
+  const { isSubscribed } = useSubscription()
+
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>([])
   const [userId,       setUserId]       = useState<string | null>(null)
@@ -640,7 +645,7 @@ export default function QuickCast() {
         <div className="flex items-end gap-6 w-full justify-center">
 
           {/* ── Left zone: link slots ── */}
-          <div className="flex items-center gap-1.5 relative">
+          <div data-tutorial="quickcast-links" className="flex items-center gap-1.5 relative">
             {links.map((slot) => (
               <div key={slot.id} className="relative group">
                 <button
@@ -772,7 +777,7 @@ export default function QuickCast() {
           </div>
 
           {/* ── Center zone: resume slots (A, B, C) ── */}
-          <div className="flex items-end gap-1.5">
+          <div data-tutorial="quickcast-resumes" className="flex items-end gap-1.5">
             {RESUME_SLOTS.map((slot) => {
               const record      = resumeSlots[slot]
               const colors      = SLOT_COLORS[slot]
@@ -780,10 +785,11 @@ export default function QuickCast() {
               const isUploading = uploadingSlot === slot
               const isLoading   = loadingSlot === slot
               const isEditOpen  = editingSlot === slot
+              const locked      = PREMIUM_SLOTS.includes(slot) && !isSubscribed
               return (
                 <div key={slot} className="relative flex flex-col items-center gap-0.5">
                   {/* Name popover */}
-                  {isEditOpen && hasFile && (
+                  {isEditOpen && hasFile && !locked && (
                     <ResumeNamePopover
                       slot={slot}
                       currentName={record!.name}
@@ -797,7 +803,7 @@ export default function QuickCast() {
                   <div className="relative group">
                     <button
                       onClick={() => {
-                        if (isUploading || isLoading) return
+                        if (locked || isUploading || isLoading) return
                         if (hasFile) {
                           playPageFlip()
                           handleOpenResume(slot)
@@ -808,25 +814,28 @@ export default function QuickCast() {
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault()
-                        if (hasFile) setEditingSlot(isEditOpen ? null : slot)
+                        if (!locked && hasFile) setEditingSlot(isEditOpen ? null : slot)
                       }}
                       disabled={isUploading || isLoading}
                       className={[
                         'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
-                        'border transition-none select-none cursor-pointer',
-                        (isUploading || isLoading) ? 'opacity-50 cursor-not-allowed' : '',
+                        'border transition-none select-none',
+                        locked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+                        (!locked && (isUploading || isLoading)) ? 'opacity-50 cursor-not-allowed' : '',
                       ].join(' ')}
                       style={{
-                        borderColor: hasFile ? colors.border : 'var(--color-border)',
-                        color:       hasFile ? colors.text   : 'var(--color-muted)',
+                        borderColor: locked ? 'var(--color-border)' : hasFile ? colors.border : 'var(--color-border)',
+                        color:       locked ? 'var(--color-muted)'  : hasFile ? colors.text   : 'var(--color-muted)',
                       }}
-                      title={hasFile
+                      title={locked
+                        ? 'Upgrade for access to two more resume slots'
+                        : hasFile
                         ? `${record!.name} — click to preview, right-click to rename`
                         : `Upload Resume ${slot.toUpperCase()}`}
                     >
                       <FileText width={32} height={32} />
                       <span className="font-pixel text-[7px] tracking-widest leading-none">
-                        {isUploading || isLoading ? '...' : hasFile ? record!.name.slice(0, 10) : slot.toUpperCase()}
+                        {locked ? '🔒' : isUploading || isLoading ? '...' : hasFile ? record!.name.slice(0, 10) : slot.toUpperCase()}
                       </span>
                     </button>
 
@@ -834,21 +843,29 @@ export default function QuickCast() {
                     <div className={[
                       'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
                       'bg-surface border border-border font-pixel text-[8px] text-primary',
-                      'px-2 py-1 whitespace-nowrap pointer-events-none z-50',
+                      'px-2 py-1 pointer-events-none z-50',
                       'opacity-0 group-hover:opacity-100 transition-none',
+                      locked ? 'whitespace-normal w-36 text-center' : 'whitespace-nowrap',
                     ].join(' ')}>
-                      {isUploading ? 'UPLOADING...' : isLoading ? 'LOADING...' : hasFile ? record!.name : `RESUME ${slot.toUpperCase()}`}
+                      {locked
+                        ? 'Upgrade for access to two more resume slots'
+                        : isUploading ? 'UPLOADING...'
+                        : isLoading   ? 'LOADING...'
+                        : hasFile     ? record!.name
+                        : `RESUME ${slot.toUpperCase()}`}
                     </div>
                   </div>
 
                   {/* Hidden file input */}
-                  <input
-                    ref={(el) => { fileInputRefs.current[slot] = el }}
-                    type="file"
-                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="hidden"
-                    onChange={(e) => handleResumeFileInput(slot, e)}
-                  />
+                  {!locked && (
+                    <input
+                      ref={(el) => { fileInputRefs.current[slot] = el }}
+                      type="file"
+                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="hidden"
+                      onChange={(e) => handleResumeFileInput(slot, e)}
+                    />
+                  )}
                 </div>
               )
             })}

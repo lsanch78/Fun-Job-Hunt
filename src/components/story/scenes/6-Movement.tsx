@@ -134,7 +134,7 @@ export default function ScrollingTextCutscene({
   // Fade music out on mount, resume on unmount
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+    return () => { window.dispatchEvent(new CustomEvent('fjobhunt:music-resume')) }
   }, [])
 
   // Skip on Enter or Escape

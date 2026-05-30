@@ -14,7 +14,7 @@ export default function Nerve({ onComplete }: { onComplete: () => void }) {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+    return () => { window.dispatchEvent(new CustomEvent('fjobhunt:music-resume')) }
   }, [])
 
   // Start music + ambient typing on mount

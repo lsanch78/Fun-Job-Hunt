@@ -15,12 +15,30 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     ],
   },
   {
-    id: 'quickcast',
-    title: 'QUICK CAST',
-    subtitle: 'links · resumes',
+    id: 'quickcast-resumes',
+    title: 'RESUME SLOTS',
+    subtitle: 'upload first · unlock AI power',
     body: [
-      'Add links for instant copy/paste during applications. Upload up to 3 resumes (A, B, C) for quick reference during your session.',
-      'NOTE: Links and resumes are stored securely in the database. Best practices are applied — but if you prefer total privacy, remove personal details before saving.',
+      'The A, B, C slots are your resume slots — upload your resume here first. It\'s the single most impactful thing you can do. Once uploaded, the AI Assistant references your actual resume when drafting cover letters, tailoring bullet points, or answering "why are you a good fit?" No copy-pasting required.',
+      'Free users get slot A. Upgrade to Pro for all three. Right-click a filled slot to rename or delete it.',
+    ],
+  },
+  {
+    id: 'quickcast-links',
+    title: 'QUICK LINKS',
+    subtitle: 'one click · instant copy',
+    body: [
+      'Add anything you paste constantly into job applications — LinkedIn profile, GitHub, portfolio, personal site, cover letter doc, references sheet. Click a slot to instantly copy its URL. Never hunt for the same link twice.',
+      'Right-click any slot to edit or delete it. You can add up to 8 links. Hit the + button to get started.',
+    ],
+  },
+  {
+    id: 'ai-assistant',
+    title: 'AI ASSISTANT',
+    subtitle: 'the most powerful time saver',
+    body: [
+      'Once your resume is uploaded, the AI will always reference your skills and experience — writing cover letters, first reach outs, and more. Right-click the AI button to instantly paste a job description and quickly generate common deliverables while you continue filling out applications.',
+      'Everyone gets 10–30 uses a month (grows with your rank). Pro users unlock unlimited usage for $8/month. Tech savvy? Bring your own API key in Settings.',
     ],
   },
   {
@@ -35,10 +53,10 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
   {
     id: 'workday-bar',
     title: 'WORKDAY',
-    subtitle: 'time tracking',
+    subtitle: 'application time tracking',
     body: [
-      'Time tracking is automatic — your session starts the moment you interact with the app and stops after 60 minutes of inactivity. No punching in or out required.',
-      'NOTE: The bar shows TRACKING while active and IDLE after 15 minutes without interaction.',
+      'Workday only tracks time spent submitting job applications — nothing else on the app counts. Each time you log a new application, active time is recorded toward your workday.',
+      'The bar shows TRACKING while active and IDLE after 15 minutes without a new submission. No punching in or out required.',
     ],
   },
   {
@@ -51,30 +69,21 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     ],
   },
   {
+    id: 'journal',
+    title: 'JOURNAL',
+    subtitle: 'notes · daily checklist',
+    body: [
+      'A persistent workspace at the bottom of the screen. The NOTES tab is a free-form journal for thoughts, prep notes, and reminders. The CHECKLIST tab is a drag-to-reorder daily task list — add items, check them off, and clear completed ones anytime.',
+      'NOTE: Drag the handle to resize the panel. Your notes and checklist sync automatically to your account.',
+    ],
+  },
+  {
     id: 'navbar',
     title: 'NAVIGATION',
     subtitle: 'pages · settings',
     body: [
-      'JOBS = tracker  ·  STATS = analytics  ·  STORY = career journey & rank progression.',
+      'JOBS = The page you\'re on now, track all of your job applications\nNETWORK = Where all of your contacts live\nSTORY = Fun narratives and unlocks\nSTATS = Well... stats!\nCREDITS = Developer information and note',
       'Theme switcher and account settings are in the avatar menu (top right). Press ? anytime to replay this tutorial.',
-    ],
-  },
-  {
-    id: 'ai-assistant',
-    title: 'AI ASSISTANT',
-    subtitle: 'claude haiku · ready to use',
-    body: [
-      'The AI button opens a resume assistant powered by Claude Haiku — fast, capable, and perfect for resume tailoring, cover letter bullets, and interview prep. Everybody gets 5 free uses a month, no setup required.',
-      'PRO TIP: Premium users get unlimited use for 8$/month. Tech savvy? Add your own ChatGPT or Claude API key in Settings to choose your model and stretch your dollar further.',
-    ],
-  },
-  {
-    id: 'journal',
-    title: 'SCRATCHPAD',
-    subtitle: 'journal · daily checklist',
-    body: [
-      'A persistent workspace at the bottom of the screen. The NOTES tab is a free-form journal for thoughts, prep notes, and reminders. The CHECKLIST tab is a drag-to-reorder daily task list — add items, check them off, and clear completed ones anytime.',
-      'NOTE: Drag the handle to resize the panel. Your notes and checklist sync automatically to your account.',
     ],
   },
 ]

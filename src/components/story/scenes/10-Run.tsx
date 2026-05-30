@@ -51,7 +51,7 @@ export default function Run({ onComplete }: { onComplete: () => void }) {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('fjobhunt:music-fade'))
-    return () => window.dispatchEvent(new CustomEvent('fjobhunt:music-resume'))
+    return () => { window.dispatchEvent(new CustomEvent('fjobhunt:music-resume')) }
   }, [])
 
   useEffect(() => {

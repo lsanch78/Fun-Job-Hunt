@@ -6,6 +6,7 @@ import {
   CONTACT_LIMIT,
   submitFeedback,
   type FeedbackTopic,
+  type SubmitFeedbackResult,
 } from '@/services/feedbackService'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
@@ -16,7 +17,7 @@ interface FeedbackModalProps {
   onClose: () => void
 }
 
-type Status = 'idle' | 'sending' | 'success' | 'error'
+type Status = 'idle' | 'sending' | 'success' | SubmitFeedbackResult
 
 export default function FeedbackModal({ userId, onClose }: FeedbackModalProps) {
   const [topic, setTopic] = useState<FeedbackTopic>('User Interface')
@@ -37,12 +38,12 @@ export default function FeedbackModal({ userId, onClose }: FeedbackModalProps) {
   async function handleSubmit() {
     if (!message.trim() || status === 'sending') return
     setStatus('sending')
-    const ok = await submitFeedback({ userId, topic, contact, message })
-    if (ok) {
+    const result = await submitFeedback({ userId, topic, contact, message })
+    if (result === 'ok') {
       playSubmitBlip()
       setStatus('success')
     } else {
-      setStatus('error')
+      setStatus(result)
     }
   }
 
@@ -141,6 +142,11 @@ export default function FeedbackModal({ userId, onClose }: FeedbackModalProps) {
               />
             </div>
 
+            {status === 'rate_limited' && (
+              <div className="tracking-widest" style={{ color: '#ff4444', fontSize: CRT_FONT.chrome }}>
+                ✕ LIMIT REACHED — TRY AGAIN TOMORROW
+              </div>
+            )}
             {status === 'error' && (
               <div className="tracking-widest" style={{ color: '#ff4444', fontSize: CRT_FONT.chrome }}>
                 ✕ ERROR — TRY AGAIN
