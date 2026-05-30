@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import ContactList, { type SortBy } from '@/components/contacts/ContactList'
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
-import SearchBar from '@/components/SearchBar'
+import SearchBar from '@/components/shell/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,

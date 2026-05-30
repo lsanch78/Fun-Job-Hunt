@@ -8,8 +8,8 @@ import { NETWORK_STEPS } from '@/lib/tutorialSteps'
 import ContactList, { type SortBy } from '@/components/contacts/ContactList'
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
-import SearchBar from '@/components/SearchBar'
-import NetworkBackdrop from '@/components/NetworkBackdrop'
+import SearchBar from '@/components/shell/SearchBar'
+import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
