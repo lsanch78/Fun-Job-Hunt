@@ -69,6 +69,12 @@ function expToColor(exp: number): string {
   return '#4b5563'
 }
 
+function seededRandom(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0
+  return ((h >>> 0) % 1000) / 1000
+}
+
 function pulseDuration(exp: number) {
   return 1.2 + (1 - exp / 100) * 2
 }
@@ -127,6 +133,8 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
   const starsRef     = useRef<Star[]>(generateStars(120))
   const starSvgRef   = useRef<SVGSVGElement>(null)
   const starRafRef   = useRef<number>(0)
+  const mousePosRef    = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 }) // raw, normalised 0–1
+  const smoothMouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 }) // lerped
 
   // Measure container via ResizeObserver
   useEffect(() => {
@@ -147,13 +155,30 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
     const w = svg.clientWidth
     const h = svg.clientHeight
     const t = performance.now()
+
+    // Lerp smoothed mouse toward raw target (lower = slower/smoother)
+    const ease = 0.04
+    smoothMouseRef.current.x += (mousePosRef.current.x - smoothMouseRef.current.x) * ease
+    smoothMouseRef.current.y += (mousePosRef.current.y - smoothMouseRef.current.y) * ease
+    const mx = smoothMouseRef.current.x - 0.5
+    const my = smoothMouseRef.current.y - 0.5
+
+    // Update node SVG offset here so it uses the same smoothed value
+    const nodeSvg = nodeSvgRef.current
+    if (nodeSvg) {
+      const ox = mx * -12
+      const oy = my * -12
+      nodeSvg.style.transform = `translate(${ox}px, ${oy}px)`
+    }
+
     const circles = svg.querySelectorAll<SVGCircleElement>('circle[data-star]')
     starsRef.current.forEach((star, i) => {
       const el = circles[i]
       if (!el) return
-      const drift = 6 * (1 - star.depth)   // near stars drift more
-      const cx = star.baseX * w + Math.sin(t * star.freq + star.phase) * drift
-      const cy = star.baseY * h + Math.cos(t * star.freq + star.phase + 1.7) * drift
+      const drift = 6 * (1 - star.depth)
+      const parallax = 30 * (1 - star.depth)
+      const cx = star.baseX * w + Math.sin(t * star.freq + star.phase) * drift + mx * parallax
+      const cy = star.baseY * h + Math.cos(t * star.freq + star.phase + 1.7) * drift + my * parallax
       el.setAttribute('cx', String(cx))
       el.setAttribute('cy', String(cy))
     })
@@ -165,6 +190,16 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
     return () => cancelAnimationFrame(starRafRef.current)
   }, [animateStars])
 
+  const nodeSvgRef = useRef<SVGSVGElement>(null)
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      mousePosRef.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
   // Build desired graph shape from props
   const { desiredNodes, desiredLinks } = useMemo(() => {
     const desiredNodes: GraphNode[] = []
@@ -175,13 +210,13 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
 
     for (const contact of contacts) {
       const exp = expOverrides[contact.id] ?? computeExp(contact.lastInteractionAt)
-      desiredNodes.push({ id: contact.id, kind: 'contact', exp, color: expToColor(exp), radius: 5 })
+      desiredNodes.push({ id: contact.id, kind: 'contact', exp, color: expToColor(exp), radius: 3 + seededRandom(contact.id) * 5 })
       desiredLinks.push({ id: `u-${contact.id}`, sourceId: '__user__', targetId: contact.id, source: '__user__', target: contact.id, exp })
 
       for (const job of jobsByContact[contact.id] ?? []) {
         if (!jobSeen.has(job.id)) {
           jobSeen.add(job.id)
-          desiredNodes.push({ id: job.id, kind: 'job', exp, color: '#a78bfa', radius: 4 })
+          desiredNodes.push({ id: job.id, kind: 'job', exp, color: '#a78bfa', radius: 2 + seededRandom(job.id) * 4 })
         }
         desiredLinks.push({ id: `c-${contact.id}-${job.id}`, sourceId: contact.id, targetId: job.id, source: contact.id, target: job.id, exp })
       }
@@ -339,7 +374,7 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
       </svg>
 
       {dims.w > 0 && (
-        <svg width={dims.w} height={dims.h} aria-hidden="true">
+        <svg ref={nodeSvgRef} width={dims.w} height={dims.h} aria-hidden="true">
           <defs>
             {['#22c55e', '#84cc16', '#eab308', '#6b7280', '#4b5563', '#a78bfa'].map((color) => (
               <filter key={color} id={`glow-${color.replace('#', '')}`} x="-60%" y="-60%" width="220%" height="220%">
