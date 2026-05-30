@@ -172,9 +172,7 @@ export default function App() {
             path="/credits"
             element={
               <ProtectedRoute session={session}>
-                <MobileGatedRoute>
-                  <CreditsPage />
-                </MobileGatedRoute>
+                <CreditsPage />
               </ProtectedRoute>
             }
           />
