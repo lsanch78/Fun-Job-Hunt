@@ -138,11 +138,29 @@ export default function MusicPlayer() {
       setUserId(user.id)
       dbFetchTracks(user.id).then((rows) => {
         if (rows.length > 0) {
-          setTracks(rows.map((r) => ({ id: r.id, url: r.url, videoId: r.videoId, title: r.title })))
+          const loaded = rows.map((r) => ({ id: r.id, url: r.url, videoId: r.videoId, title: r.title }))
+          setTracks(loaded)
+          tracksRef.current = loaded
+          // If YT is already ready and auto-start is still pending, fire it now with the real tracks
+          if (ytReadyRef.current && shouldAutoStartRef.current) {
+            shouldAutoStartRef.current = false
+            const r = loadResume()
+            const idx = r && r.idx < loaded.length ? r.idx : 0
+            setCurrentIdx(idx)
+            currentIdxRef.current = idx
+            createPlayer(loaded[idx].videoId)
+          } else if (ytReadyRef.current && playerRef.current && playingRef.current) {
+            // Player already playing a default track — swap to the correct DB track
+            const r = loadResume()
+            const idx = r && r.idx < loaded.length ? r.idx : 0
+            setCurrentIdx(idx)
+            currentIdxRef.current = idx
+            createPlayer(loaded[idx].videoId)
+          }
         }
       })
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist tracks to localStorage (fallback for signed-out users)
   useEffect(() => {
