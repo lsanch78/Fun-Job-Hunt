@@ -1,12 +1,12 @@
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { playProgressChime, playCelebrationFanfare, playThud, playDeleteBump, playSelectClick, playTrash } from '@/lib/sfx'
-import { Terminal, Trash } from 'pixelarticons/react'
+import { useState, useRef, useEffect } from 'react'
+import { playThud, playDeleteBump, playSelectClick, playTrash } from '@/lib/sfx'
+import { Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/XpTracker'
 import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
-import { JOB_LIMITS, JOB_CAP } from '@/services/jobService'
+import { JOB_CAP } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
 import AppDetailCard from '@/components/AppDetailCard'
 import TutorialOverlay from '@/components/TutorialOverlay'
@@ -14,32 +14,10 @@ import { JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-
-interface JobRowHandle {
-  focusFirstInput(): void
-}
-
-
-const STATUS_OPTIONS: JobStatus[] = [
-  'APPLIED', 'PHONE_SCREEN', 'INTERVIEW', 'OFFER', 'REJECTED', 'GHOSTED', 'WITHDRAWN',
-]
-
-const STATUS_COLORS: Record<JobStatus, string> = {
-  APPLIED:      'text-dim',
-  PHONE_SCREEN: 'text-secondary',
-  INTERVIEW:    'text-secondary',
-  OFFER:        'text-secondary',
-  REJECTED:     'text-warning',
-  GHOSTED:      'text-warning',
-  WITHDRAWN:    'text-warning',
-}
-
-const cellInput =
-  'bg-transparent border-0 outline-none w-full text-primary font-pixel text-xs placeholder-muted focus:bg-surface focus:border-b focus:border-primary px-1 py-0.5 min-w-0'
-
-function isDraftReady(draft: Job): boolean {
-  return draft.company.trim() !== '' && draft.title.trim() !== ''
-}
+import { JobRow, type JobRowHandle } from '@/components/joblog/JobRow'
+import { useColumns } from '@/components/joblog/useColumns'
+import { ColumnHeader } from '@/components/joblog/ColumnHeader'
+import { ColumnContextMenu } from '@/components/joblog/ColumnContextMenu'
 
 // ── XP popup ────────────────────────────────────────────────────────────────
 interface XpPopup { id: number; mega: boolean; x: number; y: number; label?: string }
@@ -67,600 +45,6 @@ if (typeof document !== 'undefined' && !document.getElementById('xp-pop-keyframe
   document.head.appendChild(el)
 }
 
-// ── StarRating ───────────────────────────────────────────────────────────────
-function StarRating({ value, onChange, onTabOut, onEnter, isNewRow }: {
-  value: number
-  onChange: (n: number) => void
-  onTabOut?: () => void
-  onEnter?: () => void
-  isNewRow?: boolean
-}) {
-  const [hover, setHover] = useState<number | null>(null)
-  const [isFocused, setIsFocused] = useState(false)
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    const n = Number(e.key)
-    if (n >= 1 && n <= 5) { e.preventDefault(); onChange(value === n ? 0 : n) }
-    if (e.key === '0') { e.preventDefault(); onChange(0) }
-    if (e.key === 'Tab' && !e.shiftKey && onTabOut) { e.preventDefault(); onTabOut() }
-    if (e.key === 'Enter') { e.preventDefault(); onEnter?.() }
-  }
-
-  if (isNewRow) {
-    return (
-      <span
-        className="outline-none focus:border-b focus:border-primary block"
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        title="Press 1–5 to rate, 0 to clear"
-      >
-        <span className={`font-pixel text-[9px] leading-none select-none ${isFocused ? 'text-primary' : 'text-muted'}`}>
-          {value > 0 ? `${value}/5` : '1-5'}
-        </span>
-      </span>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-0">
-      <span
-        className="flex gap-0.5 whitespace-nowrap outline-none focus:border-b focus:border-primary"
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        title="Press 1–5 to rate, 0 to clear"
-      >
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            tabIndex={-1}
-            className={`text-xs leading-none ${n <= (hover ?? value) ? 'text-secondary' : 'text-muted'}`}
-            onMouseEnter={() => setHover(n)}
-            onMouseLeave={() => setHover(null)}
-            onClick={() => onChange(value === n ? 0 : n)}
-            title={`${n} star${n !== 1 ? 's' : ''}`}
-          >
-            ★
-          </button>
-        ))}
-      </span>
-    </div>
-  )
-}
-
-// ── Status cell — mouse-only, outside tab flow ────────────────────────────────
-function StatusCell({
-  status,
-  onStatusChange,
-}: {
-  status: JobStatus
-  onStatusChange: (s: JobStatus) => void
-}) {
-  const mutedSelect = 'bg-transparent border-0 outline-none w-full font-pixel text-xs text-muted bg-bg cursor-pointer px-1 py-0.5 min-w-0'
-
-  return (
-    <td className="px-2 py-1 min-w-[120px]">
-      <select
-        tabIndex={-1}
-        aria-label="Application status"
-        className={`${mutedSelect} ${STATUS_COLORS[status]}`}
-        value={status}
-        onChange={(e) => onStatusChange(e.target.value as JobStatus)}
-      >
-        {STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s} className="bg-bg text-primary">
-            {s.replace(/_/g, ' ')}
-          </option>
-        ))}
-      </select>
-    </td>
-  )
-}
-
-// ── DateCell ──────────────────────────────────────────────────────────────────
-function DateCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // value is YYYY-MM-DD; display as MM/DD
-  const display = value ? value.slice(5).replace('-', '/') : '—'
-
-  function startEditing() {
-    setEditing(true)
-    setTimeout(() => inputRef.current?.showPicker?.(), 0)
-  }
-
-  return (
-    <td className="px-2 py-1 w-[54px]">
-      <div className="relative">
-        {/* Always-visible MM/DD label */}
-        <button
-          tabIndex={-1}
-          className={`font-pixel text-xs px-1 py-0.5 bg-transparent border-0 outline-none w-full text-left cursor-pointer ${editing ? 'text-primary' : 'text-muted hover:text-primary'}`}
-          title={value}
-          onClick={startEditing}
-        >
-          {display}
-        </button>
-        {/* Hidden date input — opened programmatically, never rendered visibly */}
-        <input
-          ref={inputRef}
-          tabIndex={-1}
-          type="date"
-          aria-hidden="true"
-          className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
-          value={value}
-          onChange={(e) => { onChange(e.target.value); setEditing(false) }}
-          onBlur={() => setEditing(false)}
-        />
-      </div>
-    </td>
-  )
-}
-
-// ── PostingCell ───────────────────────────────────────────────────────────────
-function PostingCell({ value, onChange, onEnter }: {
-  value: string
-  onChange: (v: string) => void
-  onEnter: () => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  function handleBlur() {
-    setEditing(false)
-  }
-
-  const showLink = value && !editing
-
-  return (
-    <td className="px-2 py-1 w-10 text-center">
-      {showLink ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-secondary hover:text-primary inline-flex items-center justify-center"
-          title={value}
-          tabIndex={-1}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-          </svg>
-        </a>
-      ) : (
-        <input
-          ref={inputRef}
-          className={`${cellInput} text-center`}
-          placeholder="_"
-          value={value}
-          maxLength={JOB_LIMITS.postingUrl}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onEnter()}
-          onBlur={handleBlur}
-          onFocus={() => setEditing(true)}
-        />
-      )}
-    </td>
-  )
-}
-
-// ── SalaryCell ────────────────────────────────────────────────────────────────
-function SalaryCell({ value, onChange, onEnter }: {
-  value: string
-  onChange: (v: string) => void
-  onEnter: () => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  return (
-    <td className="px-2 py-1 w-[72px]">
-      {value && !editing ? (
-        <button
-          tabIndex={-1}
-          className="font-pixel text-xs text-primary bg-transparent border-0 outline-none cursor-pointer hover:text-secondary px-1 py-0.5 whitespace-nowrap"
-          onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0) }}
-        >
-          ${value}K
-        </button>
-      ) : (
-        <input
-          ref={inputRef}
-          className={cellInput}
-          placeholder="_"
-          value={value}
-          maxLength={JOB_LIMITS.salary}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
-          onKeyDown={(e) => e.key === 'Enter' && onEnter()}
-          onBlur={() => setEditing(false)}
-          onFocus={() => setEditing(true)}
-        />
-      )}
-    </td>
-  )
-}
-
-// ── JobRow ───────────────────────────────────────────────────────────────────
-const JobRow = forwardRef<JobRowHandle, {
-  job: Job
-  visibleCols: ColConfig[]
-  onCommit: (committed: Job, rowEl: HTMLTableRowElement | null) => void
-  onDraftChange: (draft: Job) => void
-  onTabOut?: () => void
-  deleteMode?: boolean
-  checked?: boolean
-  onToggle?: (id: string, e: React.MouseEvent<HTMLInputElement>) => void
-  onOpenDetail?: () => void
-  onDetailBlur?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onDetailBlur }, ref) {
-  const [draft, setDraft] = useState<Job>(job)
-  const [focused, setFocused] = useState(false)
-  const rowRef = useRef<HTMLTableRowElement>(null)
-
-  useImperativeHandle(ref, () => ({
-    focusFirstInput() {
-      const firstInput = rowRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>(
-        'input:not([type="checkbox"]):not([tabindex="-1"]), select:not([tabindex="-1"])'
-      )
-      firstInput?.focus()
-    },
-  }))
-
-  useEffect(() => {
-    if (!job.committed) setDraft(job)
-  }, [job.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Keep committed job's detail fields in sync (lazy-loaded after detail card opens)
-  useEffect(() => {
-    if (job.committed) {
-      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes }))
-    }
-  }, [job.description, job.notes, job.committed])
-
-  function update<K extends keyof Job>(key: K, val: Job[K]) {
-    const next = { ...draft, [key]: val }
-    setDraft(next)
-    onDraftChange(next)
-  }
-
-  function handleStatusChange(next: JobStatus) {
-    if (next === 'OFFER') {
-      playCelebrationFanfare()
-    } else if (next === 'PHONE_SCREEN' || next === 'INTERVIEW') {
-      playProgressChime()
-    }
-    update('status', next)
-  }
-
-  function tryCommit() {
-    if (!draft.committed && isDraftReady(draft)) {
-      const committed = { ...draft, committed: true }
-      setDraft(committed)
-      onCommit(committed, rowRef.current)
-    }
-  }
-
-  const ready = isDraftReady(draft)
-  const committed = draft.committed
-
-  const rowClass = `border-b transition-colors ${
-    committed
-      ? `border-border ${focused ? 'bg-surface' : 'hover:bg-surface/50'}`
-      : ready
-        ? `border-secondary/40 ${focused ? 'bg-surface' : 'hover:bg-surface/50'}`
-        : `border-border ${focused ? 'bg-surface' : 'hover:bg-surface/50'}`
-  }`
-
-  function renderCell(key: string) {
-    switch (key) {
-      case 'company':
-        return (
-          <td key="company" className="px-2 py-1 min-w-[120px]">
-            <input
-              className={cellInput}
-              placeholder="Company"
-              value={draft.company}
-              maxLength={JOB_LIMITS.company}
-              onChange={(e) => update('company', e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
-            />
-          </td>
-        )
-      case 'title':
-        return (
-          <td key="title" className="px-2 py-1 min-w-[140px]">
-            <input
-              className={cellInput}
-              placeholder="Job title"
-              value={draft.title}
-              maxLength={JOB_LIMITS.title}
-              onChange={(e) => update('title', e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
-            />
-          </td>
-        )
-      case 'url':
-        return (
-          <PostingCell
-            key="url"
-            value={draft.postingUrl}
-            onChange={(v) => update('postingUrl', v)}
-            onEnter={tryCommit}
-          />
-        )
-      case 'salary':
-        return <SalaryCell key="salary" value={draft.salary} onChange={(v) => update('salary', v)} onEnter={tryCommit} />
-      case 'rating':
-        return (
-          <td key="rating" className="px-2 py-1 min-w-[90px]">
-            <StarRating value={draft.rating} onChange={(n) => update('rating', n)} onTabOut={onTabOut} onEnter={tryCommit} isNewRow={!committed} />
-          </td>
-        )
-      case 'date':
-        return <DateCell key="date" value={draft.applicationDate} onChange={(v) => update('applicationDate', v)} />
-      case 'status':
-        return <StatusCell key="status" status={draft.status} onStatusChange={handleStatusChange} />
-      case 'jd':
-        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
-case 'notes':
-        return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
-      default:
-        return null
-    }
-  }
-
-  return (
-    <tr
-      ref={rowRef}
-      className={rowClass}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={() => setFocused(false)}
-    >
-      {/* Delete checkbox */}
-      {deleteMode && (
-        <td className="px-2 py-1 w-6">
-          {job.committed && (
-            <input
-              type="checkbox"
-              tabIndex={-1}
-              checked={checked ?? false}
-              onClick={(e) => onToggle?.(job.id, e)}
-              onChange={() => {}}
-              className="cursor-pointer accent-warning"
-            />
-          )}
-        </td>
-      )}
-
-      {/* Fixed terminal icon — always leftmost, never reorderable */}
-      <td className="px-2 py-1 w-6">
-        <button
-          tabIndex={-1}
-          onClick={committed ? onOpenDetail : undefined}
-          className={`flex-shrink-0 transition-colors ${committed ? 'text-muted hover:text-secondary cursor-pointer' : 'text-muted/30 cursor-default'}`}
-          title={committed ? 'View application details' : undefined}
-          aria-label={committed ? 'View application details' : 'Application not yet logged'}
-        >
-          <Terminal width={22} height={22} />
-        </button>
-      </td>
-
-      {visibleCols.map((col) => renderCell(col.key))}
-
-      {/* Commit hint */}
-      <td className="px-2 py-1 w-8">
-        {ready && !committed && (
-          <button tabIndex={-1} className="text-secondary text-xs animate-blink" title="Press Enter to log" onClick={tryCommit}>
-            ↵
-          </button>
-        )}
-        {committed && job.saving && (
-          <span className="inline-flex items-center justify-center w-4 h-4" title="Saving…">
-            <span className="text-secondary text-[8px] leading-none animate-pixel-spin inline-block">▪</span>
-          </span>
-        )}
-        {committed && !job.saving && (
-          <span className="text-muted text-xs">✓</span>
-        )}
-      </td>
-    </tr>
-  )
-})
-
-// ── Column configuration ──────────────────────────────────────────────────────
-interface ColConfig {
-  key: string
-  visible: boolean
-  width: number  // px
-}
-
-const REQUIRED_COLS = new Set(['company', 'title'])
-
-const COL_DEFS: Record<string, { label: string; defaultWidth: number }> = {
-  company:  { label: 'COMPANY',  defaultWidth: 140 },
-  title:    { label: 'TITLE',    defaultWidth: 160 },
-  url:      { label: 'URL',      defaultWidth:  48 },
-  salary:   { label: 'SALARY',   defaultWidth:  80 },
-  rating:   { label: 'RATING',   defaultWidth:  96 },
-  date:     { label: 'DATE',     defaultWidth:  60 },
-  status:   { label: 'STATUS',   defaultWidth: 130 },
-  jd:       { label: 'JD',       defaultWidth: 160 },
-  contacts: { label: 'CONTACTS', defaultWidth: 140 },
-  notes:    { label: 'NOTES',    defaultWidth: 160 },
-}
-
-const DEFAULT_COLS: ColConfig[] = [
-  { key: 'company',  visible: true,  width: COL_DEFS.company.defaultWidth  },
-  { key: 'title',    visible: true,  width: COL_DEFS.title.defaultWidth    },
-  { key: 'url',      visible: true,  width: COL_DEFS.url.defaultWidth      },
-  { key: 'salary',   visible: true,  width: COL_DEFS.salary.defaultWidth   },
-  { key: 'rating',   visible: true,  width: COL_DEFS.rating.defaultWidth   },
-  { key: 'date',     visible: true,  width: COL_DEFS.date.defaultWidth     },
-  { key: 'status',   visible: true,  width: COL_DEFS.status.defaultWidth   },
-  { key: 'jd',       visible: false, width: COL_DEFS.jd.defaultWidth       },
-  { key: 'contacts', visible: false, width: COL_DEFS.contacts.defaultWidth },
-  { key: 'notes',    visible: false, width: COL_DEFS.notes.defaultWidth    },
-]
-
-function readColConfig(): ColConfig[] {
-  const parsed = lsGet<ColConfig[] | null>(SK.colConfig, null)
-  if (!parsed) return DEFAULT_COLS
-  const savedKeys = new Set(parsed.map((c) => c.key))
-  const withDefaults = parsed.map((c) => ({
-    ...c,
-    width: c.width ?? COL_DEFS[c.key]?.defaultWidth ?? 120,
-  }))
-  return [...withDefaults, ...DEFAULT_COLS.filter((c) => !savedKeys.has(c.key))]
-}
-
-function writeColConfig(cols: ColConfig[]): void {
-  lsSet(SK.colConfig, cols)
-}
-
-// ── Column context menu ───────────────────────────────────────────────────────
-function ColContextMenu({
-  x, y, isFirst, isLast, allCols, activeKey,
-  onMoveLeft, onMoveRight, onHide, onToggleCol, onReset, onClose,
-}: {
-  x: number; y: number
-  isFirst: boolean; isLast: boolean
-  allCols: ColConfig[]
-  activeKey: string
-  onMoveLeft: () => void; onMoveRight: () => void
-  onHide: () => void; onToggleCol: (key: string) => void; onReset: () => void; onClose: () => void
-}) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const btnBase = 'block w-full text-left px-3 py-1.5 font-pixel text-[10px] transition-none'
-  const btnActive = `${btnBase} text-primary hover:bg-surface`
-  const btnDimmed = `${btnBase} text-muted/40 cursor-default`
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      {/* Menu */}
-      <div
-        className="fixed z-50 border border-border bg-bg py-1 min-w-[140px]"
-        style={{ left: x, top: y }}
-      >
-        <button className={isFirst ? btnDimmed : btnActive} onClick={isFirst ? undefined : () => { onMoveLeft(); onClose() }}>
-          ← Move Left
-        </button>
-        <button className={isLast ? btnDimmed : btnActive} onClick={isLast ? undefined : () => { onMoveRight(); onClose() }}>
-          → Move Right
-        </button>
-        <div className="border-t border-border my-1" />
-        <button
-          className={REQUIRED_COLS.has(activeKey) ? btnDimmed : btnActive}
-          onClick={REQUIRED_COLS.has(activeKey) ? undefined : () => { onHide(); onClose() }}
-        >
-          ✕ Hide Column
-        </button>
-        <button className={btnActive} onClick={() => { onReset(); onClose() }}>
-          ↺ Reset to Default
-        </button>
-        <div className="border-t border-border my-1" />
-        {allCols.map((col) => {
-          const isRequired = REQUIRED_COLS.has(col.key)
-          return (
-            <button
-              key={col.key}
-              className={`${btnBase} flex items-center gap-2 ${isRequired ? 'text-muted/40 cursor-default' : 'text-muted hover:bg-surface hover:text-primary'}`}
-              onClick={isRequired ? undefined : () => onToggleCol(col.key)}
-            >
-              <span className="w-3 text-secondary">{col.visible ? '✓' : ''}</span>
-              <span className={isRequired ? 'text-warn' : ''}>{COL_DEFS[col.key].label}</span>
-            </button>
-          )
-        })}
-      </div>
-    </>
-  )
-}
-
-// ── Editable detail cell (JD / Contacts / Notes) ─────────────────────────────
-const PREVIEW_LIMIT = 200
-
-function DetailCell({ value, onChange, onBlur, placeholder, onOpenDetail, isNewRow }: {
-  value?: string
-  onChange: (v: string) => void
-  onBlur: () => void
-  placeholder: string
-  onOpenDetail?: () => void
-  isNewRow?: boolean
-}) {
-  const [preview, setPreview] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function startHoverTimer() {
-    if (!value) return
-    hoverTimer.current = setTimeout(() => setPreview(true), 1000)
-  }
-  function clearHoverTimer() {
-    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null }
-    setPreview(false)
-  }
-
-  const previewText = value
-    ? (value.length > PREVIEW_LIMIT ? value.slice(0, PREVIEW_LIMIT) + '…' : value)
-    : ''
-
-  // New (uncommitted) row — plain text input only
-  if (isNewRow) {
-    return (
-      <td className="px-2 py-1 relative overflow-hidden">
-        <input
-          className={`${cellInput} text-muted placeholder-muted/40`}
-          placeholder={placeholder}
-          value={value ?? ''}
-          maxLength={JOB_LIMITS.description}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-        />
-      </td>
-    )
-  }
-
-  // Committed row — <> button only, no inline text
-  return (
-    <td className="px-2 py-1 relative overflow-hidden">
-      <button
-        tabIndex={-1}
-        onClick={onOpenDetail}
-        onMouseEnter={startHoverTimer}
-        onMouseLeave={clearHoverTimer}
-        className={`font-pixel text-[9px] leading-none transition-colors ${value ? 'text-yellow-400 hover:text-yellow-200' : 'text-muted opacity-30 hover:opacity-60'}`}
-        title="Open detail view"
-      >
-        {'<>'}
-      </button>
-
-      {/* 1s hover preview — only when value exists */}
-      {preview && value && (
-        <div
-          className="absolute left-0 top-full z-50 mt-1 w-[400px] border border-border bg-bg px-4 py-3 font-terminal text-[15px] text-primary leading-relaxed whitespace-pre-wrap break-words cursor-pointer"
-          onClick={onOpenDetail}
-          onMouseEnter={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null } }}
-          onMouseLeave={clearHoverTimer}
-        >
-          {previewText}
-          {value.length > PREVIEW_LIMIT && onOpenDetail && (
-            <span className="block mt-2 text-secondary text-[13px]">↵ open full view</span>
-          )}
-        </div>
-      )}
-    </td>
-  )
-}
 
 // ── Filter / sort types ───────────────────────────────────────────────────────
 type SortField = 'company' | 'date' | 'status'
@@ -778,12 +162,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
-  const [colConfig, setColConfig] = useState<ColConfig[]>(readColConfig)
-  const [colMenu, setColMenu] = useState<{ x: number; y: number; key: string } | null>(null)
-
-  const [dragColKey, setDragColKey] = useState<string | null>(null)
-  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
-  const isResizingRef = useRef(false)
+  const columns = useColumns()
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
   const rowHandlesRef = useRef<Map<string, JobRowHandle>>(new Map())
@@ -1066,65 +445,23 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Table */}
       <div data-tutorial="job-rows" className="overflow-auto flex-1">
         {/* Column context menu */}
-        {colMenu && (() => {
-          const visibleCols = colConfig.filter((c) => c.visible)
-          const visIdx = visibleCols.findIndex((c) => c.key === colMenu.key)
+        {columns.menu && (() => {
+          const { menu, visibleCols, cols } = columns
+          const visIdx = visibleCols.findIndex((c) => c.key === menu.key)
           return (
-            <ColContextMenu
-              x={colMenu.x}
-              y={colMenu.y}
+            <ColumnContextMenu
+              x={menu.x}
+              y={menu.y}
               isFirst={visIdx === 0}
               isLast={visIdx === visibleCols.length - 1}
-              activeKey={colMenu.key}
-              onClose={() => setColMenu(null)}
-              onMoveLeft={() => {
-                setColConfig((prev) => {
-                  const next = [...prev]
-                  const allIdx = next.findIndex((c) => c.key === colMenu.key)
-                  // Find the closest visible col to the left in the full array
-                  let swapIdx = -1
-                  for (let i = allIdx - 1; i >= 0; i--) {
-                    if (next[i].visible) { swapIdx = i; break }
-                  }
-                  if (swapIdx === -1) return prev
-                  ;[next[swapIdx], next[allIdx]] = [next[allIdx], next[swapIdx]]
-                  writeColConfig(next)
-                  return next
-                })
-              }}
-              onMoveRight={() => {
-                setColConfig((prev) => {
-                  const next = [...prev]
-                  const allIdx = next.findIndex((c) => c.key === colMenu.key)
-                  let swapIdx = -1
-                  for (let i = allIdx + 1; i < next.length; i++) {
-                    if (next[i].visible) { swapIdx = i; break }
-                  }
-                  if (swapIdx === -1) return prev
-                  ;[next[allIdx], next[swapIdx]] = [next[swapIdx], next[allIdx]]
-                  writeColConfig(next)
-                  return next
-                })
-              }}
-              onHide={() => {
-                setColConfig((prev) => {
-                  const next = prev.map((c) => c.key === colMenu.key ? { ...c, visible: false } : c)
-                  writeColConfig(next)
-                  return next
-                })
-              }}
-              allCols={colConfig}
-              onToggleCol={(key) => {
-                setColConfig((prev) => {
-                  const next = prev.map((c) => c.key === key ? { ...c, visible: !c.visible } : c)
-                  writeColConfig(next)
-                  return next
-                })
-              }}
-              onReset={() => {
-                writeColConfig(DEFAULT_COLS)
-                setColConfig(DEFAULT_COLS)
-              }}
+              activeKey={menu.key}
+              allCols={cols}
+              onClose={columns.closeMenu}
+              onMoveLeft={() => columns.moveLeft(menu.key)}
+              onMoveRight={() => columns.moveRight(menu.key)}
+              onHide={() => columns.hide(menu.key)}
+              onToggleCol={columns.toggleVisible}
+              onReset={columns.reset}
             />
           )
         })()}
@@ -1133,7 +470,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           <colgroup>
             {deleteMode && <col style={{ width: 24 }} />}
             <col style={{ width: 28 }} />
-            {colConfig.filter((c) => c.visible).map((col) => (
+            {columns.visibleCols.map((col) => (
               <col key={col.key} style={{ width: col.width }} />
             ))}
             <col style={{ width: 32 }} />
@@ -1142,83 +479,14 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             <tr className="border-b border-border text-primary text-left select-none">
               {deleteMode && <th className="px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
               <th className="px-2 py-2 w-6" scope="col"><span className="sr-only">Details</span></th>
-              {colConfig.filter((c) => c.visible).map((col) => (
-                <th
-                  key={col.key}
-                  draggable
-                  onDragStart={(e) => {
-                    if (isResizingRef.current) { e.preventDefault(); return }
-                    setDragColKey(col.key)
-                    e.dataTransfer.effectAllowed = 'move'
-                    e.dataTransfer.setData('text/plain', col.key)
-                  }}
-                  onDragEnd={() => { setDragColKey(null); setDragOverKey(null) }}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverKey(col.key) }}
-                  onDragLeave={() => setDragOverKey(null)}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    const fromKey = e.dataTransfer.getData('text/plain')
-                    if (!fromKey || fromKey === col.key) { setDragOverKey(null); return }
-                    setColConfig((prev) => {
-                      const next = [...prev]
-                      const fromIdx = next.findIndex((c) => c.key === fromKey)
-                      const toIdx   = next.findIndex((c) => c.key === col.key)
-                      if (fromIdx === -1 || toIdx === -1) return prev
-                      const [moved] = next.splice(fromIdx, 1)
-                      next.splice(toIdx, 0, moved)
-                      writeColConfig(next)
-                      return next
-                    })
-                    setDragOverKey(null)
-                  }}
-                  onContextMenu={(e) => { e.preventDefault(); setColMenu({ x: e.clientX, y: e.clientY, key: col.key }) }}
-                  className={`px-2 py-2 font-normal whitespace-nowrap cursor-grab active:cursor-grabbing select-none hover:text-secondary group transition-colors relative ${
-                    dragOverKey === col.key ? 'text-secondary border-l-2 border-secondary' : dragColKey === col.key ? 'opacity-40 text-muted' : 'text-muted'
-                  }`}
-                  title="Drag to reorder · Right-click for options"
-                >
-                  <span className={REQUIRED_COLS.has(col.key) ? 'text-warn' : ''}>
-                    {COL_DEFS[col.key].label}
-                  </span>
-                  <span className="ml-1 opacity-0 group-hover:opacity-40 text-[8px]">⠿</span>
-                  {/* Resize handle — uses pointer capture so it wins over the th's drag */}
-                  <span
-                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize opacity-0 group-hover:opacity-100 flex items-center justify-center select-none z-10"
-                    style={{ touchAction: 'none' }}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      isResizingRef.current = true
-                      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-                      const startX = e.clientX
-                      const startW = col.width
-                      function onMove(ev: PointerEvent) {
-                        const newW = Math.max(40, startW + ev.clientX - startX)
-                        setColConfig((prev) => prev.map((c) => c.key === col.key ? { ...c, width: newW } : c))
-                      }
-                      function onUp() {
-                        isResizingRef.current = false
-                        window.removeEventListener('pointermove', onMove)
-                        window.removeEventListener('pointerup', onUp)
-                        setColConfig((prev) => { writeColConfig(prev); return prev })
-                      }
-                      window.addEventListener('pointermove', onMove)
-                      window.addEventListener('pointerup', onUp)
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    title="Drag to resize"
-                  >
-                    <span className="text-muted/60 text-[8px] leading-none pointer-events-none">│</span>
-                  </span>
-                </th>
-              ))}
+              <ColumnHeader columns={columns} />
               {/* Commit-hint col */}
               <th className="px-2 py-2 w-8" scope="col"><span className="sr-only">Save status</span></th>
             </tr>
           </thead>
           <tbody>
             {visibleJobs.map((job, idx) => {
-              const visibleCols = colConfig.filter((c) => c.visible)
+              const visibleCols = columns.visibleCols
               function handleTabOut() {
                 const next = visibleJobs.slice(idx + 1).find((j) => !j.committed)
                 const lastUncommitted = [...visibleJobs].reverse().find((j) => !j.committed)
