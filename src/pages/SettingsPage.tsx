@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
-import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
-import { fetchContacts, deleteAllContacts } from '@/services/contactService'
+import { fetchJobsForExport, insertJob, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
+import { fetchContacts, insertContact, deleteAllContacts } from '@/services/contactService'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
@@ -38,50 +38,130 @@ const COLOR_LABELS: Record<keyof CustomColors, string> = {
   warning:   'WARNING',
 }
 
-function jobsToCSV(jobs: Job[]): string {
-  const headers = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Notes']
+const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+
+const JOB_HEADERS    = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Notes']
+const CONTACT_HEADERS = ['ID', 'Name', 'Company', 'Email', 'LinkedIn', 'GitHub', 'Twitter', 'Discord', 'Comm XP', 'Last Interaction', 'Last Comm', 'Notes', 'Created At']
+
+function jobsSection(jobs: Job[]): string {
   const rows = jobs.map((j) => [
-    j.id,
-    j.company,
-    j.title,
+    j.id, j.company, j.title,
     j.status.replace(/_/g, ' '),
     j.applicationDate,
     j.salary ? `${j.salary}K` : '',
     j.rating > 0 ? String(j.rating) : '',
-    j.postingUrl,
-    j.description ?? '',
-    j.notes ?? '',
+    j.postingUrl, j.description ?? '', j.notes ?? '',
   ])
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  return [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
+  return ['## JOBS', JOB_HEADERS.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
 }
 
-function contactsToCSV(contacts: Contact[]): string {
-  const headers = ['ID', 'Name', 'Company', 'Email', 'LinkedIn', 'GitHub', 'Twitter', 'Discord', 'Comm XP', 'Last Interaction', 'Last Comm', 'Notes', 'Created At']
+function contactsSection(contacts: Contact[]): string {
   const rows = contacts.map((c) => [
-    c.id,
-    c.name,
-    c.company ?? '',
-    c.email ?? '',
-    c.linkedin ?? '',
-    c.github ?? '',
-    c.twitter ?? '',
-    c.discord ?? '',
-    String(c.commExp),
-    c.lastInteractionAt ?? '',
-    c.lastCommAt ?? '',
-    c.notes ?? '',
-    c.createdAt,
+    c.id, c.name, c.company ?? '', c.email ?? '',
+    c.linkedin ?? '', c.github ?? '', c.twitter ?? '', c.discord ?? '',
+    String(c.commExp), c.lastInteractionAt ?? '', c.lastCommAt ?? '',
+    c.notes ?? '', c.createdAt,
   ])
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  return [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
+  return ['## CONTACTS', CONTACT_HEADERS.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\r\n')
+}
+
+function buildCombinedCSV(jobs: Job[], contacts: Contact[]): string {
+  return [jobsSection(jobs), '', contactsSection(contacts)].join('\r\n')
+}
+
+// ── CSV parser ────────────────────────────────────────────────────────────────
+
+function parseCSVRow(line: string): string[] {
+  const fields: string[] = []
+  let cur = '', inQuotes = false, i = 0
+  while (i < line.length) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i += 2; continue }
+      if (ch === '"') { inQuotes = false; i++; continue }
+      cur += ch
+    } else {
+      if (ch === '"') { inQuotes = true; i++; continue }
+      if (ch === ',') { fields.push(cur); cur = ''; i++; continue }
+      cur += ch
+    }
+    i++
+  }
+  fields.push(cur)
+  return fields
+}
+
+interface ImportResult {
+  jobsImported: number
+  jobsSkipped: number
+  contactsImported: number
+  contactsSkipped: number
+  errors: string[]
+}
+
+async function parseCombinedCSV(text: string, userId: string): Promise<ImportResult> {
+  const result: ImportResult = { jobsImported: 0, jobsSkipped: 0, contactsImported: 0, contactsSkipped: 0, errors: [] }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+
+  let section: 'jobs' | 'contacts' | null = null
+  let headerSeen = false
+
+  const VALID_STATUSES = new Set(['APPLIED', 'PHONE_SCREEN', 'INTERVIEW', 'OFFER', 'REJECTED', 'GHOSTED', 'WITHDRAWN'])
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line === '## JOBS')     { section = 'jobs';     headerSeen = false; continue }
+    if (line === '## CONTACTS') { section = 'contacts'; headerSeen = false; continue }
+    if (!headerSeen)            { headerSeen = true; continue } // skip header row
+    if (!section) continue
+
+    const cols = parseCSVRow(line)
+
+    if (section === 'jobs') {
+      const [, company, title, statusRaw, dateApplied, salaryRaw, ratingRaw, postingUrl, description, notes] = cols
+      if (!company?.trim() || !title?.trim()) { result.jobsSkipped++; continue }
+      const statusNorm = statusRaw?.trim().replace(/ /g, '_').toUpperCase()
+      const status = VALID_STATUSES.has(statusNorm) ? statusNorm : 'APPLIED'
+      const salary = salaryRaw?.replace(/K$/i, '').trim() ?? ''
+      const rating = Math.min(5, Math.max(0, parseInt(ratingRaw ?? '0', 10) || 0))
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(dateApplied?.trim()) ? dateApplied.trim() : new Date().toISOString().slice(0, 10)
+      const job: Job = {
+        id: crypto.randomUUID(), company: company.trim(), title: title.trim(),
+        status: status as Job['status'], postingUrl: postingUrl?.trim() ?? '',
+        applicationDate: date, rating, salary, committed: true,
+        description: description?.trim() || undefined, notes: notes?.trim() || undefined,
+      }
+      const { error } = await insertJob(job, userId)
+      if (error) { result.jobsSkipped++; if (result.errors.length < 5) result.errors.push(error) }
+      else result.jobsImported++
+    }
+
+    if (section === 'contacts') {
+      const [, name, company, email, linkedin, github, twitter, discord, , , , notes] = cols
+      if (!name?.trim()) { result.contactsSkipped++; continue }
+      const { error } = await insertContact({
+        userId, name: name.trim(), company: company?.trim() || undefined,
+        email: email?.trim() || undefined, linkedin: linkedin?.trim() || undefined,
+        github: github?.trim() || undefined, twitter: twitter?.trim() || undefined,
+        discord: discord?.trim() || undefined, notes: notes?.trim() || undefined,
+        lastInteractionAt: null, commExp: 0, lastCommAt: null,
+      }, userId)
+      if (error) { result.contactsSkipped++; if (result.errors.length < 5) result.errors.push(error) }
+      else result.contactsImported++
+    }
+  }
+
+  return result
 }
 
 export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
   const { isSubscribed, subscription, refresh } = useSubscription()
   const [exporting, setExporting] = useState(false)
-  const [exportingContacts, setExportingContacts] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [confirmTarget, setConfirmTarget] = useState<'jobs' | 'contacts' | 'full' | null>(null)
   const [fullResetPhrase, setFullResetPhrase] = useState('')
   const [resetting, setResetting] = useState(false)
@@ -242,41 +322,38 @@ export default function SettingsPage() {
     window.location.reload()
   }
 
-  async function handleExportContacts() {
-    if (!userId) return
-    setExportingContacts(true)
-    try {
-      const contacts = await fetchContacts(userId)
-      if (contacts.length === 0) return
-      const csv = contactsToCSV(contacts)
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-    } finally {
-      setExportingContacts(false)
-    }
-  }
-
   async function handleExport() {
     if (!userId) return
     setExporting(true)
     try {
-      const jobs = await fetchJobsForExport(userId)
-      if (jobs.length === 0) return
-      const csv = jobsToCSV(jobs)
+      const [jobs, contacts] = await Promise.all([fetchJobsForExport(userId), fetchContacts(userId)])
+      if (jobs.length === 0 && contacts.length === 0) return
+      const csv = buildCombinedCSV(jobs, contacts)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`
+      a.download = `fjh-export-${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!userId) return
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const text = await file.text()
+      const result = await parseCombinedCSV(text, userId)
+      setImportResult(result)
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -405,21 +482,39 @@ export default function SettingsPage() {
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">DATA</h2>
         <div className="flex flex-col gap-4">
+
+          {/* ── Export ── */}
           <button
             onClick={handleExport}
             disabled={exporting}
             className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
           >
-            {exporting ? '  Exporting…' : '  Export jobs to CSV'}
+            {exporting ? '  Exporting…' : '  Export jobs + contacts to CSV'}
           </button>
 
+          {/* ── Import ── */}
+          <input ref={importFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
           <button
-            onClick={handleExportContacts}
-            disabled={exportingContacts}
+            onClick={() => importFileRef.current?.click()}
+            disabled={importing}
             className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
           >
-            {exportingContacts ? '  Exporting…' : '  Export contacts to CSV'}
+            {importing ? '  Importing…' : '  Import from CSV'}
           </button>
+          <p className="text-[10px] text-muted px-1 -mt-2">
+            XP will not be awarded for imported entries.
+          </p>
+
+          {importResult && (
+            <div className="border border-border px-4 py-3 flex flex-col gap-1">
+              <p className="text-[10px] text-secondary tracking-widest mb-1">IMPORT COMPLETE</p>
+              <p className="text-[10px] text-primary">{importResult.jobsImported} job{importResult.jobsImported !== 1 ? 's' : ''} imported{importResult.jobsSkipped > 0 ? `, ${importResult.jobsSkipped} skipped` : ''}</p>
+              <p className="text-[10px] text-primary">{importResult.contactsImported} contact{importResult.contactsImported !== 1 ? 's' : ''} imported{importResult.contactsSkipped > 0 ? `, ${importResult.contactsSkipped} skipped` : ''}</p>
+              {importResult.errors.length > 0 && importResult.errors.map((e, i) => (
+                <p key={i} className="text-[10px] text-warning">{e}</p>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             {/* ── Delete all jobs ── */}
