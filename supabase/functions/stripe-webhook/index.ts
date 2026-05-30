@@ -40,6 +40,42 @@ Deno.serve(async (req) => {
     })
   }
 
+  // Returns a rejection reason string if the subscription event should be dropped, null if valid.
+  // Verifies the user exists in auth and the incoming customer ID matches our DB record.
+  async function validateSubscriptionEvent(
+    supabase: ReturnType<typeof createClient>,
+    subscription: Stripe.Subscription,
+    eventLabel: string,
+  ): Promise<string | null> {
+    const userId = subscription.metadata?.supabase_user_id
+    if (!userId) {
+      console.error('stripe-webhook: no supabase_user_id in metadata for', subscription.id)
+      return 'no_user_id'
+    }
+    const { data: authUser, error: authErr } = await supabase.auth.admin.getUserById(userId)
+    if (authErr || !authUser?.user) {
+      console.error(`stripe-webhook: supabase_user_id not found in auth.users, rejecting ${eventLabel}:`, userId, subscription.id)
+      return 'user_not_found'
+    }
+    // Metadata can be tampered by anyone with Stripe access; our own DB cannot.
+    const incomingCustomerId = subscription.customer as string
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (existing && existing.stripe_customer_id !== incomingCustomerId) {
+      console.error(
+        'stripe-webhook: customer_id mismatch for user', userId,
+        '— expected', existing.stripe_customer_id,
+        'got', incomingCustomerId,
+        `— rejecting ${eventLabel}`, subscription.id,
+      )
+      return 'customer_mismatch'
+    }
+    return null
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -52,44 +88,15 @@ Deno.serve(async (req) => {
       event.type === 'customer.subscription.updated'
     ) {
       const subscription = event.data.object as Stripe.Subscription
-      const userId = subscription.metadata?.supabase_user_id
-      if (!userId) {
-        console.error('stripe-webhook: no supabase_user_id in metadata for', subscription.id)
+
+      if (await validateSubscriptionEvent(supabase, subscription, 'event')) {
         return new Response(JSON.stringify({ received: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
       }
 
-      const { data: authUser, error: authErr } = await supabase.auth.admin.getUserById(userId)
-      if (authErr || !authUser?.user) {
-        console.error('stripe-webhook: supabase_user_id not found in auth.users, rejecting event:', userId, subscription.id)
-        return new Response(JSON.stringify({ received: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-
-      // Verify the Stripe customer on the event matches what we have on record.
-      // Metadata can be tampered by anyone with Stripe access; our own DB cannot.
-      const incomingCustomerId = subscription.customer as string
-      const { data: existingSubscription } = await supabase
-        .from('subscriptions')
-        .select('stripe_customer_id')
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (existingSubscription && existingSubscription.stripe_customer_id !== incomingCustomerId) {
-        console.error(
-          'stripe-webhook: customer_id mismatch for user', userId,
-          '— expected', existingSubscription.stripe_customer_id,
-          'got', incomingCustomerId,
-          '— rejecting event', subscription.id,
-        )
-        return new Response(JSON.stringify({ received: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
+      const userId = subscription.metadata.supabase_user_id!
 
       // Read fields defensively — Stripe API version on the webhook endpoint
       // may differ from the SDK version, so field locations can shift.
@@ -133,28 +140,7 @@ Deno.serve(async (req) => {
       const subscription = event.data.object as Stripe.Subscription
       const userId = subscription.metadata?.supabase_user_id
       if (userId) {
-        const { data: authUser, error: authErr } = await supabase.auth.admin.getUserById(userId)
-        if (authErr || !authUser?.user) {
-          console.error('stripe-webhook: supabase_user_id not found in auth.users, rejecting deleted event:', userId, subscription.id)
-          return new Response(JSON.stringify({ received: true }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-
-        const incomingCustomerId = subscription.customer as string
-        const { data: existingSubscription } = await supabase
-          .from('subscriptions')
-          .select('stripe_customer_id')
-          .eq('user_id', userId)
-          .maybeSingle()
-        if (existingSubscription && existingSubscription.stripe_customer_id !== incomingCustomerId) {
-          console.error(
-            'stripe-webhook: customer_id mismatch for user', userId,
-            '— expected', existingSubscription.stripe_customer_id,
-            'got', incomingCustomerId,
-            '— rejecting deleted event', subscription.id,
-          )
+        if (await validateSubscriptionEvent(supabase, subscription, 'deleted event')) {
           return new Response(JSON.stringify({ received: true }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
