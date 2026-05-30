@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/MusicPlayer'
-import FeedbackModal from '@/components/FeedbackModal'
+import FeedbackModal from '@/components/modals/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
 import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip, playMultiplayerBlip } from '@/lib/sfx'
 
