@@ -67,10 +67,6 @@ export default function CreditsPage() {
             — Fun Job Hunt —
           </p>
           <div className="flex items-center gap-2 mb-10">
-            <span
-              className="inline-block w-2 h-2 rounded-full bg-secondary"
-              style={{ animation: 'blink 1.2s step-start infinite' }}
-            />
             <span className="text-xs text-primary tracking-widest">
               STATUS: <span className="text-secondary">OPEN TO OPPORTUNITIES</span>
             </span>
@@ -217,15 +213,28 @@ function PhotoCard({
 
   return (
     <figure className="flex flex-col gap-2" style={{ transformStyle: 'preserve-3d' }}>
+      {/* tilt wrapper — both card and depth layer rotate together */}
       <div
         style={{
           transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
           transition: 'transform 0.12s linear',
           transformStyle: 'preserve-3d',
           willChange: 'transform',
+          position: 'relative',
         }}
-        className="border border-border overflow-hidden relative bg-bg"
       >
+        {/* depth layer — sits 16px behind the card face */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: 'translateZ(-16px)',
+            background: 'var(--color-border)',
+            opacity: 0.6,
+          }}
+        />
+        <div className="border border-border overflow-hidden relative bg-bg" style={{ transform: 'translateZ(0)' }}>
         {/* loading placeholder */}
         <div
           className="absolute inset-0 bg-border"
@@ -266,6 +275,7 @@ function PhotoCard({
           />
         )}
 
+        </div>
       </div>
       {caption && (
         <figcaption className="body-text text-primary text-center leading-snug">
