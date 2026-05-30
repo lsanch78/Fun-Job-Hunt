@@ -190,20 +190,22 @@ export default function StoryDemo({ mouse }: { mouse: { x: number; y: number } }
     return () => clearInterval(intervalRef.current!)
   }, [streaming, stepIndex, lineIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Play music on first advance
-  function maybeStartMusic() {
-    pressCount.current += 1
-    if (pressCount.current === 1) {
-      const audio = new Audio(introMp3)
-      audio.volume = isSfxMuted() ? 0 : 0.55
-      audio.play().catch(() => {})
-      audioRef.current = audio
-    }
+  function startMusic() {
+    if (pressCount.current > 0) return
+    pressCount.current = 1
+    const audio = new Audio(introMp3)
+    audio.volume = isSfxMuted() ? 0 : 0.55
+    audio.play().catch(() => {})
+    audioRef.current = audio
+  }
+
+  function handleStart() {
+    startMusic()
+    setStarted(true)
   }
 
   function advance() {
-    if (!started) { setStarted(true); return }
-    maybeStartMusic()
+    if (!started) return
     playDialogueConfirm()
     if (streaming) {
       clearInterval(intervalRef.current!)
@@ -244,9 +246,10 @@ export default function StoryDemo({ mouse }: { mouse: { x: number; y: number } }
     }, 200)
   }
 
-  // Keyboard handler
+  // Keyboard handler — only active after scene has started
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (!started) return
       if (isInputStep && !streaming) return // let input field handle it
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance() }
     }
@@ -278,8 +281,8 @@ export default function StoryDemo({ mouse }: { mouse: { x: number; y: number } }
       {/* CRT panel */}
       <div
         className="border border-border bg-black font-pixel text-primary overflow-hidden"
-        style={{ transform: 'translateZ(0)', position: 'relative', minHeight: '340px', cursor: 'pointer' }}
-        onClick={() => { if (!isInputStep || streaming) advance() }}
+        style={{ transform: 'translateZ(0)', position: 'relative', minHeight: '340px', cursor: started && !done ? 'pointer' : 'default' }}
+        onClick={() => { if (started && !done && (!isInputStep || streaming)) advance() }}
       >
         {/* loading sweep */}
         {!revealed && (
@@ -312,18 +315,22 @@ export default function StoryDemo({ mouse }: { mouse: { x: number; y: number } }
 
           {/* Title screen — before start */}
           {!started && !done && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6"
+            <div className="flex-1 flex flex-col items-center justify-center gap-8"
               style={{ animation: 'story-demo-fadein 0.6s ease-in forwards' }}>
               <div className="text-center">
                 <p className="text-[9px] text-secondary tracking-widest mb-4">CHAPTER 1</p>
                 <h2 className="text-xl text-primary mb-2">DESTITUTE JOB SEEKER</h2>
                 <p className="text-[9px] text-muted tracking-widest">— AN ORIGINAL STORY —</p>
               </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="text-[9px] text-muted tracking-widest" style={{ animation: 'story-demo-prompt 1.2s ease-in-out infinite' }}>
-                  [ CLICK TO BEGIN ]
-                </div>
-                <p className="text-[8px] text-muted text-center max-w-xs leading-relaxed mt-2">
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  onClick={e => { e.stopPropagation(); handleStart() }}
+                  className="px-8 py-3 border border-primary text-primary text-xs hover:bg-primary hover:text-bg transition-colors"
+                  style={{ animation: 'story-demo-prompt 1.8s ease-in-out infinite' }}
+                >
+                  ▶ START STORY DEMO
+                </button>
+                <p className="text-[8px] text-muted text-center max-w-xs leading-relaxed">
                   ♪ Features all original music composed for the hunt
                 </p>
               </div>
