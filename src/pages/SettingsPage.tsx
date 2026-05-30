@@ -365,7 +365,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="text-sm mb-6 text-secondary">PARTY</h2>
+        <h2 className="text-sm mb-6 text-secondary">NETWORK</h2>
         <div className="flex flex-col gap-3">
           <p className="text-muted text-xs mb-2">How often you can COMM a contact</p>
           <div className="flex flex-wrap gap-2">

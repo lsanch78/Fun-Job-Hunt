@@ -23,7 +23,7 @@ const THEME_LABELS: Record<Theme, string> = {
 
 const NAV_LINKS = [
   { label: 'JOBS',        to: '/jobs' },
-  { label: 'PARTY', to: '/party' },
+  { label: 'NETWORK', to: '/network' },
   { label: 'STORY',       to: '/story' },
   { label: 'STATS',       to: '/stats' },
   { label: 'CREDITS',     to: '/credits' },
@@ -122,15 +122,15 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Nav links — mobile: JOBS, PARTY, and CREDITS only */}
-        {NAV_LINKS.filter(({ to }) => to === '/jobs' || to === '/party' || to === '/credits').map(({ label, to }) => (
+        {/* Nav links — mobile: JOBS, NETWORK, and CREDITS only */}
+        {NAV_LINKS.filter(({ to }) => to === '/jobs' || to === '/network' || to === '/credits').map(({ label, to }) => (
           <NavLink
             key={to}
             to={to}
             onClick={() => {
               setDrawerOpen(false)
               if (to === '/jobs') playJobsBoot()
-              else if (to === '/party') playMultiplayerBlip()
+              else if (to === '/network') playMultiplayerBlip()
               else if (to === '/credits') playCreditsBlip()
             }}
             className={({ isActive }) =>
@@ -250,7 +250,7 @@ export default function NavBar() {
             <NavLink
               key={to}
               to={to}
-              onClick={to === '/jobs' ? playJobsBoot : to === '/party' ? playMultiplayerBlip : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
+              onClick={to === '/jobs' ? playJobsBoot : to === '/network' ? playMultiplayerBlip : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
               className={({ isActive }) =>
                 `whitespace-nowrap transition-none ${
                   isActive

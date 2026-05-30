@@ -788,9 +788,9 @@ export function playAuthBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── PartyPage ─────────────────────────────────────────────────────────────────
+// ── NetworkPage ───────────────────────────────────────────────────────────────
 
-/** Two-note rising blip for party nav: A4 → E5. */
+/** Two-note rising blip for network nav: A4 → E5. */
 export function playMultiplayerBlip(): void {
   if (isSfxMuted()) return
   try {
@@ -888,10 +888,10 @@ export function playPingBlip(exp?: number): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── UniverseView ──────────────────────────────────────────────────────────────
+// ── NetworkMapView ────────────────────────────────────────────────────────────
 
-/** Upward whoosh for entering universe view. */
-export function playUniverseOpen(): void {
+/** Upward whoosh for entering network map view. */
+export function playNetworkMapOpen(): void {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
@@ -924,8 +924,8 @@ export function playUniverseOpen(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-/** Downward whoosh for exiting universe view — open played in reverse. */
-export function playUniverseClose(): void {
+/** Downward whoosh for exiting network map view — open played in reverse. */
+export function playNetworkMapClose(): void {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()

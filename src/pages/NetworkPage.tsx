@@ -10,7 +10,7 @@ import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
 } from '@/services/contactService'
-import { playDeleteBump, playTrash, playUniverseOpen, playUniverseClose } from '@/lib/sfx'
+import { playDeleteBump, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
 import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
@@ -40,7 +40,7 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PartyPage({ userId }: { userId: string | null }) {
+export default function NetworkPage({ userId }: { userId: string | null }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
@@ -48,12 +48,12 @@ export default function PartyPage({ userId }: { userId: string | null }) {
   const [sortBy, setSortBy] = useState<SortBy>('recent')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [search, setSearch] = useState('')
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.partyTimeRange, 'all') as TimeRange)
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.networkTimeRange, 'all') as TimeRange)
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [universeView, setUniverseView] = useState(false)
+  const [networkMapView, setNetworkMapView] = useState(false)
   const [expOverrides, setExpOverrides] = useState<Record<string, number>>({})
   const [cooldownHours, setCooldownHours] = useState(168)
   const [page, setPage] = useState(1)
@@ -62,14 +62,14 @@ export default function PartyPage({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && universeView) {
-        playUniverseClose()
-        setUniverseView(false)
+      if (e.key === 'Escape' && networkMapView) {
+        playNetworkMapClose()
+        setNetworkMapView(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [universeView])
+  }, [networkMapView])
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -132,7 +132,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
         commExp: 0,
         lastCommAt: null,
       }, userId)
-      if (error) { console.error('[PartyPage] insertContact:', error); return }
+      if (error) { console.error('[NetworkPage] insertContact:', error); return }
       if (data) {
         await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
         setContacts((prev) => prev.map((c) => c.id === contact.id ? data : c))
@@ -175,7 +175,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
-    lsSet(SK.partyTimeRange, r)
+    lsSet(SK.networkTimeRange, r)
   }
 
   const cutoff = getTimeRangeCutoff(timeRange)
@@ -202,7 +202,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
         <div>
-          <h1 className="text-sm tracking-widest">PARTY</h1>
+          <h1 className="text-sm tracking-widest">NETWORK</h1>
           <p className="text-muted text-xs mt-1">
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''} in your network`}
           </p>
@@ -210,14 +210,14 @@ export default function PartyPage({ userId }: { userId: string | null }) {
         <div className="flex items-center gap-2">
           {contacts.length > 0 && (
             <button
-              onClick={() => setUniverseView((v) => { v ? playUniverseClose() : playUniverseOpen(); return !v })}
+              onClick={() => setNetworkMapView((v) => { v ? playNetworkMapClose() : playNetworkMapOpen(); return !v })}
               className={`text-[10px] px-3 py-1.5 border transition-none ${
-                universeView
+                networkMapView
                   ? 'border-primary text-primary'
                   : 'border-border text-muted hover:border-secondary hover:text-secondary'
               }`}
             >
-              YOUR UNIVERSE
+              YOUR NETWORK
             </button>
           )}
           <button
@@ -306,7 +306,7 @@ export default function PartyPage({ userId }: { userId: string | null }) {
 
         {/* Animated network backdrop */}
         {!loading && contacts.length > 0 && (
-          <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={universeView} expOverrides={expOverrides} />
+          <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={networkMapView} expOverrides={expOverrides} />
         )}
 
         {/* Empty state */}
@@ -321,12 +321,12 @@ export default function PartyPage({ userId }: { userId: string | null }) {
           </div>
         )}
 
-        {/* Contact table — fades out in universe view */}
+        {/* Contact table — fades out in network map view */}
         {contacts.length > 0 && (
           <div
             style={{
-              opacity: universeView ? 0 : 1,
-              pointerEvents: universeView ? 'none' : undefined,
+              opacity: networkMapView ? 0 : 1,
+              pointerEvents: networkMapView ? 'none' : undefined,
               transition: 'opacity 600ms ease',
               overflowY: 'auto',
               height: '100%',

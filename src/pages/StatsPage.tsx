@@ -340,7 +340,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
     return Math.floor((today.getTime() - last.getTime()) / 86_400_000)
   }, [jobs])
 
-  // ── Party ───────────────────────────────────────────────────────────────────
+  // ── Network ─────────────────────────────────────────────────────────────────
   const totalContacts = contacts.length
 
   const champCount    = useMemo(() => contacts.filter((c) => c.commExp >= 80).length, [contacts])
@@ -521,9 +521,9 @@ export default function StatsPage({ userId }: { userId: string | null }) {
         />
       </div>
 
-      {/* ── Row 6: Party ────────────────────────────────────────────────────── */}
+      {/* ── Row 6: Network ──────────────────────────────────────────────────── */}
       <div className="px-6 pt-4 pb-0">
-        <h2 className="font-pixel text-[10px] tracking-widest text-muted">PARTY</h2>
+        <h2 className="font-pixel text-[10px] tracking-widest text-muted">NETWORK</h2>
       </div>
       <div className="px-6 py-4 flex flex-wrap justify-start gap-4 border-b border-border">
         <StatCard

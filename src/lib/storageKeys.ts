@@ -47,7 +47,7 @@ export const SK = {
   authSound:      'fjobhunt:auth_sound',
   colConfig:      'fjobhunt:col_config',
   timeRange:      'fjobhunt:time_range',
-  partyTimeRange: 'fjobhunt:party_time_range',
+  networkTimeRange: 'fjobhunt:network_time_range',
   tutorialSeen:   (uid: string) => `fjobhunt:tutorial_seen:${uid}`,
   globalStats:    'fjobhunt:global_stats',
 } as const
