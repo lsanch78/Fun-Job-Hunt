@@ -120,10 +120,10 @@ export default function App() {
       <SubscriptionProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/landing" element={session ? <Navigate to="/jobs" replace /> : <LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/" element={<Navigate to="/jobs" replace />} />
+          <Route path="/" element={<Navigate to="/landing" replace />} />
           <Route
             path="/jobs"
             element={

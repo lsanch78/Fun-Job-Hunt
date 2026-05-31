@@ -124,7 +124,7 @@ export default function AuthPage() {
     })
     setLoading(false)
     if (error) { setError(error.message); return }
-    navigate('/')
+    navigate('/jobs')
   }
 
   function toggleSound() {
@@ -151,10 +151,11 @@ export default function AuthPage() {
     }
     playBlip()
     setTimeout(() => {
-      if (returningName) navigate('/')
+      if (returningName) navigate('/jobs')
       else setScreen('email')
     }, 80)
   }
+
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -198,7 +199,7 @@ export default function AuthPage() {
     // Refresh session so the JWT reflects metadata set by the DB trigger on insert
     await supabase.auth.refreshSession()
     setLoading(false)
-    navigate('/')
+    navigate('/jobs')
   }
 
   // Fallback: full-page redirect for browsers where One Tap is blocked

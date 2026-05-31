@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { playLinkBlip } from '@/lib/sfx'
+import { supabase } from '@/lib/supabase'
 import JobLogDemo from '@/components/landing/JobLogDemo'
 import NetworkDemo from '@/components/landing/NetworkDemo'
 import QuickCastDemo from '@/components/landing/QuickCastDemo'
@@ -37,7 +38,12 @@ const KEYFRAMES = `
 export default function LandingPage() {
   const [booted, setBooted] = useState(false)
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
+  const [loggedIn, setLoggedIn] = useState(false)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLoggedIn(!!data.session))
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 80)
@@ -99,10 +105,10 @@ export default function LandingPage() {
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => { playLinkBlip(); navigate('/auth') }}
+              onClick={() => { playLinkBlip(); navigate(loggedIn ? '/jobs' : '/auth') }}
               className="px-8 py-3 border border-primary text-primary text-xs hover:bg-primary hover:text-bg transition-colors"
             >
-              START YOUR HUNT
+              {loggedIn ? 'CONTINUE YOUR HUNT' : 'START YOUR HUNT'}
             </button>
             <a
               href="#features"
@@ -290,10 +296,10 @@ export default function LandingPage() {
         <p className="text-[9px] text-secondary tracking-widest mb-4">GAME START</p>
         <h2 className="text-2xl text-primary mb-6">READY TO HUNT?</h2>
         <button
-          onClick={() => { playLinkBlip(); navigate('/auth') }}
+          onClick={() => { playLinkBlip(); navigate(loggedIn ? '/jobs' : '/auth') }}
           className="px-10 py-4 border border-primary text-primary text-xs hover:bg-primary hover:text-bg transition-colors"
         >
-          CREATE FREE ACCOUNT
+          {loggedIn ? 'CONTINUE YOUR HUNT' : 'CREATE FREE ACCOUNT'}
         </button>
       </section>
     </div>
