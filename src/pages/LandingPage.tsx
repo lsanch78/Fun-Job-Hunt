@@ -153,7 +153,7 @@ export default function LandingPage() {
 
       {/* ── Network Demo ─────────────────────────────────────────────────── */}
       <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
-        <SectionHeader title="THEN TAKE IT TO SPACE" sub="IS NETWORKING ALIEN TO YOU?" />
+        <SectionHeader title="THEN LET'S MEET IT IN SPACE" sub="IS NETWORKING ALIEN TO YOU?" />
         <NetworkDemo mouse={mouse} index={1} />
         <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
           {[
@@ -172,7 +172,7 @@ export default function LandingPage() {
 
       {/* ── Story Demo ───────────────────────────────────────────────────── */}
       <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
-        <SectionHeader title="JOB HUNT?" sub="Hey! You spilled STORY MODE all over my" />
+        <SectionHeader title="JOB HUNT?" sub="Hey! You spilled an entire STORY MODE all over my" />
         <StoryDemo mouse={mouse} index={2} />
         <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
           {[
