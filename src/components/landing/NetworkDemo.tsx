@@ -1,29 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
-import { playLinkBlip, playPingBlip } from '@/lib/sfx'
-import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
+import AiButton from '@/components/ai/AiButton'
+import type { AiPhase } from '@/hooks/useAI'
+import { playPingBlip, playAiConsume, playAiDing } from '@/lib/sfx'
 import type { Contact } from '@/types'
 
-// ── Comm XP popup keyframes (injected once, same as ContactList) ───────────────
-const COMM_XP_STYLE = `
+// ── Keyframes ─────────────────────────────────────────────────────────────────
+const DEMO_KEYFRAMES = `
 @keyframes demo-comm-xp-pop {
   0%   { opacity: 0; transform: translateX(-50%) translateY(0px)   scale(0.7); }
   15%  { opacity: 1; transform: translateX(-50%) translateY(-12px) scale(1.2); }
-  70%  { opacity: 1; transform: translateX(-50%) translateY(-36px) scale(1.05); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-58px) scale(0.95); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-48px) scale(1.05); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-72px) scale(0.95); }
+}
+@keyframes demo-scanlines-scroll {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 8px; }
+}
+@keyframes demo-scanline-sweep {
+  0%   { top: -6px; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
 }
 `
-if (typeof document !== 'undefined' && !document.getElementById('demo-comm-xp-keyframes')) {
-  const el = document.createElement('style')
-  el.id = 'demo-comm-xp-keyframes'
-  el.textContent = COMM_XP_STYLE
-  document.head.appendChild(el)
-}
 
-const DEMO_COOLDOWN_HOURS = 0.05 // 3 min cooldown in demo so it's actually usable
-const CONTACT_XP_PER_COMM = 5
-
-// ── Exp helpers (mirrors ContactList) ─────────────────────────────────────────
+// ── Exp helpers ────────────────────────────────────────────────────────────────
 function getExpRank(exp: number): { level: number; title: string; barColor: string } {
   if (exp >= 80) return { level: 5, title: 'Champion', barColor: '#22c55e' }
   if (exp >= 60) return { level: 4, title: 'Ally',     barColor: '#84cc16' }
@@ -45,7 +45,7 @@ function ExpBar({ exp }: { exp: number }) {
   )
 }
 
-// ── Seed contacts ─────────────────────────────────────────────────────────────
+// ── Contacts ──────────────────────────────────────────────────────────────────
 function makeContact(id: string, name: string, company: string, daysAgo: number | null): Contact {
   return {
     id,
@@ -53,295 +53,325 @@ function makeContact(id: string, name: string, company: string, daysAgo: number 
     name,
     company,
     lastInteractionAt: daysAgo === null ? null : new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
-    commExp: daysAgo === null ? 0 : daysAgo === 0 ? 100 : daysAgo <= 7 ? 85 : daysAgo <= 14 ? 65 : daysAgo <= 30 ? 45 : 20,
+    commExp: daysAgo === null ? 0 : daysAgo <= 7 ? 65 : daysAgo <= 14 ? 45 : daysAgo <= 30 ? 25 : 10,
     lastCommAt: daysAgo === null ? null : new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
     createdAt: new Date(Date.now() - 10 * 86_400_000).toISOString(),
   }
 }
 
-const SEED_CONTACTS: Contact[] = [
-  makeContact('c1', 'Ada Lovelace',    'Aperture Science', 2),
-  makeContact('c2', 'Alan Turing',     'Initech',          9),
-  makeContact('c3', 'Grace Hopper',    'Umbrella Corp',    25),
-  makeContact('c4', 'Linus Torvalds',  'Vault-Tec',        null),
+const DEMO_CONTACTS: Array<{
+  contact: Contact
+  aiDraft: string
+}> = [
+  {
+    contact: makeContact('c1', 'Ada Lovelace',   'Aperture Science', 8),
+    aiDraft: `Hi Ada,\n\nYour work at Aperture Science caught my eye — the engineering culture there looks genuinely exciting. I'm exploring new opportunities and would love to hear your perspective.\n\nOpen to a quick chat?`,
+  },
+  {
+    contact: makeContact('c2', 'Alan Turing',    'Initech', 15),
+    aiDraft: `Hey Alan,\n\nI've been following the work coming out of Initech and think there's a strong alignment with what I'm looking for next.\n\nWould you be up for a 15-minute call sometime?`,
+  },
+  {
+    contact: makeContact('c3', 'Grace Hopper',   'Umbrella Corp', 30),
+    aiDraft: `Hi Grace,\n\nYour background at Umbrella Corp is really impressive — especially the systems work. I'd love to connect and learn more about your experience there.\n\nAny chance you'd be open to a coffee chat?`,
+  },
 ]
 
 const SEED_JOBS: Record<string, { id: string; title: string; company: string }[]> = {
   c1: [{ id: 'j1', title: 'Frontend Engineer', company: 'Aperture Science' }],
-  c2: [{ id: 'j2', title: 'Sr. React Dev',     company: 'Initech'          }],
-  c3: [],
-  c4: [],
+  c2: [], c3: [],
 }
 
-let nextContactNum = SEED_CONTACTS.length + 1
+const AI_TOKEN_SPEED = 3
+const CONTACT_XP_PER_COMM = 10
 
-const DEMO_NAMES = [
-  'Dennis Ritchie', 'Guido van Rossum', 'Margaret Hamilton', 'John von Neumann',
-  'Tim Berners-Lee', 'Ken Thompson', 'Barbara Liskov', 'Donald Knuth',
-]
+type RowStep = 'idle' | 'ai_generating' | 'ai_ready' | 'commed'
 
-const DEMO_COMPANIES = [
-  'Weyland-Yutani', 'Cyberdyne Systems', 'Soylent Corp', 'Tyrell Corp',
-  'Buy n Large', 'Omni Consumer Products', 'InGen', 'Rekall Inc',
-]
-
-// ── CommButton — mirrors the real PingButton from ContactList ─────────────────
-function CommButton({ contactId, lastCommAt, onComm }: {
-  contactId: string
-  lastCommAt: string | null
-  onComm: (id: string, x: number, y: number) => void
-}) {
-  const [state, setState] = useState<'idle' | 'done'>('idle')
-  const [remaining, setRemaining] = useState(() => commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS))
-  const btnRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    setRemaining(commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS))
-    if (!lastCommAt) return
-    const interval = setInterval(() => {
-      const r = commCooldownRemaining(lastCommAt, DEMO_COOLDOWN_HOURS)
-      setRemaining(r)
-      if (r <= 0) clearInterval(interval)
-    }, 15_000)
-    return () => clearInterval(interval)
-  }, [lastCommAt])
-
-  const locked = remaining > 0
-
-  function handleClick() {
-    if (state === 'done' || locked) return
-    playPingBlip()
-    const rect = btnRef.current?.getBoundingClientRect()
-    onComm(contactId, rect ? rect.left + rect.width / 2 : window.innerWidth / 2, rect ? rect.top : window.innerHeight / 2)
-    setState('done')
-    setTimeout(() => setState('idle'), 1500)
-  }
-
-  return (
-    <button
-      ref={btnRef}
-      onClick={e => { e.stopPropagation(); handleClick() }}
-      disabled={locked}
-      title={locked ? `Available in ${formatCooldown(remaining)}` : undefined}
-      className={`font-pixel text-[8px] px-3 py-3 border whitespace-nowrap transition-none w-[80px]
-        ${locked
-          ? 'border-border text-muted cursor-not-allowed'
-          : state === 'done'
-            ? 'border-primary text-bg bg-primary'
-            : 'border-secondary text-secondary hover:border-primary hover:text-primary'
-        }`}
-    >
-      {locked ? formatCooldown(remaining) : 'COMM'}
-    </button>
-  )
+interface RowState {
+  contact: Contact
+  exp: number
+  step: RowStep
+  aiDraft: string
+  aiPhase: AiPhase
+  aiDots: number
+  commXpPop: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function NetworkDemo({ mouse }: { mouse: { x: number; y: number } }) {
-  const [contacts, setContacts] = useState<Contact[]>(SEED_CONTACTS)
-  const [jobsByContact, setJobsByContact] = useState(SEED_JOBS)
-  const [expOverrides, setExpOverrides] = useState<Record<string, number>>(
-    () => Object.fromEntries(SEED_CONTACTS.map(c => [c.id, c.commExp]))
+export default function NetworkDemo({ mouse, index = 0, expanded = false }: { mouse: { x: number; y: number }; index?: number; expanded?: boolean }) {
+  const [rows, setRows] = useState<RowState[]>(
+    DEMO_CONTACTS.map(({ contact }) => ({
+      contact,
+      exp: contact.commExp,
+      step: 'idle' as RowStep,
+      aiDraft: '',
+      aiPhase: 'idle' as AiPhase,
+      aiDots: 0,
+      commXpPop: false,
+    }))
   )
-  const [name, setName] = useState('')
-  const [company, setCompany] = useState('')
   const [revealed, setRevealed] = useState(false)
-  const [popups, setPopups] = useState<{ id: number; x: number; y: number }[]>([])
-  const popupCounter = useRef(0)
-  const inputRef = useRef<HTMLInputElement>(null)
+
+  const clickIndexRef = useRef(0)
+  const lastClickRef = useRef(0)
+  const aiRafRef = useRef<number | null>(null)
+  const dotsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+  const tableWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 1400)
     return () => clearTimeout(t)
   }, [])
 
-  function handleAdd() {
-    const n = name.trim() || DEMO_NAMES[(nextContactNum - 1) % DEMO_NAMES.length]
-    const co = company.trim() || DEMO_COMPANIES[(nextContactNum - 1) % DEMO_COMPANIES.length]
-    const id = `demo-${nextContactNum++}`
-    const now = new Date().toISOString()
-    const newContact: Contact = {
-      id,
-      userId: 'demo',
-      name: n,
-      company: co,
-      lastInteractionAt: now,
-      commExp: 85,
-      lastCommAt: now,
-      createdAt: now,
+  useEffect(() => {
+    return () => {
+      if (aiRafRef.current) cancelAnimationFrame(aiRafRef.current)
+      if (dotsIntervalRef.current) clearInterval(dotsIntervalRef.current)
     }
-    setContacts(prev => [newContact, ...prev])
-    setJobsByContact(prev => ({ ...prev, [id]: [] }))
-    setExpOverrides(prev => ({ ...prev, [id]: 85 }))
-    playLinkBlip()
-    setName('')
-    setCompany('')
-    inputRef.current?.focus()
+  }, [])
+
+  // ── AI stream simulation ──────────────────────────────────────────────────
+  function streamAiDraft(contactId: string, fullDraft: string) {
+    if (aiRafRef.current) cancelAnimationFrame(aiRafRef.current)
+    let elapsed = 0
+    let lastTs: number | null = null
+
+    function tick(ts: number) {
+      if (lastTs !== null) elapsed += ts - lastTs
+      lastTs = ts
+      const charsRevealed = Math.min(Math.floor(elapsed / AI_TOKEN_SPEED), fullDraft.length)
+      setRows(prev => prev.map(r =>
+        r.contact.id === contactId ? { ...r, aiDraft: fullDraft.slice(0, charsRevealed) } : r
+      ))
+      if (charsRevealed < fullDraft.length) {
+        aiRafRef.current = requestAnimationFrame(tick)
+      } else {
+        aiRafRef.current = null
+        playAiDing()
+        setRows(prev => prev.map(r =>
+          r.contact.id === contactId ? { ...r, aiPhase: 'ready', step: 'ai_ready' } : r
+        ))
+      }
+    }
+    aiRafRef.current = requestAnimationFrame(tick)
   }
 
-  function handleComm(id: string, x: number, y: number) {
-    const now = new Date().toISOString()
-    setContacts(prev => prev.map(c =>
-      c.id === id ? { ...c, lastInteractionAt: now, commExp: Math.min(100, (c.commExp ?? 0) + CONTACT_XP_PER_COMM), lastCommAt: now } : c
-    ))
-    setExpOverrides(prev => ({ ...prev, [id]: Math.min(100, (prev[id] ?? 0) + CONTACT_XP_PER_COMM) }))
-    const pid = ++popupCounter.current
-    setPopups(prev => [...prev, { id: pid, x, y }])
-    setTimeout(() => setPopups(prev => prev.filter(p => p.id !== pid)), 1200)
-  }
+  // ── Click handler ─────────────────────────────────────────────────────────
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleAdd()
+  function handleClick() {
+    const now = Date.now()
+    if (now - lastClickRef.current < 500) return
+    lastClickRef.current = now
+
+    // find the next contact that isn't fully done (commed), or loop back
+    const total = DEMO_CONTACTS.length
+    let targetIdx = clickIndexRef.current % total
+    const { contact, aiDraft: fullDraft } = DEMO_CONTACTS[targetIdx]
+    const contactId = contact.id
+
+    setRows(prev => {
+      const row = prev.find(r => r.contact.id === contactId)
+      if (!row) return prev
+
+      if (row.step === 'idle' || row.step === 'commed') {
+        // Click 1: draft
+        playAiConsume()
+        if (dotsIntervalRef.current) clearInterval(dotsIntervalRef.current)
+        streamAiDraft(contactId, fullDraft)
+        return prev.map(r =>
+          r.contact.id === contactId
+            ? { ...r, step: 'ai_generating', aiPhase: 'generating', aiDraft: '', commXpPop: false }
+            : r
+        )
+      }
+
+      if (row.step === 'ai_generating' || row.step === 'ai_ready') {
+        if (aiRafRef.current) cancelAnimationFrame(aiRafRef.current)
+        if (dotsIntervalRef.current) clearInterval(dotsIntervalRef.current)
+        playPingBlip()
+        const newExp = Math.min(100, row.exp + CONTACT_XP_PER_COMM)
+        clickIndexRef.current++
+        setTimeout(() => setRows(p => p.map(r =>
+          r.contact.id === contactId ? { ...r, commXpPop: false } : r
+        )), 1200)
+        return prev.map(r =>
+          r.contact.id === contactId
+            ? { ...r, step: 'commed', exp: newExp, aiPhase: 'idle', commXpPop: true }
+            : r
+        )
+      }
+
+      return prev
+    })
   }
 
   const TILT_MAX = 3
-  const rotX = -mouse.y * TILT_MAX
-  const rotY = mouse.x * TILT_MAX
+  const depth = 1 + index * 0.4
+  const rotX = -mouse.y * TILT_MAX * depth
+  const rotY = mouse.x * TILT_MAX * depth
+
+  const currentRow = rows[clickIndexRef.current % DEMO_CONTACTS.length]
+  const footerHint = currentRow?.step === 'ai_generating' || currentRow?.step === 'ai_ready'
+    ? 'CLICK TO LOG COMM'
+    : 'CLICK TO DRAFT OUTREACH'
 
   return (
     <>
-      {/* XP popups */}
-      {popups.map(p => (
-        <div
-          key={p.id}
-          className="pointer-events-none fixed z-[9999] select-none font-pixel"
-          style={{
-            left: p.x,
-            top: p.y,
-            fontSize: '0.7rem',
-            color: '#22c55e',
-            animation: 'demo-comm-xp-pop 1.0s ease-out forwards',
-          }}
-        >
-          +{CONTACT_XP_PER_COMM} COMM XP
-        </div>
-      ))}
+      <style>{DEMO_KEYFRAMES}</style>
 
-    <div
-      style={{
-        transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
-        transition: 'transform 0.12s linear',
-        transformStyle: 'preserve-3d',
-        willChange: 'transform',
-        position: 'relative',
-      }}
-    >
-      {/* depth shadow */}
       <div
-        aria-hidden
         style={{
-          position: 'absolute',
-          inset: 0,
-          transform: 'translateZ(-20px)',
-          background: 'var(--color-border)',
-          opacity: 0.5,
+          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
+          transition: 'transform 0.12s linear',
+          transformStyle: 'preserve-3d',
+          willChange: 'transform',
+          position: 'relative',
+          cursor: 'pointer',
         }}
-      />
-
-      {/* panel face */}
-      <div
-        className="border border-border bg-bg font-pixel text-primary overflow-hidden"
-        style={{ transform: 'translateZ(0)', position: 'relative' }}
-        onClick={() => inputRef.current?.focus()}
       >
-        {/* ── Live network graph backdrop ─────────────────────────── */}
-        <div className="relative" style={{ height: '200px' }}>
-          <NetworkBackdrop
-            contacts={contacts}
-            jobsByContact={jobsByContact}
-            expanded={false}
-            expOverrides={expOverrides}
-          />
-          {/* overlay label */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-[9px] text-muted tracking-widest opacity-60">YOUR NETWORK</span>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: 'translateZ(-60px)',
+            background: 'var(--color-border)',
+            opacity: 0.8,
+          }}
+        />
+
+        <div
+          className="border border-border bg-bg font-pixel text-primary overflow-hidden select-none"
+          style={{
+            transform: 'translateZ(0)',
+            position: 'relative',
+            height: expanded ? '840px' : '420px',
+            transition: 'height 0.4s ease',
+            cursor: 'pointer',
+          }}
+          onClick={handleClick}
+        >
+          {!revealed && (
+            <div
+              className="absolute left-0 w-full h-1.5 bg-secondary z-10"
+              style={{ opacity: 0.7, animation: 'demo-scanline-sweep 0.6s linear infinite', top: '-6px' }}
+            />
+          )}
+
+          {/* Network graph */}
+          <div className="relative" style={{ height: '180px' }}>
+            <NetworkBackdrop
+              contacts={rows.map(r => r.contact)}
+              jobsByContact={SEED_JOBS}
+              expanded={false}
+              expOverrides={Object.fromEntries(rows.map(r => [r.contact.id, r.exp]))}
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-[9px] text-muted tracking-widest opacity-60">YOUR NETWORK</span>
+            </div>
           </div>
-        </div>
 
-        {/* ── Add row ─────────────────────────────────────────────── */}
-        <div className="px-4 py-3 border-t border-b border-border flex gap-2 items-center bg-surface">
-          <input
-            ref={inputRef}
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Name…"
-            maxLength={30}
-            className="bg-transparent border-b border-border focus:border-primary outline-none text-xs text-primary placeholder-muted font-pixel py-0.5 w-32 min-w-0"
-          />
-          <input
-            type="text"
-            value={company}
-            onChange={e => setCompany(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Company…"
-            maxLength={30}
-            className="bg-transparent border-b border-border focus:border-primary outline-none text-xs text-primary placeholder-muted font-pixel py-0.5 flex-1 min-w-0"
-          />
-          <button
-            onClick={handleAdd}
-            className="text-[10px] px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-bg transition-colors"
-          >
-            + ADD
-          </button>
-        </div>
-
-        {/* ── Contact rows ────────────────────────────────────────── */}
-        <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
-          <table className="border-collapse text-xs w-full">
-            <thead>
-              <tr className="border-b border-border text-muted text-left select-none">
-                <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">NAME</th>
-                <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">COMPANY</th>
-                <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">COMM EXP</th>
-                <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.map(contact => (
-                <tr key={contact.id} className="border-b border-border hover:bg-surface transition-none">
-                  <td className="px-3 py-2 text-xs text-primary truncate max-w-[120px]">{contact.name}</td>
-                  <td className="px-3 py-2 text-xs text-muted truncate max-w-[120px]">{contact.company ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    <ExpBar exp={expOverrides[contact.id] ?? contact.commExp} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <CommButton
-                      contactId={contact.id}
-                      lastCommAt={contact.lastCommAt ?? null}
-                      onComm={handleComm}
-                    />
-                  </td>
+          {/* Contact rows — no scroll */}
+          <div ref={tableWrapRef} className="overflow-hidden" style={{ height: '210px', position: 'relative' }}>
+            <table className="border-collapse text-xs w-full" style={{ cursor: 'pointer' }}>
+              <thead>
+                <tr className="border-b border-border text-muted text-left">
+                  <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">NAME</th>
+                  <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">COMPANY</th>
+                  <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal">COMM EXP</th>
+                  <th className="px-3 py-1.5 text-[9px] tracking-widest font-normal"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map(row => (
+                  <tr
+                    key={row.contact.id}
+                    ref={el => { rowRefs.current[row.contact.id] = el }}
+                    className="border-b border-border"
+                  >
+                    <td className="px-3 py-2 text-xs text-primary truncate max-w-[100px]">{row.contact.name}</td>
+                    <td className="px-3 py-2 text-xs text-muted truncate max-w-[100px]">{row.contact.company ?? '—'}</td>
+                    <td className="px-3 py-2 relative">
+                      <ExpBar exp={row.exp} />
+                      {row.commXpPop && (
+                        <span
+                          className="pointer-events-none absolute font-pixel"
+                          style={{
+                            left: '50%',
+                            top: 0,
+                            fontSize: '0.65rem',
+                            color: '#22c55e',
+                            animation: 'demo-comm-xp-pop 1.1s ease-out forwards',
+                            whiteSpace: 'nowrap',
+                            zIndex: 20,
+                          }}
+                        >
+                          +{CONTACT_XP_PER_COMM} COMM XP
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.step === 'commed' ? (
+                        <span className="font-pixel text-[8px] px-2 py-1 border border-primary text-bg bg-primary inline-block text-center w-[72px]">✓ SENT</span>
+                      ) : (row.step === 'ai_generating' || row.step === 'ai_ready') ? (
+                        <AiButton label="DRAFT" phase={row.aiPhase} dots={row.aiDots} onClick={handleClick} />
+                      ) : (
+                        <AiButton label="DRAFT" phase="idle" dots={0} onClick={handleClick} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-        {/* ── Footer ──────────────────────────────────────────────── */}
-        <div className="px-4 py-2 border-t border-border flex items-center justify-between">
-          <span className="text-[9px] text-muted tracking-widest">
-            {contacts.length} CONTACT{contacts.length !== 1 ? 'S' : ''} IN YOUR NETWORK
-          </span>
-          <span className="text-[9px] text-muted tracking-widest">COMM TO BOOST EXP</span>
-        </div>
+            {/* AI draft overlay — covers the full rows area */}
+            {rows.map(row => {
+              if (row.step !== 'ai_generating' && row.step !== 'ai_ready') return null
+              return (
+                <div
+                  key={`${row.contact.id}-overlay`}
+                  className="absolute inset-0 bg-bg font-pixel flex flex-col"
+                  style={{ zIndex: 10, padding: '10px 14px', borderBottom: '1px solid var(--color-border)' }}
+                >
+                  <div className="text-muted text-[9px] tracking-widest mb-2">// AI OUTREACH DRAFT · {row.contact.name}</div>
+                  <pre className="text-primary text-[11px] whitespace-pre-wrap leading-relaxed font-pixel flex-1 overflow-hidden">{row.aiDraft}</pre>
+                  <div className="flex justify-center mt-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); handleClick() }}
+                      className="font-pixel text-[9px] px-6 py-1.5 border border-secondary text-secondary hover:border-primary hover:text-primary transition-colors"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      COMM
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
 
-        {/* CRT scanline overlay */}
-        {revealed && (
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)',
-              backgroundSize: '100% 4px',
-              animation: 'demo-scanlines-scroll 0.3s linear infinite',
-              mixBlendMode: 'multiply',
-            }}
-          />
-        )}
+          {/* Footer */}
+          <div className="px-4 py-2 border-t border-border flex items-center justify-between">
+            <span className="text-[9px] text-muted tracking-widest">
+              {rows.length} CONTACT{rows.length !== 1 ? 'S' : ''} IN YOUR NETWORK
+            </span>
+            <span className="text-[9px] text-muted tracking-widest">{footerHint}</span>
+          </div>
+
+          {revealed && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)',
+                backgroundSize: '100% 4px',
+                animation: 'demo-scanlines-scroll 0.3s linear infinite',
+                mixBlendMode: 'multiply',
+              }}
+            />
+          )}
+        </div>
       </div>
-    </div>
     </>
   )
 }

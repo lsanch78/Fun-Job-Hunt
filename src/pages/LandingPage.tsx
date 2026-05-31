@@ -33,39 +33,6 @@ const KEYFRAMES = `
 `
 
 
-// ── Features ───────────────────────────────────────────────────────────────
-const FEATURES = [
-  {
-    icon: '[ LOG ]',
-    title: 'JOB LOG',
-    body: 'Track every application. Status, company, role, notes — all in one retro HUD.',
-  },
-  {
-    icon: '[ NET ]',
-    title: 'NETWORK',
-    body: 'Map your contacts and connections. Know who to follow up with and when.',
-  },
-  {
-    icon: '[ BAR ]',
-    title: 'WORKDAY BAR',
-    body: 'A persistent timer that keeps you focused across the whole hunt.',
-  },
-  {
-    icon: '[ STR ]',
-    title: 'STORY MODE',
-    body: 'Watch your job hunt unfold as a narrative timeline. Every move matters.',
-  },
-  {
-    icon: '[ STA ]',
-    title: 'STATS',
-    body: 'Charts, streaks, and breakdowns so you know exactly where you stand.',
-  },
-  {
-    icon: '[ PAD ]',
-    title: 'SCRATCH PAD',
-    body: 'A persistent notepad always one keystroke away. Think fast, write faster.',
-  },
-]
 
 export default function LandingPage() {
   const [booted, setBooted] = useState(false)
@@ -121,14 +88,12 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-[10px] text-secondary tracking-widest mb-8">
-            — THE JOB TRACKER FOR THE PIXEL GENERATION —
+            — The F Totally Stands For Fun —
           </p>
 
           {/* tagline */}
           <p className="body-text text-primary max-w-md mx-auto mb-10 text-base leading-relaxed">
-            In a world of spreadsheets and corporate ATS black holes, take back control.
-            <br />
-            Track applications, map your network, and stay sane — retro style.
+            If the job hunt is a number's game, then we'll help you play it like one. Track your apps, level up your network, and turn the dread into a quest worth embarking on.
           </p>
 
           {/* CTAs */}
@@ -168,66 +133,156 @@ export default function LandingPage() {
       </section>
 
       {/* ── Live Demo ───────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
-        <SectionHeader title="TRY IT NOW" sub="NO SIGN-UP REQUIRED" />
-        <JobLogDemo mouse={mouse} />
-        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
-          ↑ TYPE A COMPANY + ROLE AND HIT ENTER — EARN XP AS YOU GO
-        </p>
+      <section id="features" className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
+        <SectionHeader title="LETS MAKE IT FUN" sub="DO YOU DREAD THE JOB HUNT?" />
+        <JobLogDemo mouse={mouse} index={0} />
+        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
+          {[
+            'Modularize your workflow, track jobs the way that works best for you',
+            'Gain EXP and unlock rewards along the way',
+            'Quickly sanitize hastily copy/pasted job descriptions',
+            'Link contacts to jobs to build your network',
+          ].map(b => (
+            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
+              <span className="text-secondary shrink-0">▸</span>
+              {b}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── Network Demo ─────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
-        <SectionHeader title="NETWORK" sub="MAP YOUR CONNECTIONS" />
-        <NetworkDemo mouse={mouse} />
-        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
-          ↑ ADD CONTACTS AND PING THEM — WATCH THE GRAPH GROW
-        </p>
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
+        <SectionHeader title="THEN LET'S MEET IT IN SPACE" sub="IS NETWORKING ALIEN TO YOU?" />
+        <NetworkDemo mouse={mouse} index={1} />
+        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
+          {[
+            'Gamify and level up your real professional relationships',
+            'Gain EXP on relationships and watch your network grow',
+            'Quickly draft personalized outreach messages using your resume, job descriptions, and their notes',
+            'Pressure free engagement — there\'s a difficulty setting for every social battery',
+          ].map(b => (
+            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
+              <span className="text-secondary shrink-0">▸</span>
+              {b}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── Story Demo ───────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
-        <SectionHeader title="STORY MODE" sub="AN ORIGINAL NARRATIVE" />
-        <StoryDemo mouse={mouse} />
-        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
-          ↑ CLICK TO START · ORIGINAL MUSIC COMPOSED FOR THE HUNT
-        </p>
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
+        <SectionHeader title="JOB HUNT?" sub="Hey! You spilled an entire STORY MODE all over my" />
+        <StoryDemo mouse={mouse} index={2} />
+        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
+          {[
+            'Fulfill your destiny with all original music and dialogue based on your hunt',
+            'Gain powerful allies on the quest to finding your next job',
+            'View your job hunt stats in an entirely new way',
+            'Your choices shape the story — every application, ping, and offer writes the next chapter',
+          ].map(b => (
+            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
+              <span className="text-secondary shrink-0">▸</span>
+              {b}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── QuickCast Demo ───────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '900px' }}>
-        <SectionHeader title="QUICK CAST" sub="AI-POWERED RESUME TOOLS" />
-        <QuickCastDemo mouse={mouse} />
-        <p className="text-center text-[9px] text-muted mt-6 tracking-widest">
-          ↑ CLICK A RESUME SLOT · RIGHT-CLICK AI TO GENERATE COVER LETTERS INSTANTLY
-        </p>
+      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
+        <SectionHeader title="SPELLS FOR ANY JOB" sub="POWERFUL MAGICS AWAIT YOU HUNTER" />
+        <QuickCastDemo mouse={mouse} index={3} />
+        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
+          {[
+            'Add your most-used links for instant copy/paste into any job application',
+            'Save up to 3 resumes for quick reference as you apply',
+            'Copy a job description and right-click your AI assistant for cover letters, why you want to work there, and more',
+            'Every AI response is personalized against your resumes, the job description, and any tweaks you want to make — context caching keeps it fast',
+          ].map(b => (
+            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
+              <span className="text-secondary shrink-0">▸</span>
+              {b}
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* ── Features ────────────────────────────────────────────────────── */}
-      <section id="features" className="px-6 py-20 max-w-5xl mx-auto">
-        <SectionHeader title="FEATURES" sub="YOUR FULL LOADOUT" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map(({ icon, title, body }) => (
-            <FeatureCard key={title} icon={icon} title={title} body={body} />
+      {/* ── AI Stance ───────────────────────────────────────────────────── */}
+      <section className="px-6 py-16 max-w-3xl mx-auto">
+        <div className="border border-border px-8 py-7 max-w-2xl mx-auto">
+          <p className="text-[8px] text-secondary tracking-widest mb-3">[ NOTE ]</p>
+          <div className="flex items-baseline justify-between gap-4 mb-4">
+            <p className="text-xs text-primary">OUR STANCE ON AI</p>
+            <p className="text-[8px] text-muted tracking-widest shrink-0">BYOK SUPPORTED</p>
+          </div>
+          <div className="h-px bg-border mb-5" />
+          <p className="body-text text-muted text-sm leading-relaxed mb-4">
+            We understand that not everyone likes AI. At Fun Job Hunt, however, we can't understate its efficiency for simple word-matching tasks that have engulfed job hunting.
+          </p>
+          <p className="body-text text-muted text-sm leading-relaxed">
+            <span className="text-primary">We created AI features in good-faith, but ultimately believe our users should be able to make their own decisions about how they want to use it. This is why we have given users a NO AI mode that hides all AI features. We understand.{
+              
+            }</span>
+          </p>
+        </div>
+      </section>
+
+      {/* ── Free vs Pro ─────────────────────────────────────────────────── */}
+      <section className="px-6 py-20 max-w-3xl mx-auto">
+        <SectionHeader title="FREE VS PRO" sub="THE FULL LOADOUT" />
+        <div className="max-w-2xl mx-auto border border-border">
+          {/* Header row */}
+          <div className="grid grid-cols-3 border-b border-border">
+            <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest">FEATURE</div>
+            <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest border-l border-border text-center">FREE</div>
+            <div className="px-5 py-3 font-pixel text-[8px] text-primary tracking-widest border-l border-border text-center">PRO</div>
+          </div>
+          {([
+            { feature: 'Job Tracking',       free: '∞ applications',          pro: '∞ applications' },
+            { feature: 'Network',            free: '∞ contacts',              pro: '∞ contacts' },
+            { feature: 'Story Mode',         free: '✓',                       pro: '✓' },
+            { feature: 'Time Tracking',      free: '✓',                       pro: '✓' },
+            { feature: 'Stats',              free: '✓',                       pro: '✓' },
+            { feature: 'Journal',            free: '✓',                       pro: '✓' },
+            { feature: 'Themes',             free: '5 themes + custom editor',pro: '5 themes + custom editor' },
+            { feature: 'Resume Slots',       free: '1 slot',                  pro: '3 slots' },
+            { feature: 'AI Assistant',       free: 'Limited',                 pro: 'Unlimited' },
+            { feature: 'BYOK',               free: '✓',                       pro: '✓' },
+            { feature: 'AI off mode',        free: '✓',                       pro: '✓' },
+          ] as const).map(({ feature, free, pro }, i) => (
+            <div key={feature} className={`grid grid-cols-3 ${i % 2 === 1 ? 'bg-surface' : ''} ${i > 0 ? 'border-t border-border' : ''}`}>
+              <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest">{feature.toUpperCase()}</div>
+              <div className="px-5 py-3 body-text text-[11px] text-muted border-l border-border text-center">{free}</div>
+              <div className="px-5 py-3 body-text text-[11px] text-primary border-l border-border text-center">{pro}</div>
+            </div>
           ))}
         </div>
       </section>
 
       {/* ── Social proof / about ─────────────────────────────────────────── */}
       <section className="px-6 py-20 max-w-3xl mx-auto text-center">
-        <SectionHeader title="FROM THE DEV" sub="WHY THIS EXISTS" />
+        <SectionHeader title="FROM THE DEV" sub="WHY A PRO TIER?" />
         <p className="body-text text-primary leading-relaxed mb-4 text-base">
-          The job market is wild. AI is rejecting AI-written resumes. The loop is broken.
-          I built this so tracking the chaos feels less like a spreadsheet and more like a game.
+          Real talk: I don't want you here. I wan't you out there, 
+          working the job that you deserve. I built this for myself and I hate dark UX patterns, 
+          I hate ads, and I especially hate subscription fees. ESPECIALLY when you're 
+          job hunting. Unfortunately my AI and hosting costs are not free, so I provided
+          the "pro" option for heavy AI users with 2 extra resume slots.
         </p>
         <p className="body-text text-primary leading-relaxed text-base">
-          Free to use. No nonsense. Made by a dev who's been in the hunt too.
+          The app is intended to be free to use with generous limits, 
+          and I will never put up a paywall for core features. If you 
+          want to support the project, the best way is to share it 
+          with a friend who needs it. If you want to support it financially, 
+          you can subscribe to pro or send me a tip on Ko-Fi. And hey, if it
+          helps you land a job, just share your win with me on LinkedIn or Email. 
+          That truly means the world to me.
+          <br></br>
+          Thank you,
+          <br></br>
+          Luis
         </p>
-        <div className="mt-8 flex justify-center gap-6">
-          <StatBadge label="APPS TRACKED" value="∞" />
-          <StatBadge label="THEMES" value="5+" />
-          <StatBadge label="COST" value="$0" />
-        </div>
       </section>
 
       {/* ── Final CTA ───────────────────────────────────────────────────── */}
@@ -240,9 +295,6 @@ export default function LandingPage() {
         >
           CREATE FREE ACCOUNT
         </button>
-        <p className="text-[9px] text-muted mt-6 tracking-widest">
-          NO ADS · NO TRACKING · OPEN SOURCE VIBES
-        </p>
       </section>
     </div>
   )
@@ -250,34 +302,26 @@ export default function LandingPage() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function SectionHeader({ title, sub }: { title: string; sub: string }) {
+function SectionHeader({ title, sub, bullets }: { title: string; sub: string; bullets?: string[] }) {
   return (
     <div className="mb-10 text-center">
       <h2 className="text-xs text-secondary tracking-widest mb-1">{sub}</h2>
       <p className="text-lg text-primary">{title}</p>
       <div className="mt-3 h-px bg-border max-w-xs mx-auto" />
+      {bullets && bullets.length > 0 && (
+        <ul className="mt-6 flex flex-col gap-2 text-left max-w-sm mx-auto">
+          {bullets.map(b => (
+            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
+              <span className="text-secondary shrink-0">▸</span>
+              {b}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
 
-function FeatureCard({ icon, title, body }: { icon: string; title: string; body: string }) {
-  return (
-    <div className="border border-border p-5 hover:border-secondary transition-colors group">
-      <p className="text-[9px] text-secondary mb-3 tracking-widest group-hover:text-primary transition-colors">
-        {icon}
-      </p>
-      <p className="text-xs text-primary mb-2">{title}</p>
-      <p className="body-text text-muted text-sm leading-relaxed">{body}</p>
-    </div>
-  )
-}
 
-function StatBadge({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-lg text-primary">{value}</span>
-      <span className="text-[8px] text-muted tracking-widest">{label}</span>
-    </div>
-  )
-}
+
 
