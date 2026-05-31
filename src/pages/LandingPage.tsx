@@ -133,7 +133,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Live Demo ───────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
+      <section id="features" className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
         <SectionHeader title="LETS MAKE IT FUN" sub="DO YOU DREAD THE JOB HUNT?" />
         <JobLogDemo mouse={mouse} index={0} />
         <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
@@ -220,9 +220,6 @@ export default function LandingPage() {
           <p className="body-text text-muted text-sm leading-relaxed mb-4">
             We understand that not everyone likes AI. At Fun Job Hunt, however, we can't understate its efficiency for simple word-matching tasks that have engulfed job hunting.
           </p>
-          <p className="body-text text-muted text-sm leading-relaxed mb-4">
-            For that reason, every AI feature has a lighter mode. Instead of drafting an outreach message for you, it can surface two things you have in common with a contact and leave the writing to you. You keep your voice, AI just gives you suggestions.
-          </p>
           <p className="body-text text-muted text-sm leading-relaxed">
             <span className="text-primary">We created AI features in good-faith, but ultimately believe our users should be able to make their own decisions about how they want to use it. This is why we have given users a NO AI mode that hides all AI features. We understand.{
               
@@ -232,7 +229,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Free vs Pro ─────────────────────────────────────────────────── */}
-      <section id="features" className="px-6 py-20 max-w-3xl mx-auto">
+      <section className="px-6 py-20 max-w-3xl mx-auto">
         <SectionHeader title="FREE VS PRO" sub="THE FULL LOADOUT" />
         <div className="max-w-2xl mx-auto border border-border">
           {/* Header row */}
@@ -248,7 +245,7 @@ export default function LandingPage() {
             { feature: 'Time Tracking',      free: '✓',                       pro: '✓' },
             { feature: 'Stats',              free: '✓',                       pro: '✓' },
             { feature: 'Journal',            free: '✓',                       pro: '✓' },
-            { feature: 'Themes',             free: '5 themes',                pro: '5 themes + custom editor' },
+            { feature: 'Themes',             free: '5 themes + custom editor',pro: '5 themes + custom editor' },
             { feature: 'Resume Slots',       free: '1 slot',                  pro: '3 slots' },
             { feature: 'AI Assistant',       free: 'Limited',                 pro: 'Unlimited' },
             { feature: 'BYOK',               free: '✓',                       pro: '✓' },
@@ -268,8 +265,7 @@ export default function LandingPage() {
         <SectionHeader title="FROM THE DEV" sub="WHY A PRO TIER?" />
         <p className="body-text text-primary leading-relaxed mb-4 text-base">
           Real talk: I don't want you here. I wan't you out there, 
-          working the job that you deserve. I built this for myself 
-          and iterated on it over the course of my career. I hate dark UX patterns, 
+          working the job that you deserve. I built this for myself and I hate dark UX patterns, 
           I hate ads, and I especially hate subscription fees. ESPECIALLY when you're 
           job hunting. Unfortunately my AI and hosting costs are not free, so I provided
           the "pro" option for heavy AI users with 2 extra resume slots.
