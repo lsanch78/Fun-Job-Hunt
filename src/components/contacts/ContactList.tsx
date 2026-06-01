@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
+import { SK, type AiMode } from '@/lib/storageKeys'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
 import { useAI } from '@/hooks/useAI'
@@ -12,6 +12,7 @@ import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { getResumeSignedUrl, type ResumeSlot } from '@/services/resumeService'
 import { getResumeText } from '@/services/resumeTextService'
+import { PROMPT_OUTREACH } from '@/config/aiPrompts'
 
 export type { Contact }
 export type SortBy = 'exp' | 'name' | 'company' | 'date' | 'recent'
@@ -358,20 +359,12 @@ function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobI
 
 // ── AI Outreach ───────────────────────────────────────────────────────────────
 
-const OUTREACH_DEFAULT_PROMPT = `You are a professional networking assistant helping a job seeker write outreach messages.
-
-You will be given:
-- SENDER: the job seeker (the person writing the message). Extract their name from their resume. This is the "I" / "me" in the message.
-- RECIPIENT: the contact being reached out to. Address them by name. Do NOT confuse their details with the sender's.
-
-Write a concise, warm outreach message from the SENDER to the RECIPIENT. Feel genuine and human — not templated or salesy. Keep it to 3–4 sentences: a brief opener, a reference to the role or company, and a low-pressure ask (coffee chat, quick call, or just to connect). Do not use filler like "I hope this email finds you well." Do not sign off with a name. Output only the message body.`
-
 function loadOutreachPrompt(): string {
-  return lsGet<string>(SK.outreachPrompt, '') || OUTREACH_DEFAULT_PROMPT
+  return lsGet<string>(SK.outreachPrompt, '') || PROMPT_OUTREACH
 }
 
 function saveOutreachPrompt(prompt: string): void {
-  if (prompt.trim() && prompt.trim() !== OUTREACH_DEFAULT_PROMPT) lsSet(SK.outreachPrompt, prompt.trim())
+  if (prompt.trim() && prompt.trim() !== PROMPT_OUTREACH) lsSet(SK.outreachPrompt, prompt.trim())
   else lsRemove(SK.outreachPrompt)
 }
 
@@ -434,8 +427,8 @@ function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onS
   }
 
   function handleResetPrompt() {
-    setPromptInput(OUTREACH_DEFAULT_PROMPT)
-    saveOutreachPrompt(OUTREACH_DEFAULT_PROMPT)
+    setPromptInput(PROMPT_OUTREACH)
+    saveOutreachPrompt(PROMPT_OUTREACH)
   }
 
   if (isEditing) {
@@ -533,7 +526,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   onAiRightClick: (e: React.MouseEvent) => void
   onStopEditing: () => void
 }) {
-  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
+  const aiMode = lsGet<AiMode>(SK.aiMode(''), 'ai-first')
   const [commBonus, setCommBonus] = useState(contact.commExp ?? 0)
   const [popups, setPopups] = useState<ContactXpPopup[]>([])
   const [maxPopup, setMaxPopup] = useState<{ x: number; y: number } | null>(null)
@@ -647,7 +640,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
       </td>
 
       {/* AI Outreach */}
-      {!aiDisabled && (
+      {aiMode !== 'off' && (
         <td data-tutorial="network-draft" className="px-2 py-1 w-[80px] text-right">
           <AiButton
             label="DRAFT"
@@ -759,7 +752,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
 
   const paged = pageSize ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted
 
-  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
+  const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
   const ai = useAI()
   const [activeAiContactId, setActiveAiContactId] = useState<string | null>(null)
   const [editingAiContactId, setEditingAiContactId] = useState<string | null>(null)
@@ -829,7 +822,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
             <th className="px-2 py-2 font-normal text-[10px] text-muted text-center" scope="col">SOCIALS</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[130px]" scope="col">EXP</th>
             <th className="px-2 py-2 font-normal text-[10px] text-muted w-[100px] text-center" scope="col">ACTION</th>
-            {!aiDisabled && <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px] text-center" scope="col">DRAFT</th>}
+            {aiMode !== 'off' && <th className="px-2 py-2 font-normal text-[10px] text-muted w-[80px] text-center" scope="col">DRAFT</th>}
           </tr>
         </thead>
         <tbody>

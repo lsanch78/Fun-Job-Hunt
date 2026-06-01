@@ -1,5 +1,8 @@
 // Single source of truth for every localStorage key used in the app.
 // Import SK from here — never hard-code key strings anywhere else.
+
+export type AiMode = 'ai-first' | 'human-first' | 'off'
+
 export const SK = {
   // ── Workday tracking ─────────────────────────────────────────────────────────
   workdayPunchIn: 'fjobhunt:workday:punch-in',
@@ -24,7 +27,7 @@ export const SK = {
   outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 
   // ── AI assistant ─────────────────────────────────────────────────────────────
-  aiDisabled:   'fjobhunt:ai:disabled',
+  aiMode:       (uid: string) => `fjobhunt:ai:mode:${uid}`,
   aiProvider:   'fjobhunt:ai:provider',
   aiApiKey:     'fjobhunt:ai:apikey',
   aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,

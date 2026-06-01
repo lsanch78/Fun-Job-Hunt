@@ -24,7 +24,7 @@ export const JOB_LIMITS = {
   title:       150,
   postingUrl:  500,
   salary:       20,
-  description: 5000,
+  description: 10000,
   notes:       2000,
 } as const
 

@@ -7,7 +7,7 @@ import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
+import { SK, type AiMode } from '@/lib/storageKeys'
 import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
 import { resetProfileXp } from '@/services/xpService'
@@ -61,7 +61,7 @@ export default function SettingsPage() {
   const [editingName,   setEditingName]   = useState(false)
   const [nameSaving,    setNameSaving]    = useState(false)
   const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
-  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
+  const [aiMode,        setAiModeState]     = useState<AiMode>('ai-first')
   const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
   const [aiApiKey,      setAiApiKeyState]  = useState<string>(() => getAiApiKey())
   const [apiKeyVisible, setApiKeyVisible]  = useState(false)
@@ -74,6 +74,7 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
+      setAiModeState(lsGet<AiMode>(SK.aiMode(user.id), 'ai-first'))
       setCommCooldown(getCommCooldownHours(user.id))
       const name = (user.user_metadata?.['username'] as string | undefined) ?? ''
       setUsername(name)
@@ -136,10 +137,13 @@ export default function SettingsPage() {
     writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
   }
 
-  function handleAiDisabledToggle() {
-    const next = !aiDisabled
-    lsSet(SK.aiDisabled, next)
-    window.location.reload()
+  function handleAiModeChange(mode: AiMode) {
+    if (!userId) return
+    const wasOff = aiMode === 'off'
+    const willBeOff = mode === 'off'
+    setAiModeState(mode)
+    lsSet(SK.aiMode(userId), mode)
+    if (wasOff !== willBeOff) window.location.reload()
   }
 
   function handleProviderChange(p: AiProvider) {
@@ -204,6 +208,7 @@ export default function SettingsPage() {
       `xp:${userId}`,                               // legacy xp key
       SK.musicTracks,
       SK.musicResume,
+      SK.aiMode(userId),
       SK.aiModalSlots(userId),
       `ai_panel_slots_${userId}`,                   // legacy AI modal key
       `fjobhunt:ai-panel-slots:${userId}`,          // legacy AI modal key (pre-rename)
@@ -529,21 +534,30 @@ export default function SettingsPage() {
         <h2 className="text-sm mb-6 text-secondary">AI SETTINGS</h2>
 
         <div className="flex flex-col gap-6">
-          {/* ── Disable AI toggle ── */}
-          <button
-            onClick={handleAiDisabledToggle}
-            className={`
-              text-left text-xs px-4 py-3 border-2 transition-none
-              ${aiDisabled
-                ? 'border-primary text-primary'
-                : 'border-muted text-muted hover:border-secondary hover:text-secondary'
-              }
-            `}
-          >
-            {aiDisabled ? '> Show all AI buttons' : '  Hide all AI buttons'}
-          </button>
+          {/* ── AI Mode selector ── */}
+          <div className="flex flex-col gap-2">
+            <label className="text-muted text-[10px] tracking-widest">AI MODE</label>
+            {([
+              ['ai-first',    'AI-First',    'AI writes for you — cover letters, responses, drafts'],
+              ['human-first', 'Human-First', 'AI coaches you — talking points and questions, you write it'],
+              ['off',         'Off',         'Hide all AI buttons'],
+            ] as const).map(([mode, title, desc]) => (
+              <button
+                key={mode}
+                onClick={() => handleAiModeChange(mode)}
+                className={`text-left text-xs px-4 py-3 border-2 transition-none ${
+                  aiMode === mode
+                    ? 'border-primary text-primary'
+                    : 'border-muted text-muted hover:border-secondary hover:text-secondary'
+                }`}
+              >
+                {aiMode === mode ? '> ' : '  '}{title}
+                <span className="block text-[10px] text-muted mt-0.5 font-pixel">{desc}</span>
+              </button>
+            ))}
+          </div>
 
-          {!aiDisabled && <>
+          {aiMode !== 'off' && <>
           {/* ── Provider selector ── */}
           <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>

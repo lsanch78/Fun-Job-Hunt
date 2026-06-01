@@ -13,7 +13,8 @@ import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { lsGet } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
+import { SK, type AiMode } from '@/lib/storageKeys'
+import { PROMPT_CLEAN_JD } from '@/config/aiPrompts'
 
 ensureCrtStyles()
 
@@ -234,10 +235,9 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
 }
 
 // ── JobDetailModal ────────────────────────────────────────────────────────────
-const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
-  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
+  const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [page, setPage] = useState<1 | 2>(initialPage)
@@ -246,6 +246,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
   const [saveError, setSaveError] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiLimitHit, setAiLimitHit] = useState(false)
+  const [jdToast, setJdToast] = useState(false)
   const loadedIds = useRef<Set<string>>(new Set())
   const cardRef = useRef<HTMLDivElement>(null)
   const ai = useAI()
@@ -413,7 +414,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
     setAiError(null)
     setAiLimitHit(false)
     ai.run({
-      system: CLEAN_JD_SYSTEM,
+      system: PROMPT_CLEAN_JD,
       prompt: raw,
       onComplete: (cleaned) => update('description', cleaned),
       onError: (msg) => {
@@ -432,7 +433,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-0.5">
           <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
-          {!aiDisabled && <AiButton
+          {aiMode !== 'off' && <AiButton
             label="CLEAN JD"
             phase={ai.phase}
             dots={ai.dots}
@@ -456,7 +457,44 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
         {aiError && (
           <div className="mb-1 truncate" style={{ fontSize: CRT_FONT.chrome, color: '#ff4444' }}>{aiError}</div>
         )}
-        <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.description} value={job.description ?? ''} onChange={(e) => update('description', e.target.value)} placeholder="Paste or summarize the job description…" />
+        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <textarea
+            className={textareaClass}
+            style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }}
+            value={job.description ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value
+              if (raw.length > JOB_LIMITS.description) {
+                update('description', raw.slice(0, JOB_LIMITS.description))
+                setJdToast(true)
+                setTimeout(() => setJdToast(false), 3000)
+              } else {
+                update('description', raw)
+              }
+            }}
+            placeholder="Paste or summarize the job description…"
+          />
+          <div style={{ color: (job.description?.length ?? 0) >= JOB_LIMITS.description ? T.warn : T.greenDim, fontSize: CRT_FONT.btn, fontFamily: '"VT323", monospace', textAlign: 'right', marginTop: '2px' }}>
+            {job.description?.length ?? 0} / {JOB_LIMITS.description}
+          </div>
+          {jdToast && (
+            <div style={{
+              position: 'absolute',
+              bottom: '28px',
+              right: '0',
+              background: T.bg,
+              border: `1px solid ${T.warn}`,
+              color: T.warn,
+              fontFamily: '"VT323", monospace',
+              fontSize: CRT_FONT.label,
+              padding: '3px 10px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}>
+              JD too long — truncated to {JOB_LIMITS.description.toLocaleString()} chars
+            </div>
+          )}
+        </div>
       </div>
     </>
   )

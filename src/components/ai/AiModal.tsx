@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { playBootBlip, playExitBlip } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
+import { SK, type AiMode } from '@/lib/storageKeys'
 import { fetchModels, streamCompletion, getAiProvider, fetchUsage, type AiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { getResumeText } from '@/services/resumeTextService'
 import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, type AiSettings } from '@/services/aiSettingsService'
+import { COACHING_COVER_LETTER, COACHING_WHY_GOOD_FIT, COACHING_CUSTOM } from '@/config/aiPrompts'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
@@ -22,6 +23,7 @@ const SLOT_COLORS: Record<ResumeSlot, string> = {
 }
 
 const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
+
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +132,11 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   const [usage,             setUsage]            = useState<{ count: number; limit: number } | null>(null)
   const [limitHit,          setLimitHit]         = useState(false)
   const [ctxMenu,           setCtxMenu]          = useState<{ key: QuickKey; x: number; y: number } | null>(null)
+  const [jdToast,           setJdToast]          = useState(false)
+
+  const [humanFirst, setHumanFirst] = useState<boolean>(() =>
+    lsGet<AiMode>(SK.aiMode(userId), 'ai-first') === 'human-first'
+  )
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLPreElement>(null)
@@ -200,6 +207,11 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   }
 
   function quickPromptText(key: QuickKey): string {
+    if (humanFirst) {
+      if (key === 'cover_letter') return COACHING_COVER_LETTER
+      if (key === 'why_good_fit') return COACHING_WHY_GOOD_FIT
+      return COACHING_CUSTOM
+    }
     if (key === 'cover_letter') return aiSettings?.cover_letter_prompt || DEFAULT_PROMPTS.cover_letter
     if (key === 'why_good_fit') return aiSettings?.why_good_fit_prompt || DEFAULT_PROMPTS.why_good_fit
     return aiSettings?.custom_prompt || DEFAULT_PROMPTS.custom
@@ -232,9 +244,11 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   async function assembleInputs(): Promise<{ resumeSystem: string; prompt: string }> {
     const slots = [...selectedSlots]
 
-    // First slot becomes the cached system prefix; remaining slots go into the user message.
+    // resumeSystem goes to the system prompt for caching.
+    // All resume text is also repeated in the user message so the model is
+    // grounded against the actual content at generation time.
     let resumeSystem = ''
-    const extraParts: string[] = []
+    const resumeParts: string[] = []
 
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
@@ -243,21 +257,20 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
       if (!text) continue
       if (i === 0 && !textInputActive) {
         resumeSystem = `RESUME ${slot.toUpperCase()}:\n${text}`
-      } else {
-        extraParts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
       }
+      resumeParts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
     }
 
     if (textInputActive && resumeTextInput.trim()) {
-      if (!resumeSystem) {
-        resumeSystem = `RESUME (PASTED):\n${resumeTextInput.trim()}`
-      } else {
-        extraParts.push(`--- RESUME (PASTED) ---\n${resumeTextInput.trim()}`)
-      }
+      if (!resumeSystem) resumeSystem = `RESUME (PASTED):\n${resumeTextInput.trim()}`
+      resumeParts.push(`--- RESUME (PASTED) ---\n${resumeTextInput.trim()}`)
     }
 
     let prompt = ''
-    if (extraParts.length > 0) prompt += `ADDITIONAL RESUMES:\n${extraParts.join('\n\n')}\n\n`
+    if (resumeParts.length > 0) {
+      prompt += resumeParts.join('\n\n') + '\n\n'
+    }
+    prompt += 'GROUNDING CHECK: Every skill, project, employer, and institution you mention must appear verbatim in the resume text above. If it is not there, do not say it.\n\n'
     if (jdText.trim()) prompt += `JOB DESCRIPTION:\n${jdText.trim()}`
 
     return { resumeSystem, prompt }
@@ -482,7 +495,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
                 onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ key: 'why_good_fit', x: e.clientX, y: e.clientY }) }}
                 style={{ ...termBtn(false), fontSize: CRT_FONT.label }}
               >
-                WHY THIS JOB?
+                WHY I WANT THIS JOB
               </button>
 
               {/* Custom */}
@@ -495,11 +508,33 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
               </button>
             </div>
 
+            {/* Human-First per-session toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <button
+                onClick={() => setHumanFirst((v) => !v)}
+                style={{
+                  fontFamily: '"VT323", monospace',
+                  fontSize: CRT_FONT.label,
+                  color: humanFirst ? T.bg : T.greenDim,
+                  background: humanFirst ? T.greenDim : 'transparent',
+                  border: `1px solid ${humanFirst ? T.greenDim : T.border}`,
+                  padding: '1px 8px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                HUMAN-FIRST
+              </button>
+              <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, fontFamily: '"VT323", monospace' }}>
+                {humanFirst ? 'coaching mode — you write it' : 'off'}
+              </span>
+            </div>
+
             {/* Gear editor */}
             {editingQuick && (
               <div style={{ border: `1px solid ${T.border}`, padding: '8px', borderRadius: '4px', marginBottom: '8px' }}>
                 <div style={{ ...labelStyle, marginBottom: '4px' }}>
-                  EDIT: {editingQuick === 'cover_letter' ? 'COVER LETTER' : editingQuick === 'why_good_fit' ? 'WHY THIS JOB?' : 'CUSTOM'} PROMPT
+                  EDIT: {editingQuick === 'cover_letter' ? 'COVER LETTER' : editingQuick === 'why_good_fit' ? 'WHY I WANT THIS JOB' : 'CUSTOM'} PROMPT
                 </div>
                 <textarea
                   rows={5}
@@ -526,16 +561,44 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
           </div>
 
           {/* JD */}
-          <div>
+          <div style={{ position: 'relative' }}>
             <div style={labelStyle}>Job Description</div>
             <textarea
-              rows={7}
-              maxLength={10000}
+              rows={12}
               value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw.length > 10000) {
+                  setJdText(raw.slice(0, 10000))
+                  setJdToast(true)
+                  setTimeout(() => setJdToast(false), 3000)
+                } else {
+                  setJdText(raw)
+                }
+              }}
               placeholder="Paste job description here..."
               style={termTextarea}
             />
+            <div style={{ color: jdText.length >= 10000 ? T.warn : T.greenDim, fontSize: CRT_FONT.btn, fontFamily: '"VT323", monospace', textAlign: 'right', marginTop: '2px' }}>
+              {jdText.length} / 10000
+            </div>
+            {jdToast && (
+              <div style={{
+                position: 'absolute',
+                bottom: '28px',
+                right: '0',
+                background: T.bg,
+                border: `1px solid ${T.warn}`,
+                color: T.warn,
+                fontFamily: '"VT323", monospace',
+                fontSize: CRT_FONT.label,
+                padding: '3px 10px',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+              }}>
+                JD too long — truncated to 10,000 chars
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -582,7 +645,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
       {view === 'output' && (
         <div className="flex flex-col gap-3 px-4 py-3">
           <div style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
-            {isStreaming ? '// GENERATING...' : '// OUTPUT'}
+            {isStreaming ? '// GENERATING...' : humanFirst ? '// COACHING OUTPUT' : '// OUTPUT'}
           </div>
           <pre
             ref={outputRef}
@@ -711,7 +774,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
           }}
         >
           <div style={{ padding: '4px 10px', color: T.greenDim, fontSize: CRT_FONT.chrome, borderBottom: `1px solid ${T.border}`, userSelect: 'none' }}>
-            {ctxMenu.key === 'cover_letter' ? 'COVER LETTER' : ctxMenu.key === 'why_good_fit' ? 'WHY THIS JOB?' : 'CUSTOM'}
+            {ctxMenu.key === 'cover_letter' ? 'COVER LETTER' : ctxMenu.key === 'why_good_fit' ? 'WHY I WANT THIS JOB' : 'CUSTOM'}
           </div>
           <button
             onClick={() => {

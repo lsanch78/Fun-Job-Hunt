@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import type { ResumeSlot } from '@/services/resumeService'
+import { getResumeSignedUrl } from '@/services/resumeService'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -46,6 +47,19 @@ async function extractTxt(arrayBuffer: ArrayBuffer): Promise<string> {
 
 export function invalidateSlot(userId: string, slot: ResumeSlot): void {
   textCache.delete(cacheKey(userId, slot))
+}
+
+// Fetch, parse, and cache all provided slots. Safe to call fire-and-forget.
+export async function warmResumeCache(userId: string, slots: ResumeSlot[]): Promise<void> {
+  await Promise.all(slots.map(async (slot) => {
+    const key = cacheKey(userId, slot)
+    if (textCache.has(key)) return
+    // Retry once on signed URL failure
+    let signedUrl = await getResumeSignedUrl(userId, slot)
+    if (!signedUrl) signedUrl = await getResumeSignedUrl(userId, slot)
+    if (!signedUrl) return
+    await getResumeText(userId, slot, signedUrl)
+  }))
 }
 
 export async function getResumeText(

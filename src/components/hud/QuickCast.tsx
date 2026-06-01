@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { playPageFlip, playSpellCast, playAiConsume, playAiDing } from '@/lib/sfx'
 import { lsGet, lsSet } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
+import { SK, type AiMode } from '@/lib/storageKeys'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -20,12 +20,11 @@ import { Share } from 'pixelarticons/react'
 import { AtSign } from 'pixelarticons/react'
 import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
-import { Clipboard } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import ResumeModal from '@/components/modals/ResumeModal'
 import AiModal from '@/components/ai/AiModal'
-import { invalidateSlot, getResumeText } from '@/services/resumeTextService'
+import { invalidateSlot, getResumeText, warmResumeCache } from '@/services/resumeTextService'
 import { fetchModels, streamCompletion } from '@/services/aiService'
 
 import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
@@ -265,11 +264,11 @@ const PREMIUM_SLOTS: ResumeSlot[] = ['b', 'c']
 
 export default function QuickCast() {
   const { isSubscribed } = useSubscription()
-  const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
 
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>([])
   const [userId,       setUserId]       = useState<string | null>(null)
+  const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [draftLabel,   setDraftLabel]   = useState('')
@@ -318,6 +317,7 @@ export default function QuickCast() {
         const map: Partial<Record<ResumeSlot, ResumeSlotRecord>> = {}
         rows.forEach((r) => { map[r.slot as ResumeSlot] = r })
         setResumeSlots(map)
+        warmResumeCache(user.id, rows.map((r) => r.slot as ResumeSlot))
       })
       fetchAiSettings(user.id).then(setAiSettings)
     })
@@ -564,7 +564,7 @@ export default function QuickCast() {
     const occupiedSlots = (Object.keys(resumeSlots) as ResumeSlot[]).filter((s) => resumeSlots[s])
     const parts: string[] = []
     for (const slot of occupiedSlots) {
-      const signedUrl = await getResumeSignedUrl(userId, slot)
+      let signedUrl = await getResumeSignedUrl(userId, slot)
       if (signedUrl) {
         const text = await getResumeText(userId, slot, signedUrl)
         if (text) parts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
@@ -865,7 +865,7 @@ export default function QuickCast() {
           </div>
 
           {/* ── Right zone: AI assistant ── */}
-          {!aiDisabled &&
+          {aiMode !== 'off' &&
           <div className="relative flex flex-col items-center" ref={aiMenuRef}>
             <button
               data-tutorial="ai-assistant"
@@ -910,7 +910,7 @@ export default function QuickCast() {
             {aiMenuOpen && (
               <div className="absolute bottom-full mb-2 right-0 z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-56">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="text-[9px] tracking-widest text-muted">QUICK GENERATE</span>
+                  <span className="text-[9px] tracking-widest text-muted">Quick Gen With JD in Clipboard:</span>
                   <button
                     onClick={() => setAiMenuOpen(false)}
                     className="text-muted hover:text-primary text-[9px] transition-none"
@@ -921,16 +921,15 @@ export default function QuickCast() {
                 <div className="px-3 py-2 flex flex-col gap-1">
                   {([
                     ['cover_letter',  'COVER LETTER'],
-                    ['why_work_here', 'WHY WORK HERE?'],
+                    ['why_work_here', 'WHY I WANT THIS JOB'],
                     ['custom',        'CUSTOM'],
                   ] as const).map(([mode, label]) => (
                     <button
                       key={mode}
                       onClick={() => handleAiQuickGenerate(mode)}
-                      className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none flex items-center gap-1.5"
+                      className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
                     >
-                      <Clipboard width={10} height={10} className="shrink-0" />
-                      + {label}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -943,7 +942,7 @@ export default function QuickCast() {
       </div>
 
       {/* AI panel — fixed centered overlay */}
-      {!aiDisabled && aiModalOpen && userId && (
+      {aiMode !== 'off' && aiModalOpen && userId && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto">
             <AiModal
