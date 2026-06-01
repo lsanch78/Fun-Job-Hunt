@@ -3,7 +3,7 @@ import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeC
 import { THEMES, type Theme } from '@/config/game'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
-import { buildCombinedCSV, parseCombinedCSV, type ImportResult } from '@/lib/csvData'
+import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
@@ -45,9 +45,6 @@ export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
   const { isSubscribed, subscription, refresh } = useSubscription()
   const [exporting, setExporting] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const importFileRef = useRef<HTMLInputElement>(null)
   const [confirmTarget, setConfirmTarget] = useState<'jobs' | 'contacts' | 'full' | null>(null)
   const [fullResetPhrase, setFullResetPhrase] = useState('')
   const [resetting, setResetting] = useState(false)
@@ -244,21 +241,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!userId) return
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    setImporting(true)
-    setImportResult(null)
-    try {
-      const text = await file.text()
-      const result = await parseCombinedCSV(text, userId)
-      setImportResult(result)
-    } finally {
-      setImporting(false)
-    }
-  }
 
   return (
     <div className="h-full overflow-y-auto bg-bg font-pixel text-primary p-8">
@@ -432,29 +414,6 @@ export default function SettingsPage() {
             {exporting ? '  Exporting…' : '  Export jobs + contacts to CSV'}
           </button>
 
-          {/* ── Import ── */}
-          <input ref={importFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
-          <button
-            onClick={() => importFileRef.current?.click()}
-            disabled={importing}
-            className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-none"
-          >
-            {importing ? '  Importing…' : '  Import from CSV'}
-          </button>
-          <p className="text-[10px] text-muted px-1 -mt-2">
-            XP will not be awarded for imported entries.
-          </p>
-
-          {importResult && (
-            <div className="border border-border px-4 py-3 flex flex-col gap-1">
-              <p className="text-[10px] text-secondary tracking-widest mb-1">IMPORT COMPLETE</p>
-              <p className="text-[10px] text-primary">{importResult.jobsImported} job{importResult.jobsImported !== 1 ? 's' : ''} imported{importResult.jobsSkipped > 0 ? `, ${importResult.jobsSkipped} skipped` : ''}</p>
-              <p className="text-[10px] text-primary">{importResult.contactsImported} contact{importResult.contactsImported !== 1 ? 's' : ''} imported{importResult.contactsSkipped > 0 ? `, ${importResult.contactsSkipped} skipped` : ''}</p>
-              {importResult.errors.length > 0 && importResult.errors.map((e, i) => (
-                <p key={i} className="text-[10px] text-warning">{e}</p>
-              ))}
-            </div>
-          )}
 
           <div className="flex flex-col gap-3">
             {/* ── Delete all jobs ── */}
