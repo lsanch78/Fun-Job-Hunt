@@ -11,6 +11,7 @@ import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShado
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
+import { useSubscription } from '@/lib/SubscriptionContext'
 import { lsGet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
@@ -83,7 +84,7 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
         lastInteractionAt: contact.lastInteractionAt,
         commExp: 0,
         lastCommAt: null,
-      }, userId)
+      }, userId, isSubscribed)
       if (error) { console.error('[ContactsPanel] insertContact failed:', error); return }
       if (data) {
         await linkContactToJob(data.id, jobId)
@@ -234,6 +235,7 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
 const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false }: JobDetailModalProps) {
+  const { isSubscribed } = useSubscription()
   const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)

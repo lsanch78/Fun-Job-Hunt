@@ -1,6 +1,20 @@
 import { supabase } from '@/lib/supabase'
 import type { Contact } from '@/types'
 
+export const FREE_CONTACT_CAP = 30
+
+export async function countContacts(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('contacts')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+  if (error) {
+    console.error('[contactService] countContacts:', error.message)
+    return 0
+  }
+  return count ?? 0
+}
+
 export const CONTACT_LIMITS = {
   name:     100,
   company:  100,
@@ -161,8 +175,14 @@ export async function fetchAllJobsForUser(userId: string): Promise<{ id: string;
 
 export async function insertContact(
   fields: Omit<Contact, 'id' | 'createdAt'>,
-  userId: string
+  userId: string,
+  isSubscribed = true
 ): Promise<{ data: Contact | null; error: string | null }> {
+  if (!isSubscribed) {
+    const currentCount = await countContacts(userId)
+    if (currentCount >= FREE_CONTACT_CAP) return { data: null, error: 'contact_cap_reached' }
+  }
+
   const { data, error } = await supabase
     .from('contacts')
     .insert(contactToDbInsert(fields, userId))

@@ -245,7 +245,7 @@ export default function LandingPage() {
             <div className="px-5 py-3 font-pixel text-[8px] text-primary tracking-widest border-l border-border text-center">PRO</div>
           </div>
           {([
-            { feature: 'Job Tracking',       free: 'Up to 300 applications',  pro: '∞ applications' },
+            { feature: 'Job Tracking',       free: '∞ applications',          pro: '∞ applications' },
             { feature: 'Network',            free: 'Up to 30 contacts',       pro: '∞ contacts' },
             { feature: 'Story Mode',         free: '✓',                       pro: '✓' },
             { feature: 'Time Tracking',      free: '✓',                       pro: '✓' },

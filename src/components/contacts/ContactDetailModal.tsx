@@ -255,6 +255,10 @@ export default function ContactDetailModal({
     onChange({ ...contact, [key]: val })
   }
 
+  function handleFieldKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && contact?.name.trim()) handleSave()
+  }
+
   async function handleSave() {
     if (saveState === 'saving' || !contact) return
     setSaveState('saving')
@@ -316,6 +320,7 @@ export default function ContactDetailModal({
             value={contact.name}
             maxLength={LIMITS.name}
             onChange={(e) => update('name', e.target.value)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="Full name"
           />
         </div>
@@ -327,6 +332,7 @@ export default function ContactDetailModal({
             value={contact.company ?? ''}
             maxLength={LIMITS.company}
             onChange={(e) => update('company', e.target.value || undefined)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="Where they work"
           />
         </div>
@@ -342,6 +348,7 @@ export default function ContactDetailModal({
             value={contact.linkedin ?? ''}
             maxLength={LIMITS.linkedin}
             onChange={(e) => update('linkedin', e.target.value || undefined)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="username or URL"
           />
         </div>
@@ -353,6 +360,7 @@ export default function ContactDetailModal({
             value={contact.github ?? ''}
             maxLength={LIMITS.github}
             onChange={(e) => update('github', e.target.value || undefined)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="username or URL"
           />
         </div>
@@ -367,6 +375,7 @@ export default function ContactDetailModal({
             value={contact.twitter ?? ''}
             maxLength={LIMITS.twitter}
             onChange={(e) => update('twitter', e.target.value || undefined)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="username or URL"
           />
         </div>
@@ -378,6 +387,7 @@ export default function ContactDetailModal({
             value={contact.discord ?? ''}
             maxLength={LIMITS.discord}
             onChange={(e) => update('discord', e.target.value || undefined)}
+            onKeyDown={handleFieldKeyDown}
             placeholder="username#0000"
           />
         </div>
@@ -392,6 +402,7 @@ export default function ContactDetailModal({
           value={contact.email ?? ''}
           maxLength={LIMITS.email}
           onChange={(e) => update('email', e.target.value || undefined)}
+          onKeyDown={handleFieldKeyDown}
           placeholder="email@example.com"
         />
       </div>

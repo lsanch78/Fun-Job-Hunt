@@ -6,13 +6,18 @@ import SearchBar from '@/components/shell/SearchBar'
 import type { Contact, Job } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob,
+  FREE_CONTACT_CAP,
 } from '@/services/contactService'
 import { fetchJobs } from '@/services/jobService'
+import { useSubscription } from '@/lib/SubscriptionContext'
+import { createCheckoutSession } from '@/services/subscriptionService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MobileNetworkPage({ userId }: { userId: string | null }) {
+  const { isSubscribed } = useSubscription()
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [capError, setCapError] = useState<string | null>(null)
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,8 +46,10 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
     await pingContact(id)
   }
 
+  const atCap = !isSubscribed && contacts.filter((c) => !c.id.startsWith('new-')).length >= FREE_CONTACT_CAP
+
   function handleAddContact() {
-    if (!userId) return
+    if (!userId || atCap) return
     const blank: Contact = {
       id: `new-${Date.now()}`,
       userId,
@@ -77,7 +84,13 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
         lastInteractionAt: contact.lastInteractionAt,
         commExp: 0,
         lastCommAt: null,
-      }, userId)
+      }, userId, isSubscribed)
+      if (error === 'contact_cap_reached') {
+        setContacts((prev) => prev.filter((c) => c.id !== contact.id))
+        setDetailContactId(null)
+        setCapError(`Free accounts are limited to ${FREE_CONTACT_CAP} contacts. Upgrade to Pro for unlimited.`)
+        return
+      }
       if (error) { console.error('[MobileNetworkPage] insertContact:', error); return }
       if (data) {
         await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
@@ -111,6 +124,18 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
           <p className="font-pixel text-[9px] text-muted mt-0.5">
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
           </p>
+          {capError && (
+            <div className="flex items-center gap-2 mt-1 border border-warning px-2 py-1.5">
+              <p className="font-pixel text-[8px] text-warning flex-1">Limit: {FREE_CONTACT_CAP} contacts on free.</p>
+              <button
+                onClick={() => createCheckoutSession().catch(() => {})}
+                className="font-pixel text-[8px] px-2 py-1 border border-secondary text-secondary hover:opacity-80 transition-none shrink-0"
+              >
+                UPGRADE
+              </button>
+              <button onClick={() => setCapError(null)} className="text-muted hover:text-primary text-[10px] shrink-0">✕</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -166,8 +191,9 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
       {/* FAB */}
       <button
         onClick={handleAddContact}
-        className="fixed bottom-16 right-4 z-[180] w-12 h-12 bg-primary text-bg font-pixel text-2xl flex items-center justify-center border-2 border-bg shadow-lg"
-        title="Add contact"
+        disabled={atCap}
+        className="fixed bottom-16 right-4 z-[180] w-12 h-12 bg-primary text-bg font-pixel text-2xl flex items-center justify-center border-2 border-bg shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+        title={atCap ? `Contact limit reached (${FREE_CONTACT_CAP} max on free)` : 'Add contact'}
         aria-label="Add contact"
       >
         +

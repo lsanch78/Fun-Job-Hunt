@@ -15,6 +15,9 @@ import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
 } from '@/services/contactService'
 import { playDeleteBump, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
+import { useSubscription } from '@/lib/SubscriptionContext'
+import { FREE_CONTACT_CAP } from '@/services/contactService'
+import { createCheckoutSession } from '@/services/subscriptionService'
 import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
@@ -45,7 +48,9 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NetworkPage({ userId }: { userId: string | null }) {
+  const { isSubscribed } = useSubscription()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [capError, setCapError] = useState<string | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
@@ -121,8 +126,10 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     await pingContact(id)
   }
 
+  const atCap = !isSubscribed && contacts.filter((c) => !c.id.startsWith('new-')).length >= FREE_CONTACT_CAP
+
   function handleAddContact() {
-    if (!userId) return
+    if (!userId || atCap) return
     const blank: Contact = {
       id: `new-${Date.now()}`,
       userId,
@@ -157,7 +164,13 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
         lastInteractionAt: contact.lastInteractionAt,
         commExp: 0,
         lastCommAt: null,
-      }, userId)
+      }, userId, isSubscribed)
+      if (error === 'contact_cap_reached') {
+        setContacts((prev) => prev.filter((c) => c.id !== contact.id))
+        setDetailContactId(null)
+        setCapError(`Free accounts are limited to ${FREE_CONTACT_CAP} contacts. Upgrade to Pro for unlimited.`)
+        return
+      }
       if (error) { console.error('[NetworkPage] insertContact:', error); return }
       if (data) {
         await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
@@ -232,6 +245,18 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
           <p className="text-muted text-xs mt-1">
             {loading ? '…' : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''} in your network`}
           </p>
+          {capError && (
+            <div className="flex items-center gap-3 mt-2 border border-warning px-3 py-2">
+              <p className="text-warning text-[10px] flex-1">Contact limit reached ({FREE_CONTACT_CAP} max on free).</p>
+              <button
+                onClick={() => createCheckoutSession().catch(() => {})}
+                className="text-[10px] px-3 py-1 border border-secondary text-secondary hover:opacity-80 transition-none shrink-0"
+              >
+                UPGRADE TO PRO
+              </button>
+              <button onClick={() => setCapError(null)} className="text-muted hover:text-primary text-xs shrink-0">✕</button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {contacts.length > 0 && (
@@ -248,7 +273,8 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
           )}
           <button
             onClick={handleAddContact}
-            className="text-[10px] px-3 py-1.5 border border-primary text-primary hover:bg-primary hover:text-bg transition-none"
+            disabled={atCap}
+            className="text-[10px] px-3 py-1.5 border border-primary text-primary hover:bg-primary hover:text-bg transition-none disabled:opacity-40 disabled:cursor-not-allowed"
           >
             + ADD CONTACT
           </button>
