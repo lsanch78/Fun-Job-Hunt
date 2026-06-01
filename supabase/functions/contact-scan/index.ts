@@ -94,7 +94,7 @@ async function fetchFromPdl(company: string, pdlKey: string): Promise<CachedCont
     headers: { 'X-Api-Key': pdlKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query: { bool: { must: [{ term: { job_company_name: company.toLowerCase() } }] } },
-      size: 25,
+      size: 3,
       fields: ['full_name', 'work_email', 'linkedin_url', 'job_title'],
     }),
   })
@@ -148,7 +148,7 @@ async function runAgentForJob(
 Here are people who work at ${job.company}:
 ${JSON.stringify(contacts.slice(0, 20))}
 
-Pick the 3–5 most useful contacts for someone applying to this role. Classify each as "peer" (similar level) or "manager" (one level above). Write one sentence per contact explaining why they're worth reaching out to. Call save_recommendations with your ranked list.`
+Pick the most useful contacts for someone applying to this role. Classify each as "peer" (similar level) or "manager" (one level above). Write one sentence per contact explaining why they're worth reaching out to. Call save_recommendations with your ranked list.`
 
   const messages: { role: string; content: unknown }[] = [{ role: 'user', content: prompt }]
   let saved: RecommendedContact[] = []

@@ -73,7 +73,7 @@ async function searchPdlContacts(company: string, pdlKey: string): Promise<PdlCo
           ],
         },
       },
-      size: 25,
+      size: 3,
       fields: ['full_name', 'work_email', 'linkedin_url', 'job_title'],
     }),
   })
