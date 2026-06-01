@@ -6,6 +6,7 @@ import TutorialModal from '@/components/modals/TutorialModal'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { NETWORK_STEPS } from '@/lib/tutorialSteps'
 import ContactList, { type SortBy } from '@/components/contacts/ContactList'
+import ContactRecs from '@/components/contacts/ContactRecs'
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import SearchBar from '@/components/shell/SearchBar'
@@ -182,6 +183,35 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     }
   }
 
+  async function handleSaveRecommendedContact(
+    fields: { name: string; company?: string; email?: string; linkedin?: string },
+    jobId: string,
+  ): Promise<boolean> {
+    if (!userId) return false
+    const { data, error } = await insertContact({
+      userId,
+      name: fields.name,
+      company: fields.company,
+      linkedin: fields.linkedin,
+      github: undefined,
+      twitter: undefined,
+      discord: undefined,
+      email: fields.email,
+      notes: undefined,
+      lastInteractionAt: null,
+      commExp: 0,
+      lastCommAt: null,
+    }, userId, isSubscribed)
+    if (error === 'contact_cap_reached') {
+      setCapError(`Free accounts are limited to ${FREE_CONTACT_CAP} contacts. Upgrade to Pro for unlimited.`)
+      return false
+    }
+    if (error || !data) return false
+    await linkContactToJob(data.id, jobId)
+    setContacts((prev) => [...prev, data])
+    return true
+  }
+
   async function refreshJobsByContact() {
     if (!userId) return
     const { jobsByContact: updated } = await fetchContactsWithJobs(userId)
@@ -280,6 +310,8 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
           </button>
         </div>
       </div>
+
+      <ContactRecs onSaveContact={handleSaveRecommendedContact} />
 
       {/* Filter / sort toolbar */}
       <div data-tutorial="network-toolbar" className="px-4 py-2 border-b border-border flex flex-col gap-y-2">

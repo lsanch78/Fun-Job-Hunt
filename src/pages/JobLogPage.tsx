@@ -18,6 +18,9 @@ import { JobRow, type JobRowHandle } from '@/components/joblog/JobRow'
 import { useColumns } from '@/components/joblog/useColumns'
 import { ColumnHeader } from '@/components/joblog/ColumnHeader'
 import { ColumnContextMenu } from '@/components/joblog/ColumnContextMenu'
+import JobRowContextMenu from '@/components/joblog/JobRowContextMenu'
+import { requestContactRecommendations } from '@/services/contactRecommendService'
+import { useSubscription } from '@/lib/SubscriptionContext'
 
 // ── XP popup ────────────────────────────────────────────────────────────────
 interface XpPopup { id: number; mega: boolean; x: number; y: number; label?: string }
@@ -163,6 +166,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [detailJobPage, setDetailJobPage] = useState<1 | 2>(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
+  const [rowCtxMenu, setRowCtxMenu] = useState<{ jobId: string; x: number; y: number } | null>(null)
+  const [searchingJobIds, setSearchingJobIds] = useState<Set<string>>(new Set())
+  const { isSubscribed } = useSubscription()
   const columns = useColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
@@ -294,6 +300,14 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     await deleteJobs(ids)
     setSelected(new Set())
     setDeleteMode(false)
+  }
+
+  async function handleFindContacts(jobId: string) {
+    const job = jobs.find((j) => j.id === jobId)
+    if (!job) return
+    setSearchingJobIds((prev) => new Set(prev).add(jobId))
+    await requestContactRecommendations(job)
+    setSearchingJobIds((prev) => { const next = new Set(prev); next.delete(jobId); return next })
   }
 
   function cycleSort(field: SortField) {
@@ -468,6 +482,18 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           )
         })()}
 
+        {rowCtxMenu && (
+          <JobRowContextMenu
+            x={rowCtxMenu.x}
+            y={rowCtxMenu.y}
+            jobId={rowCtxMenu.jobId}
+            isPremium={isSubscribed}
+            searching={searchingJobIds.has(rowCtxMenu.jobId)}
+            onFindContacts={() => handleFindContacts(rowCtxMenu.jobId)}
+            onClose={() => setRowCtxMenu(null)}
+          />
+        )}
+
         <table className="border-collapse text-xs w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             {deleteMode && <col style={{ width: 24 }} />}
@@ -518,6 +544,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                       notes:       j.notes       ?? null,
                     })
                   }}
+                  onContextMenuRequest={(jobId, x, y) => setRowCtxMenu({ jobId, x, y })}
                   onToggle={(id, e) => {
                     playSelectClick()
                     const committedVisible = visibleJobs.filter((j) => j.committed)

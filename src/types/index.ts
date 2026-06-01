@@ -63,6 +63,20 @@ export interface Contact {
   createdAt: string
 }
 
+export interface RecommendedContact {
+  id: string
+  job_id: string
+  user_id: string
+  name: string
+  title: string | null
+  email: string | null
+  linkedin_url: string | null
+  company: string | null
+  seniority: 'peer' | 'manager'
+  why: string | null
+  created_at: string
+}
+
 export interface Profile {
   id: string
   username: string

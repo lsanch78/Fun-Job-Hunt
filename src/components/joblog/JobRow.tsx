@@ -335,7 +335,8 @@ export const JobRow = forwardRef<JobRowHandle, {
   onOpenDetail?: () => void
   onOpenDetailPage2?: () => void
   onDetailBlur?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur }, ref) {
+  onContextMenuRequest?: (jobId: string, x: number, y: number) => void
+}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onContextMenuRequest }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
@@ -458,6 +459,10 @@ export const JobRow = forwardRef<JobRowHandle, {
       className={rowClass}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={() => setFocused(false)}
+      onContextMenu={committed && onContextMenuRequest ? (e) => {
+        e.preventDefault()
+        onContextMenuRequest(job.id, e.clientX, e.clientY)
+      } : undefined}
     >
       {/* Delete checkbox */}
       {deleteMode && (
