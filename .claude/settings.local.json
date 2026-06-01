@@ -85,7 +85,8 @@
       "PowerShell(Get-Item \"c:\\\\effjobhunt\\\\public\\\\me1.webp\", \"c:\\\\effjobhunt\\\\public\\\\me2.webp\", \"c:\\\\effjobhunt\\\\public\\\\me3.webp\" | Select-Object Name, @{Name=\"Size_KB\";Expression={[math]::Round\\($_.Length/1KB, 1\\)}})",
       "Bash(awk 'NR<46 || \\(NR>=449 && NR<=450\\) || NR>455 && !\\(NR>=566 && NR<=639\\)' src/pages/JobLogPage.tsx)",
       "Bash(git mv *)",
-      "Bash(Find all *)"
+      "Bash(Find all *)",
+      "Bash(ffmpeg -version)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

@@ -27,6 +27,8 @@ const THEME_LABELS: Record<Theme, string> = {
   custom:       'Custom',
 }
 
+const PREMIUM_THEMES = new Set<Theme>(['nes', 'gameboy', 'arcade', 'highcontrast', 'custom'])
+
 const COLOR_LABELS: Record<keyof CustomColors, string> = {
   bg:        'BACKGROUND',
   surface:   'SURFACE',
@@ -57,6 +59,10 @@ export default function SettingsPage() {
   const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
 
   const [userId,        setUserId]        = useState<string | null>(null)
+  const [username,      setUsername]      = useState('')
+  const [nameInput,     setNameInput]     = useState('')
+  const [editingName,   setEditingName]   = useState(false)
+  const [nameSaving,    setNameSaving]    = useState(false)
   const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
   const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
@@ -72,9 +78,22 @@ export default function SettingsPage() {
       if (!user) return
       setUserId(user.id)
       setCommCooldown(getCommCooldownHours(user.id))
+      const name = (user.user_metadata?.['username'] as string | undefined) ?? ''
+      setUsername(name)
+      setNameInput(name)
     })
     if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
   }, [])
+
+  async function handleSaveName() {
+    const trimmed = nameInput.trim()
+    if (!trimmed || trimmed === username) { setEditingName(false); return }
+    setNameSaving(true)
+    await supabase.auth.updateUser({ data: { username: trimmed } })
+    setUsername(trimmed)
+    setNameSaving(false)
+    setEditingName(false)
+  }
 
   // After Stripe redirects back with ?checkout=success, poll until the
   // webhook has updated the subscription row, then clear the query param.
@@ -245,24 +264,61 @@ export default function SettingsPage() {
     <div className="h-full overflow-y-auto bg-bg font-pixel text-primary p-8">
       <h1 className="text-xl mb-8">SETTINGS</h1>
 
+      <section className="mb-12">
+        <h2 className="text-sm mb-6 text-secondary">PROFILE</h2>
+        <div className="flex flex-col gap-2">
+          <label className="text-muted text-[10px] tracking-widest">DISPLAY NAME</label>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                className="flex-1 bg-transparent border-b border-primary text-primary font-pixel text-xs outline-none py-1"
+                disabled={nameSaving}
+              />
+              <button onClick={handleSaveName} disabled={nameSaving} className="text-xs text-primary border border-primary px-3 py-1 hover:opacity-70 transition-none">
+                {nameSaving ? '…' : 'SAVE'}
+              </button>
+              <button onClick={() => setEditingName(false)} className="text-xs text-muted border border-muted px-3 py-1 hover:opacity-70 transition-none">
+                CANCEL
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingName(true)}
+              className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-secondary hover:text-secondary transition-none w-fit"
+            >
+              {username || '(no name set)'}
+            </button>
+          )}
+        </div>
+      </section>
+
       <section>
         <h2 className="text-sm mb-6 text-secondary">THEME</h2>
         <div className="flex flex-col gap-4">
-          {THEMES.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTheme(t)}
-              className={`
-                text-left text-xs px-4 py-3 border-2 transition-none
-                ${theme === t
-                  ? 'border-primary text-primary'
-                  : 'border-muted text-muted hover:border-secondary hover:text-secondary'
-                }
-              `}
-            >
-              {theme === t ? '> ' : '  '}{THEME_LABELS[t]}
-            </button>
-          ))}
+          {THEMES.map((t) => {
+            const locked = PREMIUM_THEMES.has(t) && !isSubscribed
+            return (
+              <button
+                key={t}
+                onClick={() => { if (!locked) setTheme(t) }}
+                className={`
+                  text-left text-xs px-4 py-3 border-2 transition-none
+                  ${locked
+                    ? 'border-border text-border cursor-default opacity-50'
+                    : theme === t
+                      ? 'border-primary text-primary'
+                      : 'border-muted text-muted hover:border-secondary hover:text-secondary'
+                  }
+                `}
+              >
+                {locked ? '  ' : theme === t ? '> ' : '  '}{THEME_LABELS[t]}{locked ? ' [PRO]' : ''}
+              </button>
+            )
+          })}
         </div>
 
         {theme === 'custom' && (

@@ -3,23 +3,12 @@ import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { MessageText } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
-import { useTheme } from '@/lib/ThemeContext'
-import { THEMES, type Theme } from '@/config/game'
 import MusicPlayer from '@/components/shell/MusicPlayer'
 import FeedbackModal from '@/components/modals/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
 import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip, playMultiplayerBlip } from '@/lib/sfx'
 
 const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
-
-const THEME_LABELS: Record<Theme, string> = {
-  terminal:     'TERMINAL',
-  nes:          'NES RPG',
-  gameboy:      'GAME BOY',
-  arcade:       'ARCADE',
-  highcontrast: 'HIGH CONTRAST',
-  custom:       'CUSTOM',
-}
 
 const NAV_LINKS = [
   { label: 'JOBS',        to: '/jobs' },
@@ -32,15 +21,11 @@ const NAV_LINKS = [
 export default function NavBar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [username, setUsername] = useState<string>('')
-  const [editingName, setEditingName] = useState(false)
-  const [nameInput, setNameInput] = useState('')
-  const [nameSaving, setNameSaving] = useState(false)
   const [tutorialActive, setTutorialActive] = useState(false)
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -69,7 +54,6 @@ export default function NavBar() {
     function onClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
-        setEditingName(false)
       }
     }
     document.addEventListener('mousedown', onClickOutside)
@@ -97,16 +81,6 @@ export default function NavBar() {
     await supabase.auth.signOut()
     setDropdownOpen(false)
     navigate('/auth')
-  }
-
-  async function handleSaveName() {
-    const trimmed = nameInput.trim()
-    if (!trimmed || trimmed === username) { setEditingName(false); return }
-    setNameSaving(true)
-    await supabase.auth.updateUser({ data: { username: trimmed } })
-    setUsername(trimmed)
-    setNameSaving(false)
-    setEditingName(false)
   }
 
   // Initials avatar from username or email
@@ -152,20 +126,6 @@ export default function NavBar() {
             {label}
           </NavLink>
         ))}
-
-        {/* Theme */}
-        <div className="border-b border-border">
-          <p className="px-4 pt-3 pb-1 text-muted text-[9px] tracking-widest">THEME</p>
-          {THEMES.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTheme(t)}
-              className={`w-full text-left px-4 py-2 transition-none ${theme === t ? 'text-primary' : 'text-muted'}`}
-            >
-              {theme === t ? '> ' : '  '}{THEME_LABELS[t]}
-            </button>
-          ))}
-        </div>
 
         {/* SFX */}
         <div className="px-4 py-3 border-b border-border">
@@ -317,51 +277,6 @@ export default function NavBar() {
 
           {dropdownOpen && (
             <div className="absolute right-0 top-8 bg-surface border border-border min-w-[180px] flex flex-col z-50">
-
-              {/* User info — click to edit username */}
-              {userEmail && (
-                <div className="px-3 py-2 border-b border-border">
-                  {editingName ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        autoFocus
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
-                        className="flex-1 bg-transparent border-b border-primary text-primary font-pixel text-[10px] outline-none py-0.5"
-                        disabled={nameSaving}
-                      />
-                      <button onClick={handleSaveName} disabled={nameSaving} className="text-[9px] text-primary hover:opacity-70 shrink-0">
-                        {nameSaving ? '…' : 'OK'}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { setNameInput(username); setEditingName(true) }}
-                      className="w-full text-left text-muted hover:text-primary truncate"
-                      title="Click to edit username"
-                    >
-                      {username || userEmail}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Theme submenu */}
-              <div className="border-b border-border">
-                <p className="px-3 pt-2 pb-1 text-muted">THEME</p>
-                {THEMES.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className={`w-full text-left px-3 py-1.5 hover:bg-border ${
-                      theme === t ? 'text-primary' : 'text-muted'
-                    }`}
-                  >
-                    {theme === t ? '> ' : '  '}{THEME_LABELS[t]}
-                  </button>
-                ))}
-              </div>
 
               {/* Settings */}
               <button
