@@ -270,7 +270,8 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
     if (resumeParts.length > 0) {
       prompt += resumeParts.join('\n\n') + '\n\n'
     }
-    prompt += 'GROUNDING CHECK: Every skill, project, employer, and institution you mention must appear verbatim in the resume text above. If it is not there, do not say it.\n\n'
+    prompt += 'GROUNDING CHECK: Every skill, project, employer, and institution you mention must appear verbatim in the resume text above. If it is not there, do not say it.\n'
+    prompt += 'FORMAT: Plain text only. No markdown — no **, no __, no #, no -, no *, no backticks. Use plain punctuation and line breaks only.\n\n'
     if (jdText.trim()) prompt += `JOB DESCRIPTION:\n${jdText.trim()}`
 
     return { resumeSystem, prompt }

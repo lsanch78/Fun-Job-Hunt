@@ -8,7 +8,8 @@ export const META_RULES =
   '• Do NOT invent, infer, assume, or extrapolate anything. If the resume does not explicitly say it, you cannot say it.\n' +
   '• Do NOT fill gaps with what "a candidate like this" would likely know or have done. That is hallucination.\n' +
   '• Before you output anything, mentally check each claim against the resume. If you cannot point to the exact line, cut the claim.\n' +
-  '• A shorter, honest output beats a longer fabricated one every time.\n\n'
+  '• A shorter, honest output beats a longer fabricated one every time.\n' +
+  '• Output plain text only. No markdown — no **, no __, no #, no -, no *, no backticks, no headers. Use plain punctuation and line breaks only.\n\n'
 
 // ── AI-first mode prompts (user-editable via Settings) ───────────────────────
 
