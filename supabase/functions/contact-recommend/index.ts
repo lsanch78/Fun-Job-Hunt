@@ -15,11 +15,11 @@ interface WebhookPayload {
   record: DbJob
 }
 
-interface StubContact {
-  name: string
-  title: string
-  email: string
-  linkedin_url: string
+interface PdlContact {
+  full_name?: string
+  work_email?: string
+  linkedin_url?: string
+  job_title?: string
 }
 
 interface RecommendedContact {
@@ -31,34 +31,87 @@ interface RecommendedContact {
   why: string
 }
 
-// Stub contact pool — swapped out for a real API (e.g. Proxycurl) later
-function getStubContacts(company: string): StubContact[] {
-  return [
-    { name: 'Alex Rivera', title: 'Software Engineer', email: `arivera@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/alexrivera' },
-    { name: 'Jordan Kim', title: 'Senior Software Engineer', email: `jkim@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/jordankim' },
-    { name: 'Morgan Lee', title: 'Engineering Manager', email: `mlee@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/morganlee' },
-    { name: 'Casey Chen', title: 'Product Manager', email: `cchen@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/caseychen' },
-    { name: 'Taylor Brooks', title: 'Staff Engineer', email: `tbrooks@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/taylorbrooks' },
-    { name: 'Sam Patel', title: 'Director of Engineering', email: `spatel@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/sampatel' },
-    { name: 'Riley Johnson', title: 'Software Engineer II', email: `rjohnson@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/rileyjohnson' },
-    { name: 'Drew Martinez', title: 'Senior Engineering Manager', email: `dmartinez@${company.toLowerCase().replace(/\s+/g, '')}.com`, linkedin_url: 'https://linkedin.com/in/drewmartinez' },
-  ]
+function bucketTitle(title: string): string {
+  const t = title.toLowerCase()
+  if (/\b(ceo|cto|coo|cpo|chief)\b/.test(t))              return 'c_suite'
+  if (/\b(vp|vice president)\b/.test(t))                   return 'vp'
+  if (/\b(director)\b/.test(t))                            return 'director'
+  if (/\b(staff|principal)\b/.test(t))                     return 'staff_engineer'
+  if (/\b(engineering manager|eng manager|em)\b/.test(t))  return 'eng_manager'
+  if (/\b(manager)\b/.test(t))                             return 'manager'
+  if (/\b(senior|sr\.?)\b/.test(t))                        return 'senior_engineer'
+  if (/\b(junior|jr\.?|associate)\b/.test(t))              return 'junior_engineer'
+  if (/\b(product manager|pm)\b/.test(t))                  return 'product_manager'
+  if (/\b(design|ux|ui)\b/.test(t))                        return 'designer'
+  if (/\b(data scientist|ml|machine learning|ai)\b/.test(t)) return 'data_ml'
+  if (/\b(devops|sre|platform|infra)\b/.test(t))           return 'infra'
+  if (/\b(engineer|developer|swe|software)\b/.test(t))     return 'engineer'
+  return 'other'
+}
+
+function normalizeLinkedin(url: string | undefined): string | null {
+  if (!url) return null
+  if (url.startsWith('http')) return url
+  if (url.startsWith('linkedin.com')) return `https://www.${url}`
+  if (url.startsWith('www.linkedin.com')) return `https://${url}`
+  // bare slug like "in/johndoe"
+  return `https://www.linkedin.com/${url.replace(/^\//, '')}`
+}
+
+async function searchPdlContacts(company: string, pdlKey: string): Promise<PdlContact[]> {
+  const res = await fetch('https://api.peopledatalabs.com/v5/person/search', {
+    method: 'POST',
+    headers: {
+      'X-Api-Key': pdlKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: {
+        bool: {
+          must: [
+            { term: { job_company_name: company.toLowerCase() } },
+          ],
+        },
+      },
+      size: 25,
+      fields: ['full_name', 'work_email', 'linkedin_url', 'job_title'],
+    }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('PDL error:', res.status, text)
+    return []
+  }
+
+  const body = await res.json() as { data?: PdlContact[] }
+  return body.data ?? []
+}
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS_HEADERS })
   }
 
   let payload: WebhookPayload
   try {
     payload = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: CORS_HEADERS })
   }
 
-  if (payload.type !== 'INSERT') {
-    return new Response(JSON.stringify({ skipped: true }), { status: 200 })
+  if (payload.type !== 'INSERT' && payload.type !== 'MANUAL') {
+    return new Response(JSON.stringify({ skipped: true }), { status: 200, headers: CORS_HEADERS })
   }
 
   const job = payload.record
@@ -72,10 +125,10 @@ Deno.serve(async (req) => {
   if (payload.type === 'MANUAL') {
     const authHeader = req.headers.get('Authorization')
     const jwt = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-    if (!jwt) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    if (!jwt) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS })
     const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
     if (authError || !user || user.id !== job.user_id) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS })
     }
   }
 
@@ -93,12 +146,17 @@ Deno.serve(async (req) => {
     sub.current_period_end > now
 
   if (!isPremium) {
-    return new Response(JSON.stringify({ error: 'Premium required' }), { status: 403 })
+    return new Response(JSON.stringify({ error: 'Premium required' }), { status: 403, headers: CORS_HEADERS })
   }
 
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) {
-    return new Response(JSON.stringify({ error: 'AI service not configured' }), { status: 503 })
+    return new Response(JSON.stringify({ error: 'AI service not configured' }), { status: 503, headers: CORS_HEADERS })
+  }
+
+  const pdlKey = Deno.env.get('PDL_API_KEY')
+  if (!pdlKey) {
+    return new Response(JSON.stringify({ error: 'PDL not configured' }), { status: 503, headers: CORS_HEADERS })
   }
 
   const tools = [
@@ -175,7 +233,7 @@ Use search_contacts to find people at ${job.company}, then select the 3–5 most
 
     if (!res.ok) {
       console.error('Anthropic error:', res.status, await res.text())
-      return new Response(JSON.stringify({ error: 'AI call failed' }), { status: 502 })
+      return new Response(JSON.stringify({ error: 'AI call failed' }), { status: 502, headers: CORS_HEADERS })
     }
 
     const completion = await res.json() as {
@@ -195,17 +253,35 @@ Use search_contacts to find people at ${job.company}, then select the 3–5 most
 
         if (block.name === 'search_contacts') {
           const input = block.input as { company: string }
-          const contacts = getStubContacts(input.company)
+          const contacts = await searchPdlContacts(input.company, pdlKey)
+          // Seed PDL cache — always, even on empty, so scan skips this company
+          await supabase.from('company_contact_cache').upsert({
+            company_name: input.company.toLowerCase(),
+            contacts,
+            fetched_at: new Date().toISOString(),
+            cache_hits: 0,
+            cache_misses: 0,
+          }, { onConflict: 'company_name' })
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
-            content: JSON.stringify(contacts),
+            content: contacts.length > 0
+              ? JSON.stringify(contacts)
+              : 'No contacts found for this company in the database.',
           })
         }
 
         if (block.name === 'save_recommendations') {
           const input = block.input as { contacts: RecommendedContact[] }
           savedContacts = input.contacts
+          // Seed Claude cache — always, even on empty
+          await supabase.from('claude_rec_cache').upsert({
+            company_name: job.company.toLowerCase(),
+            title_bucket: bucketTitle(job.title),
+            recommendations: savedContacts,
+            fetched_at: new Date().toISOString(),
+            cache_hits: 0,
+          }, { onConflict: 'company_name,title_bucket' })
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
@@ -225,7 +301,7 @@ Use search_contacts to find people at ${job.company}, then select the 3–5 most
 
   if (savedContacts.length === 0) {
     console.error('Agent did not produce recommendations for job', job.id)
-    return new Response(JSON.stringify({ error: 'Agent produced no recommendations' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'Agent produced no recommendations' }), { status: 500, headers: CORS_HEADERS })
   }
 
   const rows = savedContacts.map((c) => ({
@@ -235,7 +311,7 @@ Use search_contacts to find people at ${job.company}, then select the 3–5 most
     name: c.name,
     title: c.title ?? null,
     email: c.email ?? null,
-    linkedin_url: c.linkedin_url ?? null,
+    linkedin_url: normalizeLinkedin(c.linkedin_url),
     seniority: c.seniority,
     why: c.why,
   }))
@@ -243,11 +319,11 @@ Use search_contacts to find people at ${job.company}, then select the 3–5 most
   const { error: insertError } = await supabase.from('recommended_contacts').insert(rows)
   if (insertError) {
     console.error('Insert failed:', insertError)
-    return new Response(JSON.stringify({ error: 'DB insert failed' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'DB insert failed' }), { status: 500, headers: CORS_HEADERS })
   }
 
   return new Response(JSON.stringify({ ok: true, count: rows.length }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
 })
