@@ -12,6 +12,7 @@ import { COACHING_COVER_LETTER, COACHING_WHY_GOOD_FIT, COACHING_CUSTOM } from '@
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 import { downloadDocx } from '@/lib/docxExport'
+import { downloadPdf } from '@/lib/pdfExport'
 import { loadAiHistory, saveAiHistoryEntry, deleteAiHistoryEntry, updateAiHistoryEntry, formatHistoryLabel, type AiHistoryEntry } from '@/lib/aiHistory'
 
 ensureCrtStyles()
@@ -376,6 +377,14 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
       console.error('[docx]', err)
       alert('DOCX error: ' + (err instanceof Error ? err.message : String(err)))
     }
+  }
+
+  function handleDownloadPdf() {
+    const filename = buildDocxFilename().replace(/\.docx$/, '.pdf')
+    downloadPdf(output, filename).catch((err) => {
+      console.error('[pdf]', err)
+      alert('PDF error: ' + (err instanceof Error ? err.message : String(err)))
+    })
   }
 
   function handleBack() {
@@ -743,6 +752,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
               {copied ? '✓ COPIED' : 'COPY'}
             </button>
             <button onClick={handleDownload} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>DOCX</button>
+            <button onClick={handleDownloadPdf} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>PDF</button>
             <button onClick={() => setView('history')} style={termBtn(false)}>HISTORY</button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
           </div>
