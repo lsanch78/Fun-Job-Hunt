@@ -229,25 +229,43 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
     setEditingQuick(null)
   }
 
-  async function assemblePrompt(): Promise<string> {
-    const parts: string[] = []
-    for (const slot of selectedSlots) {
+  async function assembleInputs(): Promise<{ resumeSystem: string; prompt: string }> {
+    const slots = [...selectedSlots]
+
+    // First slot becomes the cached system prefix; remaining slots go into the user message.
+    let resumeSystem = ''
+    const extraParts: string[] = []
+
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
       const signedUrl = await getResumeSignedUrl(userId, slot)
       const text = signedUrl ? await getResumeText(userId, slot, signedUrl) : ''
-      if (text) parts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
+      if (!text) continue
+      if (i === 0 && !textInputActive) {
+        resumeSystem = `RESUME ${slot.toUpperCase()}:\n${text}`
+      } else {
+        extraParts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
+      }
     }
+
     if (textInputActive && resumeTextInput.trim()) {
-      parts.push(`--- RESUME (PASTED) ---\n${resumeTextInput.trim()}`)
+      if (!resumeSystem) {
+        resumeSystem = `RESUME (PASTED):\n${resumeTextInput.trim()}`
+      } else {
+        extraParts.push(`--- RESUME (PASTED) ---\n${resumeTextInput.trim()}`)
+      }
     }
+
     let prompt = ''
-    if (parts.length > 0) prompt += `RESUME:\n${parts.join('\n\n')}\n\n`
+    if (extraParts.length > 0) prompt += `ADDITIONAL RESUMES:\n${extraParts.join('\n\n')}\n\n`
     if (jdText.trim()) prompt += `JOB DESCRIPTION:\n${jdText.trim()}`
-    return prompt
+
+    return { resumeSystem, prompt }
   }
 
   async function handleGenerate() {
     const system = resolveSystemPrompt()
-    const prompt = await assemblePrompt()
+    const { resumeSystem, prompt } = await assembleInputs()
     setView('output')
     setOutput('')
     setLimitHit(false)
@@ -257,6 +275,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
     streamCompletion({
       model: selectedModel,
       system,
+      resumeSystem: resumeSystem || undefined,
       prompt,
       signal: controller.signal,
       onToken: (token) => setOutput((prev) => prev + token),

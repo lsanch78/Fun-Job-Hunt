@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
   }
 
   // ── Parse request body ────────────────────────────────────────────────────
-  let body: { model?: string; system?: string; prompt?: string }
+  let body: { model?: string; system?: string; resumeSystem?: string; prompt?: string }
   try {
     body = await req.json()
   } catch {
@@ -87,9 +87,10 @@ Deno.serve(async (req) => {
     })
   }
 
-  const model  = body.model  ?? 'claude-haiku-4-5'
-  const system = body.system ?? ''
-  const prompt = body.prompt ?? ''
+  const model        = body.model        ?? 'claude-sonnet-4-5'
+  const system       = body.system       ?? ''
+  const resumeSystem = body.resumeSystem ?? ''
+  const prompt       = body.prompt       ?? ''
 
   // ── Proxy to Anthropic ────────────────────────────────────────────────────
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -100,17 +101,23 @@ Deno.serve(async (req) => {
     })
   }
 
+  // Resume text is the stable cached prefix; instruction text follows uncached.
+  const systemBlocks = []
+  if (resumeSystem) systemBlocks.push({ type: 'text', text: resumeSystem, cache_control: { type: 'ephemeral' } })
+  if (system)       systemBlocks.push({ type: 'text', text: system })
+
   const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': anthropicKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'prompt-caching-2024-07-31',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      system,
+      system: systemBlocks.length > 0 ? systemBlocks : undefined,
       messages: [{ role: 'user', content: prompt }],
       stream: true,
     }),

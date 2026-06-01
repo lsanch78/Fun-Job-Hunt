@@ -67,7 +67,7 @@ export async function fetchUsage(): Promise<{ count: number; limit: number; peri
 
 export function fetchModels(): { connected: boolean; models: string[] } {
   const provider = getAiProvider()
-  if (provider === 'proxy') return { connected: true, models: ['claude-haiku-4-5'] }
+  if (provider === 'proxy') return { connected: true, models: ['claude-sonnet-4-5'] }
   const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS
   const apiKey = getAiApiKey()
   return { connected: !!apiKey, models }
@@ -78,6 +78,8 @@ export function fetchModels(): { connected: boolean; models: string[] } {
 export async function streamCompletion(params: {
   model: string
   system: string
+  /** Resume text to cache as a stable system prefix (Anthropic only). */
+  resumeSystem?: string
   prompt: string
   onToken: (token: string) => void
   onDone: () => void
@@ -95,6 +97,7 @@ export async function streamCompletion(params: {
 async function streamProxy(params: {
   model: string
   system: string
+  resumeSystem?: string
   prompt: string
   onToken: (token: string) => void
   onDone: () => void
@@ -111,7 +114,7 @@ async function streamProxy(params: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: 'claude-haiku-4-5', system, prompt }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', system, resumeSystem: params.resumeSystem, prompt }),
       signal,
     })
     if (!res.ok || !res.body) {
@@ -165,6 +168,7 @@ async function streamProxy(params: {
 async function streamOpenAI(params: {
   model: string
   system: string
+  resumeSystem?: string
   prompt: string
   onToken: (token: string) => void
   onDone: () => void
@@ -172,6 +176,7 @@ async function streamOpenAI(params: {
   signal?: AbortSignal
 }): Promise<void> {
   const { model, system, prompt, onToken, onDone, onError, signal } = params
+  const fullSystem = [params.resumeSystem, system].filter(Boolean).join('\n\n')
   const apiKey = getAiApiKey()
   if (!apiKey) { onError('No OpenAI API key configured'); return }
   try {
@@ -184,7 +189,7 @@ async function streamOpenAI(params: {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: system },
+          { role: 'system', content: fullSystem },
           { role: 'user', content: prompt },
         ],
         stream: true,
@@ -233,6 +238,7 @@ async function streamOpenAI(params: {
 async function streamAnthropic(params: {
   model: string
   system: string
+  resumeSystem?: string
   prompt: string
   onToken: (token: string) => void
   onDone: () => void
@@ -242,19 +248,29 @@ async function streamAnthropic(params: {
   const { model, system, prompt, onToken, onDone, onError, signal } = params
   const apiKey = getAiApiKey()
   if (!apiKey) { onError('No Anthropic API key configured'); return }
+
+  const systemBlocks: object[] = []
+  if (params.resumeSystem) {
+    systemBlocks.push({ type: 'text', text: params.resumeSystem, cache_control: { type: 'ephemeral' } })
+  }
+  if (system) {
+    systemBlocks.push({ type: 'text', text: system })
+  }
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'anthropic-dangerous-direct-browser-access': 'true',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model,
         max_tokens: 4096,
-        system,
+        system: systemBlocks.length > 0 ? systemBlocks : undefined,
         messages: [{ role: 'user', content: prompt }],
         stream: true,
       }),
