@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { playBootBlip, playExitBlip } from '@/lib/sfx'
+import { playBootBlip, playExitBlip, playAiConsume, playAiDing } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { fetchModels, streamCompletion, getAiProvider, fetchUsage, type AiProvider } from '@/services/aiService'
@@ -140,9 +140,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
   const [jdToast,           setJdToast]          = useState(false)
   const [lastQuickKey,      setLastQuickKey]     = useState<QuickKey | null>(null)
 
-  const [humanFirst, setHumanFirst] = useState<boolean>(() =>
-    lsGet<AiMode>(SK.aiMode(userId), 'ai-first') === 'human-first'
-  )
+  const humanFirst = lsGet<AiMode>(SK.aiMode(userId), 'ai-first') === 'human-first'
 
   const abortRef  = useRef<AbortController | null>(null)
   const outputPreRef      = useRef<HTMLPreElement>(null)
@@ -311,6 +309,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
     setActiveHistoryId(null)
     setLimitHit(false)
     setIsStreaming(true)
+    playAiConsume()
     const controller = new AbortController()
     abortRef.current = controller
     let accumulated = ''
@@ -326,6 +325,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
       },
       onDone: () => {
         setIsStreaming(false)
+        playAiDing()
         if (getAiProvider() === 'proxy') fetchUsage().then(setUsage)
         if (accumulated.trim()) {
           saveAiHistoryEntry(userId, {
@@ -565,27 +565,6 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
               </button>
             </div>
 
-            {/* Human-First per-session toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              <button
-                onClick={() => setHumanFirst((v) => !v)}
-                style={{
-                  fontFamily: '"VT323", monospace',
-                  fontSize: CRT_FONT.label,
-                  color: humanFirst ? T.bg : T.greenDim,
-                  background: humanFirst ? T.greenDim : 'transparent',
-                  border: `1px solid ${humanFirst ? T.greenDim : T.border}`,
-                  padding: '1px 8px',
-                  cursor: 'pointer',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                HUMAN-FIRST
-              </button>
-              <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, fontFamily: '"VT323", monospace' }}>
-                {humanFirst ? 'coaching mode — you write it' : 'off'}
-              </span>
-            </div>
 
             {/* Gear editor */}
             {editingQuick && (
@@ -704,6 +683,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
         <div className="flex flex-col gap-3 px-4 py-3">
           <div style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
             {isStreaming ? '// GENERATING...' : humanFirst ? '// COACHING OUTPUT' : '// OUTPUT — EDIT TO REFINE'}
+
           </div>
           {isStreaming ? (
             <pre
