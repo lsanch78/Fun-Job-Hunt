@@ -245,17 +245,17 @@ export default function LandingPage() {
             <div className="px-5 py-3 font-pixel text-[8px] text-primary tracking-widest border-l border-border text-center">PRO</div>
           </div>
           {([
-            { feature: 'Job Tracking',       free: '∞ applications',          pro: '∞ applications' },
-            { feature: 'Network',            free: '∞ contacts',              pro: '∞ contacts' },
+            { feature: 'Job Tracking',       free: 'Up to 300 applications',  pro: '∞ applications' },
+            { feature: 'Network',            free: 'Up to 30 contacts',       pro: '∞ contacts' },
             { feature: 'Story Mode',         free: '✓',                       pro: '✓' },
             { feature: 'Time Tracking',      free: '✓',                       pro: '✓' },
             { feature: 'Stats',              free: '✓',                       pro: '✓' },
             { feature: 'Journal',            free: '✓',                       pro: '✓' },
-            { feature: 'Themes',             free: '5 themes + custom editor',pro: '5 themes + custom editor' },
+            { feature: 'Themes',             free: 'Classic Terminal',         pro: 'All 5 themes + custom editor' },
             { feature: 'Resume Slots',       free: '1 slot',                  pro: '3 slots' },
             { feature: 'AI Assistant',       free: 'Limited',                 pro: 'Unlimited' },
             { feature: 'BYOK',               free: '✓',                       pro: '✓' },
-            { feature: 'AI off mode',        free: '✓',                       pro: '✓' },
+            { feature: 'No AI mode',         free: '✓',                       pro: '✓' },
           ] as const).map(({ feature, free, pro }, i) => (
             <div key={feature} className={`grid grid-cols-3 ${i % 2 === 1 ? 'bg-surface' : ''} ${i > 0 ? 'border-t border-border' : ''}`}>
               <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest">{feature.toUpperCase()}</div>
