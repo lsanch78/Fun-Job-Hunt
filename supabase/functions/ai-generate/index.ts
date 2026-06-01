@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const model  = body.model  ?? 'claude-haiku-4-5'
+  const model  = body.model  ?? 'claude-sonnet-4-5'
   const system = body.system ?? ''
   const prompt = body.prompt ?? ''
 
