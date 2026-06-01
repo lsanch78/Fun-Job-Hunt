@@ -11,6 +11,7 @@ import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, ty
 import { COACHING_COVER_LETTER, COACHING_WHY_GOOD_FIT, COACHING_CUSTOM } from '@/config/aiPrompts'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
+import { downloadDocx } from '@/lib/docxExport'
 
 ensureCrtStyles()
 
@@ -133,6 +134,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   const [limitHit,          setLimitHit]         = useState(false)
   const [ctxMenu,           setCtxMenu]          = useState<{ key: QuickKey; x: number; y: number } | null>(null)
   const [jdToast,           setJdToast]          = useState(false)
+  const [lastQuickKey,      setLastQuickKey]     = useState<QuickKey | null>(null)
 
   const [humanFirst, setHumanFirst] = useState<boolean>(() =>
     lsGet<AiMode>(SK.aiMode(userId), 'ai-first') === 'human-first'
@@ -219,6 +221,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
 
   function applyQuickPrompt(key: QuickKey) {
     setPromptText(quickPromptText(key))
+    setLastQuickKey(key)
   }
 
 
@@ -320,6 +323,23 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
     })
     setCopied(true)
     setTimeout(() => setCopied(false), 800)
+  }
+
+  function buildDocxFilename(): string {
+    const suffix = lastQuickKey === 'cover_letter' ? 'cover_letter'
+      : lastQuickKey === 'why_good_fit' ? 'why_good_fit'
+      : 'output'
+    const company = jdText.trim().split('\n')[0].trim().replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 40) || 'Company'
+    return `${company}_${suffix}.docx`
+  }
+
+  function handleDownload() {
+    try {
+      downloadDocx(output, buildDocxFilename())
+    } catch (err) {
+      console.error('[docx]', err)
+      alert('DOCX error: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   function handleBack() {
@@ -679,6 +699,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
             >
               {copied ? '✓ COPIED' : 'COPY'}
             </button>
+            <button onClick={handleDownload} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>DOCX</button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
           </div>
           {limitHit && provider === 'proxy' && (

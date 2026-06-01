@@ -20,6 +20,7 @@
     "mammoth": "^1.12.0",
     "pdfjs-dist": "^5.7.284",
     "pixelarticons": "^2.1.1",
+    "pizzip": "^3.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.0"
