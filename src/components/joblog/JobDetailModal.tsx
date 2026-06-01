@@ -25,6 +25,7 @@ interface JobDetailModalProps {
   onClose: () => void
   onChange: (updated: Job) => void
   fullScreen?: boolean
+  initialPage?: 1 | 2
 }
 
 // ── ContactsPanel ─────────────────────────────────────────────────────────────
@@ -234,12 +235,12 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
 
-export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false }: JobDetailModalProps) {
+export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
   const { isSubscribed } = useSubscription()
   const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
-  const [page, setPage] = useState<1 | 2>(1)
+  const [page, setPage] = useState<1 | 2>(initialPage)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -277,7 +278,10 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, page, localIdx])
 
-  useEffect(() => { setPage(1) }, [localIdx])
+  const prevLocalIdx = useRef(localIdx)
+  useEffect(() => {
+    if (prevLocalIdx.current !== localIdx) { prevLocalIdx.current = localIdx; setPage(1) }
+  }, [localIdx])
 
   useEffect(() => {
     if (!job || loadedIds.current.has(job.id)) return

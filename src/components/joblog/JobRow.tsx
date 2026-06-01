@@ -333,8 +333,9 @@ export const JobRow = forwardRef<JobRowHandle, {
   checked?: boolean
   onToggle?: (id: string, e: React.MouseEvent<HTMLInputElement>) => void
   onOpenDetail?: () => void
+  onOpenDetailPage2?: () => void
   onDetailBlur?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onDetailBlur }, ref) {
+}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
@@ -443,7 +444,7 @@ export const JobRow = forwardRef<JobRowHandle, {
       case 'status':
         return <StatusCell key="status" status={draft.status} onStatusChange={handleStatusChange} />
       case 'jd':
-        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
+        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? (onOpenDetailPage2 ?? onOpenDetail) : undefined} isNewRow={!committed} />
       case 'notes':
         return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
       default:

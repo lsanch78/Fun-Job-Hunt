@@ -160,9 +160,11 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [page, setPage] = useState(1)
   const [deleteMode, setDeleteMode] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  const [detailJobPage, setDetailJobPage] = useState<1 | 2>(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
   const columns = useColumns()
+  const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
   const rowHandlesRef = useRef<Map<string, JobRowHandle>>(new Map())
@@ -443,7 +445,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       </div>{/* end toolbar */}
 
       {/* Table */}
-      <div data-tutorial="job-rows" className="overflow-auto flex-1">
+      <div data-tutorial="job-rows" className="overflow-y-auto overflow-x-hidden flex-1">
         {/* Column context menu */}
         {columns.menu && (() => {
           const { menu, visibleCols, cols } = columns
@@ -466,12 +468,12 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           )
         })()}
 
-        <table className="border-collapse text-xs" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}>
+        <table className="border-collapse text-xs w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             {deleteMode && <col style={{ width: 24 }} />}
             <col style={{ width: 28 }} />
             {columns.visibleCols.map((col) => (
-              <col key={col.key} style={{ width: col.width }} />
+              <col key={col.key} style={{ width: `${((col.width / totalColWeight) * 100).toFixed(2)}%` }} />
             ))}
             <col style={{ width: 32 }} />
           </colgroup>
@@ -507,7 +509,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   onTabOut={handleTabOut}
                   deleteMode={deleteMode}
                   checked={selected.has(job.id)}
-                  onOpenDetail={job.committed ? () => setDetailJobId(job.id) : undefined}
+                  onOpenDetail={job.committed ? () => { setDetailJobPage(1); setDetailJobId(job.id) } : undefined}
+                  onOpenDetailPage2={job.committed ? () => { setDetailJobPage(2); setDetailJobId(job.id) } : undefined}
                   onDetailBlur={(j) => {
                     if (!j.committed) return
                     updateJobDetails(j.id, {
@@ -571,11 +574,13 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Application detail card */}
       {detailJobId && (
         <JobDetailModal
+          key={`${detailJobId}-${detailJobPage}`}
           jobs={jobs.filter((j) => j.committed)}
           jobId={detailJobId}
           userId={userId}
           onClose={() => setDetailJobId(null)}
           onChange={handleDraftChange}
+          initialPage={detailJobPage}
         />
       )}
 
