@@ -55,7 +55,7 @@ export function downloadDocx(text: string, filename: string): void {
 
   zip.file('word/document.xml', buildDocumentXml(text), DEFLATE)
 
-  const bytes = zip.generate({ type: 'uint8array' })
+  const bytes = zip.generate({ type: 'uint8array' }) as Uint8Array<ArrayBuffer>
   const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

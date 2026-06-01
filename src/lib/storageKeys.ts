@@ -32,6 +32,7 @@ export const SK = {
   aiApiKey:     'fjobhunt:ai:apikey',
   aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,
   aiModalText:  (uid: string) => `fjobhunt:ai-modal-text:${uid}`,
+  aiHistory:    (uid: string) => `fjobhunt:ai-gen-history:${uid}`,
 
   // ── Theme & display ──────────────────────────────────────────────────────────
   theme:        'fjobhunt:theme',

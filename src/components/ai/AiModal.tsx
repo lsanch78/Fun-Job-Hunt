@@ -12,6 +12,7 @@ import { COACHING_COVER_LETTER, COACHING_WHY_GOOD_FIT, COACHING_CUSTOM } from '@
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 import { downloadDocx } from '@/lib/docxExport'
+import { loadAiHistory, saveAiHistoryEntry, deleteAiHistoryEntry, updateAiHistoryEntry, formatHistoryLabel, type AiHistoryEntry } from '@/lib/aiHistory'
 
 ensureCrtStyles()
 
@@ -29,7 +30,7 @@ const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 // ── Sounds ────────────────────────────────────────────────────────────────────
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type PanelView = 'form' | 'output'
+type PanelView = 'form' | 'output' | 'history'
 type QuickKey     = 'cover_letter' | 'why_good_fit' | 'custom'
 
 interface AiModalProps {
@@ -37,6 +38,7 @@ interface AiModalProps {
   resumeSlots: Partial<Record<ResumeSlot, ResumeSlotRecord>>
   onClose: () => void
   initialOutput?: string
+  initialView?: PanelView
 }
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
@@ -110,7 +112,7 @@ function saveResumeText(userId: string, text: string) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function AiModal({ userId, resumeSlots, onClose, initialOutput }: AiModalProps) {
+export default function AiModal({ userId, resumeSlots, onClose, initialOutput, initialView }: AiModalProps) {
   const { isSubscribed } = useSubscription()
   const occupiedSlots = RESUME_SLOTS.filter((s) => resumeSlots[s])
 
@@ -123,10 +125,12 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   const [promptText,        setPromptText]       = useState('')
   const [editingQuick,      setEditingQuick]     = useState<QuickKey | null>(null)
   const [draftPrompt,       setDraftPrompt]      = useState('')
-  const [view,              setView]             = useState<PanelView>(initialOutput ? 'output' : 'form')
+  const [view,              setView]             = useState<PanelView>(initialView ?? (initialOutput ? 'output' : 'form'))
   const [output,            setOutput]           = useState(initialOutput ?? '')
   const [isStreaming,       setIsStreaming]       = useState(false)
   const [copied,            setCopied]           = useState(false)
+  const [history,           setHistory]          = useState<AiHistoryEntry[]>(() => loadAiHistory(userId))
+  const [activeHistoryId,   setActiveHistoryId]  = useState<string | null>(null)
   const [aiSettings,        setAiSettings]       = useState<AiSettings | null>(null)
   const [showInfo,          setShowInfo]         = useState(false)
   const [provider,          setProvider]         = useState<AiProvider>(() => getAiProvider())
@@ -141,7 +145,8 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
   )
 
   const abortRef  = useRef<AbortController | null>(null)
-  const outputRef = useRef<HTMLPreElement>(null)
+  const outputPreRef      = useRef<HTMLPreElement>(null)
+  const outputTextareaRef = useRef<HTMLTextAreaElement>(null)
   const ctxMenuRef = useRef<HTMLDivElement>(null)
 
   // ── Mount ──────────────────────────────────────────────────────────────────
@@ -190,10 +195,28 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
 
   // Auto-scroll output as it streams
   useEffect(() => {
-    if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight
-    }
+    const el = outputPreRef.current ?? outputTextareaRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [output])
+
+  // Auto-size textarea to fit content whenever output changes or streaming ends
+  useEffect(() => {
+    const ta = outputTextareaRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    const maxPx = window.innerHeight * 0.52
+    ta.style.height = Math.min(ta.scrollHeight, maxPx) + 'px'
+  }, [output, isStreaming, view])
+
+  // Debounced save of edits back to the active history entry
+  useEffect(() => {
+    if (!activeHistoryId || isStreaming) return
+    const t = setTimeout(() => {
+      updateAiHistoryEntry(userId, activeHistoryId, output)
+      setHistory(loadAiHistory(userId))
+    }, 600)
+    return () => clearTimeout(t)
+  }, [output, activeHistoryId, isStreaming])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function toggleSlot(slot: ResumeSlot) {
@@ -285,20 +308,33 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
     const { resumeSystem, prompt } = await assembleInputs()
     setView('output')
     setOutput('')
+    setActiveHistoryId(null)
     setLimitHit(false)
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
+    let accumulated = ''
     streamCompletion({
       model: selectedModel,
       system,
       resumeSystem: resumeSystem || undefined,
       prompt,
       signal: controller.signal,
-      onToken: (token) => setOutput((prev) => prev + token),
+      onToken: (token) => {
+        accumulated += token
+        setOutput((prev) => prev + token)
+      },
       onDone: () => {
         setIsStreaming(false)
         if (getAiProvider() === 'proxy') fetchUsage().then(setUsage)
+        if (accumulated.trim()) {
+          saveAiHistoryEntry(userId, {
+            promptType: lastQuickKey,
+            output: accumulated,
+            jdSnippet: jdText.slice(0, 120),
+          })
+          setHistory(loadAiHistory(userId))
+        }
       },
       onError: (msg) => {
         const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
@@ -640,6 +676,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
                 GENERATE
               </button>
               <button onClick={handleClose} style={termBtn(false)}>CANCEL</button>
+              <button onClick={() => setView('history')} style={termBtn(false)}>HISTORY</button>
               {provider === 'proxy' && (
                 isSubscribed ? (
                   <span style={{ color: T.greenDim, fontSize: CRT_FONT.label, fontFamily: '"VT323", monospace', marginLeft: '4px' }}>
@@ -666,27 +703,53 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
       {view === 'output' && (
         <div className="flex flex-col gap-3 px-4 py-3">
           <div style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
-            {isStreaming ? '// GENERATING...' : humanFirst ? '// COACHING OUTPUT' : '// OUTPUT'}
+            {isStreaming ? '// GENERATING...' : humanFirst ? '// COACHING OUTPUT' : '// OUTPUT — EDIT TO REFINE'}
           </div>
-          <pre
-            ref={outputRef}
-            style={{
-              fontFamily: '"VT323", monospace',
-              fontSize: CRT_FONT.body,
-              color: T.green,
-              background: 'rgba(57,255,20,0.03)',
-              border: `1px solid ${T.border}`,
-              padding: '8px 10px',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              lineHeight: '1.5',
-              maxHeight: '52vh',
-              overflowY: 'auto',
-              minHeight: '80px',
-            }}
-          >
-            {displayOutput}
-          </pre>
+          {isStreaming ? (
+            <pre
+              ref={outputPreRef}
+              style={{
+                fontFamily: '"VT323", monospace',
+                fontSize: CRT_FONT.body,
+                color: T.green,
+                background: 'rgba(57,255,20,0.03)',
+                border: `1px solid ${T.border}`,
+                padding: '8px 10px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                lineHeight: '1.5',
+                maxHeight: '52vh',
+                overflowY: 'auto',
+                minHeight: '80px',
+              }}
+            >
+              {displayOutput}
+            </pre>
+          ) : (
+            <textarea
+              ref={outputTextareaRef}
+              value={output}
+              onChange={(e) => setOutput(e.target.value)}
+              style={{
+                fontFamily: '"VT323", monospace',
+                fontSize: CRT_FONT.body,
+                color: T.green,
+                background: 'rgba(57,255,20,0.03)',
+                border: `1px solid ${T.border}`,
+                padding: '8px 10px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                lineHeight: '1.5',
+                maxHeight: '52vh',
+                overflowY: 'auto',
+                width: '100%',
+                resize: 'vertical',
+                outline: 'none',
+                caretColor: T.green,
+                boxSizing: 'border-box',
+              }}
+            />
+          )}
           <div className="flex gap-2 pb-1">
             <button
               onClick={handleCopy}
@@ -700,6 +763,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
               {copied ? '✓ COPIED' : 'COPY'}
             </button>
             <button onClick={handleDownload} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>DOCX</button>
+            <button onClick={() => setView('history')} style={termBtn(false)}>HISTORY</button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
           </div>
           {limitHit && provider === 'proxy' && (
@@ -719,6 +783,66 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput }:
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── HISTORY VIEW ────────────────────────────────────────────────────── */}
+      {view === 'history' && (
+        <div className="flex flex-col gap-3 px-4 py-3">
+          <div style={{ color: T.greenDim, fontSize: CRT_FONT.label, letterSpacing: '0.1em' }}>
+            // GENERATION HISTORY
+          </div>
+          {history.length === 0 ? (
+            <div style={{ color: T.greenDim, fontFamily: '"VT323", monospace', fontSize: CRT_FONT.body, padding: '12px 0' }}>
+              No generations saved yet.
+            </div>
+          ) : (
+            <div style={{ maxHeight: '52vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {history.map((entry) => (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '6px',
+                    border: `1px solid ${T.border}`,
+                    padding: '6px 8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div
+                    style={{ flex: 1, minWidth: 0 }}
+                    onClick={() => {
+                      setOutput(entry.output)
+                      setActiveHistoryId(entry.id)
+                      setView('output')
+                    }}
+                  >
+                    <div style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.label, color: T.green, letterSpacing: '0.05em' }}>
+                      {formatHistoryLabel(entry)}
+                    </div>
+                    {entry.jdSnippet && (
+                      <div style={{ fontFamily: '"VT323", monospace', fontSize: CRT_FONT.chrome, color: T.greenDim, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {entry.jdSnippet}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      deleteAiHistoryEntry(userId, entry.id)
+                      setHistory(loadAiHistory(userId))
+                    }}
+                    style={{ background: 'none', border: 'none', color: T.greenDim, cursor: 'pointer', fontFamily: '"VT323", monospace', fontSize: CRT_FONT.btn, flexShrink: 0, padding: '0 2px' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 pb-1">
+            <button onClick={() => setView('form')} style={termBtn(false)}>← BACK</button>
+          </div>
         </div>
       )}
 

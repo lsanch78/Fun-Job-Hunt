@@ -294,6 +294,7 @@ export default function QuickCast() {
   const [aiGenerating,   setAiGenerating]   = useState(false)
   const [aiGenDots,      setAiGenDots]      = useState(0)
   const [aiResult,       setAiResult]       = useState<string | null>(null)
+  const [aiInitialView,  setAiInitialView]  = useState<'form' | 'output' | 'history' | undefined>(undefined)
 
   const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
@@ -932,6 +933,12 @@ export default function QuickCast() {
                       {label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => { setAiMenuOpen(false); setAiInitialView('history'); setAiModalOpen(true) }}
+                    className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
+                  >
+                    HISTORY
+                  </button>
                 </div>
               </div>
             )}
@@ -949,7 +956,8 @@ export default function QuickCast() {
               userId={userId}
               resumeSlots={resumeSlots}
               initialOutput={aiResult ?? undefined}
-              onClose={() => { setAiModalOpen(false); setAiResult(null) }}
+              initialView={aiInitialView}
+              onClose={() => { setAiModalOpen(false); setAiResult(null); setAiInitialView(undefined) }}
             />
           </div>
         </div>
