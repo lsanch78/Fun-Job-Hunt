@@ -31,6 +31,7 @@ interface JobDetailModalProps {
 // ── ContactsPanel ─────────────────────────────────────────────────────────────
 
 function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string; jobTitle: string; jobCompany: string; userId: string | null }) {
+  const { isSubscribed } = useSubscription()
   const [linked, setLinked] = useState<Contact[]>([])
   const [all, setAll] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -236,7 +237,6 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
 const CLEAN_JD_SYSTEM = `You are a text formatting assistant. Clean up and reformat job description text. Preserve ALL original content exactly — do not add, remove, or rephrase anything. Fix only whitespace, indentation, inconsistent bullet points, and stray characters. Output plain text with clean structure.`
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
-  const { isSubscribed } = useSubscription()
   const aiDisabled = lsGet<boolean>(SK.aiDisabled, false)
   const currentIdx = jobs.findIndex((j) => j.id === jobId)
   const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)

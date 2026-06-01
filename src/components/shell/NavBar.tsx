@@ -45,7 +45,6 @@ export default function NavBar() {
       setUserId(user?.id ?? null)
       const name = (user?.user_metadata?.['username'] as string | undefined) ?? ''
       setUsername(name)
-      setNameInput(name)
     })
   }, [])
 
