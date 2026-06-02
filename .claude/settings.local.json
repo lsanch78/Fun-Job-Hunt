@@ -94,7 +94,8 @@
       "Bash(npx supabase *)",
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:platform.claude.ai)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(Select-Object Name)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

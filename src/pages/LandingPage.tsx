@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PRO_FEATURE_TABLE } from '@/config/pricing'
 import { useNavigate } from 'react-router-dom'
 import { playLinkBlip } from '@/lib/sfx'
 import { supabase } from '@/lib/supabase'
@@ -244,19 +245,7 @@ export default function LandingPage() {
             <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest border-l border-border text-center">FREE</div>
             <div className="px-5 py-3 font-pixel text-[8px] text-primary tracking-widest border-l border-border text-center">PRO</div>
           </div>
-          {([
-            { feature: 'Job Tracking',       free: '∞ applications',          pro: '∞ applications' },
-            { feature: 'Network',            free: 'Up to 30 contacts',       pro: '∞ contacts' },
-            { feature: 'Story Mode',         free: '✓',                       pro: '✓' },
-            { feature: 'Time Tracking',      free: '✓',                       pro: '✓' },
-            { feature: 'Stats',              free: '✓',                       pro: '✓' },
-            { feature: 'Journal',            free: '✓',                       pro: '✓' },
-            { feature: 'Themes',             free: 'Classic Terminal',         pro: 'All 5 themes + custom editor' },
-            { feature: 'Resume Slots',       free: '1 slot',                  pro: '3 slots' },
-            { feature: 'AI Assistant',       free: 'Limited',                 pro: 'Unlimited' },
-            { feature: 'BYOK',               free: '✓',                       pro: '✓' },
-            { feature: 'No AI mode',         free: '✓',                       pro: '✓' },
-          ] as const).map(({ feature, free, pro }, i) => (
+          {PRO_FEATURE_TABLE.map(({ feature, free, pro }, i) => (
             <div key={feature} className={`grid grid-cols-3 ${i % 2 === 1 ? 'bg-surface' : ''} ${i > 0 ? 'border-t border-border' : ''}`}>
               <div className="px-5 py-3 font-pixel text-[8px] text-muted tracking-widest">{feature.toUpperCase()}</div>
               <div className="px-5 py-3 body-text text-[11px] text-muted border-l border-border text-center">{free}</div>
