@@ -135,8 +135,18 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Stream the Anthropic SSE response straight back to the client
-  return new Response(anthropicRes.body, {
+  // ── Intercept stream to capture token usage, then forward to client ───────
+  // We tee the stream: one branch goes to the client, the other we parse for
+  // the message_stop event which carries the final usage counts.
+  const [clientStream, logStream] = anthropicRes.body.tee()
+
+  // Parse the log stream in the background — fire and forget.
+  // We intentionally don't await this so the client response starts immediately.
+  logTokenUsage(logStream, supabase, user.id, model).catch((e) =>
+    console.error('[ai-generate] token log failed:', e),
+  )
+
+  return new Response(clientStream, {
     status: 200,
     headers: {
       ...CORS_HEADERS,
@@ -145,3 +155,86 @@ Deno.serve(async (req) => {
     },
   })
 })
+
+// ── Token usage logger ────────────────────────────────────────────────────────
+// Reads the SSE stream looking for the message_stop event, which contains:
+// { type: "message_stop", usage: { input_tokens, output_tokens,
+//   cache_read_input_tokens, cache_creation_input_tokens } }
+async function logTokenUsage(
+  stream: ReadableStream<Uint8Array>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  model: string,
+) {
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const reader = stream.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      // Process complete SSE lines
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (raw === '[DONE]') continue
+
+        let evt: SseEvent
+        try { evt = JSON.parse(raw) } catch { continue }
+
+        // message_stop carries the authoritative final usage
+        if (evt.type === 'message_stop' && evt.usage) {
+          await insertCostLog(supabase, userId, model, evt.usage)
+          return
+        }
+        // Fallback: message_delta also has a usage field on some versions
+        if (evt.type === 'message_delta' && evt.usage) {
+          await insertCostLog(supabase, userId, model, evt.usage)
+          // Don't return — message_stop may still come with more accurate totals
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+async function insertCostLog(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  model: string,
+  usage: TokenUsage,
+) {
+  const period = new Date().toISOString().slice(0, 7) // YYYY-MM
+  const { error } = await supabase.from('ai_cost_log').insert({
+    user_id:                    userId,
+    model,
+    period,
+    input_tokens:               usage.input_tokens               ?? 0,
+    output_tokens:              usage.output_tokens              ?? 0,
+    cache_read_input_tokens:    usage.cache_read_input_tokens    ?? 0,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+  })
+  if (error) console.error('[ai-generate] insert cost log:', error.message)
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface TokenUsage {
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+}
+
+interface SseEvent {
+  type: string
+  usage?: TokenUsage
+}
