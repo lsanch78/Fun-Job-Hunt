@@ -30,4 +30,5 @@ CREATE TABLE monthly_cost_snapshots (
   updated_at                  timestamptz NOT NULL DEFAULT now()
 );
 
--- No RLS needed — only service role (edge function) reads/writes this table.
+-- RLS enabled; no policies = only service role can read/write.
+ALTER TABLE monthly_cost_snapshots ENABLE ROW LEVEL SECURITY;

@@ -301,6 +301,13 @@ export default function StoryPage({ userId }: { userId: string | null }) {
         </button>
       </div>
 
+      {/* Under construction banner */}
+      <div className="shrink-0 flex items-center justify-center gap-2 bg-[#f5c518] text-black text-[10px] tracking-widest py-1.5 px-4 font-pixel">
+        <span>⚠</span>
+        <span>UNDER CONSTRUCTION — MORE STORY SCENES COMING SOON</span>
+        <span>⚠</span>
+      </div>
+
       {/* Map */}
       <div data-tutorial="story-map" className="flex-1 overflow-auto flex items-center justify-center py-8 px-4">
         {loading ? (
