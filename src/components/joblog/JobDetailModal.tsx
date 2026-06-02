@@ -414,6 +414,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
     setAiError(null)
     setAiLimitHit(false)
     ai.run({
+      model: 'claude-haiku-4-5',
       system: PROMPT_CLEAN_JD,
       prompt: raw,
       onComplete: (cleaned) => update('description', cleaned),

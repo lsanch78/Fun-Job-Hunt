@@ -9,6 +9,8 @@ interface RunParams {
   prompt: string
   onComplete: (result: string) => void
   onError?: (message: string) => void
+  /** Override the default model (e.g. haiku for lightweight tasks). */
+  model?: string
 }
 
 export function useAI() {
@@ -22,7 +24,7 @@ export function useAI() {
     return () => clearInterval(id)
   }, [phase])
 
-  const run = useCallback(async ({ system, prompt, onComplete, onError }: RunParams) => {
+  const run = useCallback(async ({ system, prompt, onComplete, onError, model: modelOverride }: RunParams) => {
     if (phase === 'generating') return
 
     const { connected, models } = fetchModels()
@@ -39,7 +41,7 @@ export function useAI() {
     let accumulated = ''
 
     await streamCompletion({
-      model: models[0],
+      model: modelOverride ?? models[0],
       system,
       prompt,
       signal: abortRef.current.signal,

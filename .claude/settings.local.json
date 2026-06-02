@@ -86,7 +86,15 @@
       "Bash(awk 'NR<46 || \\(NR>=449 && NR<=450\\) || NR>455 && !\\(NR>=566 && NR<=639\\)' src/pages/JobLogPage.tsx)",
       "Bash(git mv *)",
       "Bash(Find all *)",
-      "Bash(ffmpeg -version)"
+      "Bash(ffmpeg -version)",
+      "PowerShell(Get-ChildItem -Path c:\\\\effjobhunt -Depth 1 | Where-Object {$_.PSIsContainer -eq $false} | Select-Object Name)",
+      "Bash(mkdir -p \"c:/effjobhunt/supabase/functions/dev-costs\")",
+      "Bash(mkdir -p \"c:/effjobhunt/src/services/dev\")",
+      "Bash(mkdir -p \"c:/effjobhunt/src/pages/dev\")",
+      "Bash(npx supabase *)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:platform.claude.ai)",
+      "Bash(git merge *)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

@@ -67,7 +67,7 @@ export async function fetchUsage(): Promise<{ count: number; limit: number; peri
 
 export function fetchModels(): { connected: boolean; models: string[] } {
   const provider = getAiProvider()
-  if (provider === 'proxy') return { connected: true, models: ['claude-sonnet-4-5'] }
+  if (provider === 'proxy') return { connected: true, models: ['claude-sonnet-4-5', 'claude-haiku-4-5'] }
   const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS
   const apiKey = getAiApiKey()
   return { connected: !!apiKey, models }
@@ -114,7 +114,7 @@ async function streamProxy(params: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', system, resumeSystem: params.resumeSystem, prompt }),
+      body: JSON.stringify({ model: params.model ?? 'claude-sonnet-4-5', system, resumeSystem: params.resumeSystem, prompt }),
       signal,
     })
     if (!res.ok || !res.body) {
