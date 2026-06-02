@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchCostData, type CostData, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import { fetchCostData, type CostData, type MonthlySnapshot, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
 
 function fmt(n: number, decimals = 2) {
   return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
@@ -60,25 +60,28 @@ function SliderRow({ label, value, min, max, onChange }: SliderRowProps) {
   )
 }
 
-const FREE_CALLS_PER_USER = 8
-const PAID_CALLS_PER_USER = 20
+const DEFAULT_FREE_CALLS_PER_USER = 8
+const DEFAULT_PAID_CALLS_PER_USER = 20
 
 export default function CostsTab() {
   const [data, setData] = useState<CostData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [simTotalUsers, setSimTotalUsers]       = useState(0)
-  const [simConversionPct, setSimConversionPct] = useState(3)
-  const [simSubPrice, setSimSubPrice]           = useState(SUBSCRIPTION_PRICE_USD)
-  const [simDirty, setSimDirty]                 = useState(false)
+  const [simTotalUsers, setSimTotalUsers]         = useState(0)
+  const [simConversionPct, setSimConversionPct]   = useState(3)
+  const [simSubPrice, setSimSubPrice]             = useState(SUBSCRIPTION_PRICE_USD)
+  const [simFreeCallsPerUser, setSimFreeCallsPerUser] = useState(DEFAULT_FREE_CALLS_PER_USER)
+  const [simPaidCallsPerUser, setSimPaidCallsPerUser] = useState(DEFAULT_PAID_CALLS_PER_USER)
+  const [simDirty, setSimDirty]                   = useState(false)
 
   useEffect(() => {
     fetchCostData()
       .then((d) => {
         setData(d)
-        const total = d.usageRows.length
-        setSimTotalUsers(total)
+        setSimTotalUsers(d.usageRows.length)
+        setSimFreeCallsPerUser(Math.round(d.avgCallsFreeUser) || DEFAULT_FREE_CALLS_PER_USER)
+        setSimPaidCallsPerUser(Math.round(d.avgCallsPaidUser) || DEFAULT_PAID_CALLS_PER_USER)
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
@@ -86,10 +89,11 @@ export default function CostsTab() {
 
   function resetSim() {
     if (!data) return
-    const total = data.usageRows.length
-    setSimTotalUsers(total)
+    setSimTotalUsers(data.usageRows.length)
     setSimConversionPct(3)
     setSimSubPrice(SUBSCRIPTION_PRICE_USD)
+    setSimFreeCallsPerUser(Math.round(data.avgCallsFreeUser) || DEFAULT_FREE_CALLS_PER_USER)
+    setSimPaidCallsPerUser(Math.round(data.avgCallsPaidUser) || DEFAULT_PAID_CALLS_PER_USER)
     setSimDirty(false)
   }
 
@@ -105,7 +109,7 @@ export default function CostsTab() {
 
   const simPaidUsers  = Math.round(simTotalUsers * simConversionPct / 100)
   const simFreeUsers  = simTotalUsers - simPaidUsers
-  const simTotalCalls = simFreeUsers * FREE_CALLS_PER_USER + simPaidUsers * PAID_CALLS_PER_USER
+  const simTotalCalls = simFreeUsers * simFreeCallsPerUser + simPaidUsers * simPaidCallsPerUser
   const simIncome     = simPaidUsers * simSubPrice
   const simClaudeCost = data.avgCostPerCall > 0 ? data.avgCostPerCall * simTotalCalls : 0
   const simProfit     = simIncome - simClaudeCost - supabaseCost
@@ -136,6 +140,17 @@ export default function CostsTab() {
           <StatCard label="Active Subscribers" value={String(data.activeSubCount)}        sub="paid — unlimited calls"        accent="yellow" />
           <StatCard label="Avg Cost / Call"    value={data.avgCostPerCall > 0 ? `$${fmt(data.avgCostPerCall, 4)}` : '—'} sub="claude cost ÷ total calls" accent="muted" />
           <StatCard label="Unique Users"       value={String(data.usageRows.length)}      sub="with ≥1 call this month"       accent="muted"  />
+        </div>
+      </section>
+
+      {/* ── User Breakdown ────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-2">
+        <span className="font-pixel text-[8px] tracking-widest text-muted">USER BREAKDOWN (active callers this month)</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Paid Users"          value={String(data.paidUserCount)}                                                   sub="active sub + ≥1 call"        accent="yellow" />
+          <StatCard label="Free Users"          value={String(data.freeUserCount)}                                                   sub="no sub + ≥1 call"            accent="muted"  />
+          <StatCard label="Avg Calls / Paid"    value={data.avgCallsPaidUser > 0 ? fmt(data.avgCallsPaidUser, 1) : '—'}              sub="this month"                   accent="yellow" />
+          <StatCard label="Avg Calls / Free"    value={data.avgCallsFreeUser > 0 ? fmt(data.avgCallsFreeUser, 1) : '—'}              sub="this month"                   accent="muted"  />
         </div>
       </section>
 
@@ -204,13 +219,37 @@ export default function CostsTab() {
               className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
             />
           </div>
+          <div className="flex items-center gap-4">
+            <span className="font-pixel text-[8px] text-muted w-28 shrink-0">CALLS / FREE USER</span>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              step={1}
+              value={simFreeCallsPerUser}
+              onChange={(e) => { setSimFreeCallsPerUser(Math.max(0, Number(e.target.value))); setSimDirty(true) }}
+              className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="font-pixel text-[8px] text-muted w-28 shrink-0">CALLS / PAID USER</span>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              step={1}
+              value={simPaidCallsPerUser}
+              onChange={(e) => { setSimPaidCallsPerUser(Math.max(0, Number(e.target.value))); setSimDirty(true) }}
+              className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
+            />
+          </div>
           <div className="flex gap-4">
             <span className="font-pixel text-[7px] text-muted">FREE: {simFreeUsers.toLocaleString()}</span>
             <span className="font-pixel text-[7px] text-yellow-400">PAID: {simPaidUsers.toLocaleString()}</span>
           </div>
           <div className="border-t border-border pt-3 mt-1">
             <p className="font-pixel text-[7px] text-muted mb-3">
-              ASSUMES {FREE_CALLS_PER_USER} CALLS/FREE USER · {PAID_CALLS_PER_USER} CALLS/PAID USER · AVG COST/CALL FROM LOGGED DATA
+              ASSUMES {simFreeCallsPerUser} CALLS/FREE USER · {simPaidCallsPerUser} CALLS/PAID USER · AVG COST/CALL FROM LOGGED DATA
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="Proj. Income"      value={`$${fmt(simIncome)}`}     sub={`${simPaidUsers.toLocaleString()} paid × $${simSubPrice}`} accent="green" />
@@ -220,6 +259,37 @@ export default function CostsTab() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ── Monthly History ───────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-2">
+        <span className="font-pixel text-[8px] tracking-widest text-muted">MONTHLY HISTORY</span>
+        {data.snapshots.length === 0 ? (
+          <p className="font-pixel text-[8px] text-muted">No snapshots yet — will save on next load.</p>
+        ) : (
+          <div className="border border-border bg-surface overflow-x-auto">
+            <div className="grid grid-cols-8 gap-2 px-3 py-2 border-b border-border min-w-[640px]">
+              {['PERIOD', 'INCOME', 'CLAUDE COST', 'PROFIT', 'CALLS', 'SUBS', 'USERS', 'AVG $/CALL'].map((h) => (
+                <span key={h} className="font-pixel text-[7px] text-muted tracking-widest">{h}</span>
+              ))}
+            </div>
+            {data.snapshots.map((s: MonthlySnapshot) => {
+              const profit = s.estimated_monthly_income - s.total_anthropic_cost_usd
+              return (
+                <div key={s.period} className="grid grid-cols-8 gap-2 px-3 py-2 border-b border-border last:border-b-0 min-w-[640px]">
+                  <span className="font-pixel text-[8px] text-secondary">{s.period}</span>
+                  <span className="font-pixel text-[8px] text-green-400">${fmt(s.estimated_monthly_income)}</span>
+                  <span className="font-pixel text-[8px] text-red-400">${fmt(s.total_anthropic_cost_usd)}</span>
+                  <span className={`font-pixel text-[8px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>${fmt(profit)}</span>
+                  <span className="font-pixel text-[8px] text-text">{s.total_calls.toLocaleString()}</span>
+                  <span className="font-pixel text-[8px] text-yellow-400">{s.active_sub_count}</span>
+                  <span className="font-pixel text-[8px] text-text">{s.unique_users}</span>
+                  <span className="font-pixel text-[8px] text-muted">{s.avg_cost_per_call > 0 ? `$${fmt(s.avg_cost_per_call, 4)}` : '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       {/* ── Per-user call table ───────────────────────────────────────────── */}

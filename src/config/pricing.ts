@@ -13,15 +13,15 @@ export interface ProFeatureRow {
 
 export const PRO_FEATURE_TABLE: ProFeatureRow[] = [
   { feature: 'Job Tracking',  free: '∞ applications',   pro: '∞ applications' },
-  { feature: 'Network',       free: 'Up to 30 contacts', pro: '∞ contacts' },
+  { feature: 'Network',       free: 'Up to 8 contacts',  pro: '∞ contacts' },
+  { feature: 'AI Assistant',  free: 'Unlock up to 30 requests/month',           pro: 'Unlimited' },
+  { feature: 'Resume Slots',  free: '1 slot',            pro: '3 slots' },
+  { feature: 'Cover Letter Exports',       free: '✗',                 pro: 'PDF + Docx Downloads' },
   { feature: 'Story Mode',    free: '✓',                 pro: '✓' },
   { feature: 'Time Tracking', free: '✓',                 pro: '✓' },
   { feature: 'Stats',         free: '✓',                 pro: '✓' },
   { feature: 'Journal',       free: '✓',                 pro: '✓' },
   { feature: 'Themes',        free: 'Classic Terminal',  pro: 'All 5 themes + custom editor' },
-  { feature: 'Resume Slots',  free: '1 slot',            pro: '3 slots' },
-  { feature: 'AI Assistant',  free: 'Limited',           pro: 'Unlimited' },
-  { feature: 'Exports',       free: '✗',                 pro: 'PDF + Word (cover letters)' },
   { feature: 'BYOK',          free: '✓',                 pro: '✓' },
   { feature: 'No AI mode',    free: '✓',                 pro: '✓' },
 ]

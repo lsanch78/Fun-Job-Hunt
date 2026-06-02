@@ -38,11 +38,35 @@ export interface ModelSummary {
   estimated_cost_usd: number
 }
 
+export interface MonthlySnapshot {
+  period: string
+  active_sub_count: number
+  estimated_monthly_income: number
+  total_calls: number
+  unique_users: number
+  paid_user_count: number
+  free_user_count: number
+  avg_calls_paid_user: number
+  avg_calls_free_user: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cache_read_tokens: number
+  total_cache_write_tokens: number
+  total_anthropic_cost_usd: number
+  avg_cost_per_call: number
+  updated_at: string
+}
+
 export interface CostData {
   usageRows: UsageRow[]
   totalCallsThisMonth: number
   activeSubCount: number
   estimatedMonthlyIncome: number
+
+  paidUserCount: number
+  freeUserCount: number
+  avgCallsPaidUser: number
+  avgCallsFreeUser: number
 
   models: ModelSummary[]
   totalInputTokens: number
@@ -51,6 +75,7 @@ export interface CostData {
   totalCacheWriteTokens: number
   totalAnthropicCostUsd: number
   avgCostPerCall: number
+  snapshots: MonthlySnapshot[]
 }
 
 export async function fetchCostData(): Promise<CostData> {
@@ -73,10 +98,25 @@ export async function fetchCostData(): Promise<CostData> {
   const raw = await res.json() as {
     usageRows: UsageRow[]
     activeSubCount: number
+    activeSubUserIds: string[]
     costRows: CostRow[]
+    snapshots: MonthlySnapshot[]
   }
 
-  const { usageRows, activeSubCount, costRows } = raw
+  const { usageRows, activeSubCount, activeSubUserIds, costRows, snapshots } = raw
+  const subSet = new Set(activeSubUserIds)
+
+  const paidRows = usageRows.filter((r) => subSet.has(r.user_id))
+  const freeRows = usageRows.filter((r) => !subSet.has(r.user_id))
+  const paidUserCount = paidRows.length
+  const freeUserCount = freeRows.length
+  const avgCallsPaidUser = paidUserCount > 0
+    ? paidRows.reduce((s, r) => s + r.count, 0) / paidUserCount
+    : 0
+  const avgCallsFreeUser = freeUserCount > 0
+    ? freeRows.reduce((s, r) => s + r.count, 0) / freeUserCount
+    : 0
+
   const totalCallsThisMonth = usageRows.reduce((s, r) => s + r.count, 0)
   const estimatedMonthlyIncome = activeSubCount * SUBSCRIPTION_PRICE_USD
 
@@ -127,6 +167,10 @@ export async function fetchCostData(): Promise<CostData> {
     totalCallsThisMonth,
     activeSubCount,
     estimatedMonthlyIncome,
+    paidUserCount,
+    freeUserCount,
+    avgCallsPaidUser,
+    avgCallsFreeUser,
     models,
     totalInputTokens,
     totalOutputTokens,
@@ -134,5 +178,6 @@ export async function fetchCostData(): Promise<CostData> {
     totalCacheWriteTokens,
     totalAnthropicCostUsd,
     avgCostPerCall,
+    snapshots: snapshots ?? [],
   }
 }

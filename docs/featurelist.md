@@ -15,7 +15,7 @@
 | Bulk delete | ✓ | ✓ | Shift+click range select |
 | CSV export (jobs + contacts) | ✓ | ✓ | |
 | **NETWORKING** | | | |
-| Contact management | ✓ (30 max) | ✓ (unlimited) | `FREE_CONTACT_CAP = 30` in contactService.ts |
+| Contact management | ✓ (8 max) | ✓ (unlimited) | `FREE_CONTACT_CAP = 8` in contactService.ts |
 | Contact detail card | ✓ | ✓ | Social links, notes, linked jobs |
 | Network visualization map | ✓ | ✓ | Animated node-edge graph |
 | Contact ping / last interaction | ✓ | ✓ | |
@@ -112,7 +112,7 @@
 
 | Gate | Free Limit | Pro |
 |------|------------|-----|
-| Contacts | 30 | Unlimited |
+| Contacts | 8 | Unlimited |
 | Resume slots | 1 (slot A) | 3 (A, B, C) |
 | AI generations | 10–30/mo | Unlimited |
 | Themes | Classic Terminal only | All 5 + custom |

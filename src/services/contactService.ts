@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Contact } from '@/types'
 
-export const FREE_CONTACT_CAP = 30
+export const FREE_CONTACT_CAP = 8
 
 export async function countContacts(userId: string): Promise<number> {
   const { count, error } = await supabase
