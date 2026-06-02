@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
 import { playPingBlip } from '@/lib/sfx'
@@ -481,7 +482,7 @@ function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onS
             onClick={() => createCheckoutSession().catch(() => {})}
             className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:opacity-80 transition-none"
           >
-            UPGRADE — $8/mo
+            {PRO_UPGRADE_CTA_SHORT}
           </button>
         </div>
       )}

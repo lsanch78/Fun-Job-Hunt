@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
+import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { buildCombinedCSV } from '@/lib/csvData'
@@ -524,7 +525,7 @@ export default function SettingsPage() {
               onClick={() => createCheckoutSession().catch(() => {})}
               className="text-left text-xs px-4 py-3 border-2 border-secondary text-secondary hover:opacity-80 transition-none w-fit"
             >
-              {'  Upgrade to Pro — $8/month'}
+              {`  ${PRO_UPGRADE_CTA}`}
             </button>
           </div>
         )}

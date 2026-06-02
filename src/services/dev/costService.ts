@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { PRO_PRICE_MONTHLY } from '@/config/pricing'
 
 const DEV_COSTS_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/dev-costs`
 
@@ -12,7 +13,7 @@ const PRICING: Record<string, { input: number; output: number; cacheRead: number
 }
 const FALLBACK_PRICING = { input: 3.00, output: 15.00, cacheRead: 0.30, cacheWrite: 3.75 }
 
-export const SUBSCRIPTION_PRICE_USD = 8
+export const SUBSCRIPTION_PRICE_USD = PRO_PRICE_MONTHLY
 
 export interface UsageRow {
   user_id: string

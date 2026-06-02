@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import type { Job, Contact } from '@/types'
 import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
 import { useAI } from '@/hooks/useAI'
@@ -451,7 +452,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
               className="px-2 py-0.5 transition-none hover:opacity-80"
               style={{ color: T.warn, border: `1px solid ${T.warn}`, fontSize: CRT_FONT.chrome }}
             >
-              UPGRADE — $8/mo
+              {PRO_UPGRADE_CTA_SHORT}
             </button>
           </div>
         )}

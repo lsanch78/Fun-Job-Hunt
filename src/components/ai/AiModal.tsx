@@ -11,6 +11,7 @@ import { fetchAiSettings, upsertAiSettings, DEFAULT_PROMPTS, AI_PROMPT_LIMIT, ty
 import { COACHING_COVER_LETTER, COACHING_WHY_GOOD_FIT, COACHING_CUSTOM } from '@/config/aiPrompts'
 import { getResumeSignedUrl, type ResumeSlot, type ResumeSlotRecord } from '@/services/resumeService'
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
+import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { downloadDocx } from '@/lib/docxExport'
 import { downloadPdf } from '@/lib/pdfExport'
 import { loadAiHistory, saveAiHistoryEntry, deleteAiHistoryEntry, updateAiHistoryEntry, formatHistoryLabel, type AiHistoryEntry } from '@/lib/aiHistory'
@@ -751,8 +752,18 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
             >
               {copied ? '✓ COPIED' : 'COPY'}
             </button>
-            <button onClick={handleDownload} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>DOCX</button>
-            <button onClick={handleDownloadPdf} disabled={isStreaming} style={{ ...termBtn(false), opacity: isStreaming ? 0.3 : 1 }}>PDF</button>
+            <button
+              onClick={isSubscribed ? handleDownload : undefined}
+              disabled={isStreaming || !isSubscribed}
+              title={isSubscribed ? undefined : 'Pro feature — upgrade to export'}
+              style={{ ...termBtn(false), opacity: (isStreaming || !isSubscribed) ? 0.3 : 1, ...(isSubscribed ? {} : { color: T.warn, borderColor: T.warn }) }}
+            >{isSubscribed ? 'DOCX' : '⬡ DOCX'}</button>
+            <button
+              onClick={isSubscribed ? handleDownloadPdf : undefined}
+              disabled={isStreaming || !isSubscribed}
+              title={isSubscribed ? undefined : 'Pro feature — upgrade to export'}
+              style={{ ...termBtn(false), opacity: (isStreaming || !isSubscribed) ? 0.3 : 1, ...(isSubscribed ? {} : { color: T.warn, borderColor: T.warn }) }}
+            >{isSubscribed ? 'PDF' : '⬡ PDF'}</button>
             <button onClick={() => setView('history')} style={termBtn(false)}>HISTORY</button>
             <button onClick={handleBack} style={termBtn(false)}>← BACK</button>
           </div>
@@ -769,7 +780,7 @@ export default function AiModal({ userId, resumeSlots, onClose, initialOutput, i
                   paddingRight: '16px',
                 }}
               >
-                UPGRADE — $8/month
+                {PRO_UPGRADE_CTA}
               </button>
             </div>
           )}
