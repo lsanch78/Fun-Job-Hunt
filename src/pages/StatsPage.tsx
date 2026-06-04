@@ -104,7 +104,8 @@ function appsPerDay(jobs: Job[], days = 30): { date: string; count: number }[] {
   const map = new Map<string, number>()
   for (const job of jobs) {
     if (!job.applicationDate) continue
-    map.set(job.applicationDate, (map.get(job.applicationDate) ?? 0) + 1)
+    const key = job.applicationDate.slice(0, 10)
+    map.set(key, (map.get(key) ?? 0) + 1)
   }
 
   const result: { date: string; count: number }[] = []
@@ -287,7 +288,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
     const counts = new Array(7).fill(0)
     for (const job of jobs) {
       if (!job.applicationDate) continue
-      const dow = new Date(job.applicationDate + 'T12:00:00').getDay()
+      const dow = new Date(job.applicationDate).getDay()
       counts[dow]++
     }
     const max = Math.max(...counts)
@@ -333,8 +334,8 @@ export default function StatsPage({ userId }: { userId: string | null }) {
   const daysSinceLastApp = useMemo(() => {
     const dates = jobs.map((j) => j.applicationDate).filter(Boolean).sort()
     if (dates.length === 0) return null
-    const [y, m, d] = dates[dates.length - 1].split('-').map(Number)
-    const last = new Date(y, m - 1, d)       // local midnight
+    const last = new Date(dates[dates.length - 1])
+    last.setHours(0, 0, 0, 0)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return Math.floor((today.getTime() - last.getTime()) / 86_400_000)

@@ -48,7 +48,8 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 }
 
 function formatDate(iso: string): string {
-  const parts = iso.split('-')
+  const datePart = iso.slice(0, 10)
+  const parts = datePart.split('-')
   if (parts.length !== 3) return iso
   return `${parts[1]}/${parts[2]}`
 }

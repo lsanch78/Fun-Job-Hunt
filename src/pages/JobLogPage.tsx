@@ -65,12 +65,14 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
   if (range === 'all') return null
   const d = new Date()
   if (range === 'today') {
-    return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
   }
   if (range === '7d')   d.setDate(d.getDate() - 6)
   if (range === '30d')  d.setDate(d.getDate() - 29)
   if (range === 'year') d.setFullYear(d.getFullYear() - 1)
-  return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
 }
 
 const HIDE_OPTIONS: { status: JobStatus; label: string }[] = [
@@ -217,11 +219,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
   // ── Derived display values ───────────────────────────────────────────────────
 
-  const todayStr = (() => {
-    const d = new Date()
-    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
-  })()
-  const todayCount = jobs.filter((j) => j.committed && j.applicationDate === todayStr).length
+  const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString() })()
+  const tomorrowStart = (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d.toISOString() })()
+  const todayCount = jobs.filter((j) => j.committed && j.applicationDate >= todayStart && j.applicationDate < tomorrowStart).length
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
@@ -232,7 +232,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const rangeJobs = jobs.filter((j) => {
     if (!j.committed) return true
     if (cutoff === null) return true
-    if (timeRange === 'today') return j.applicationDate === cutoff
+    if (timeRange === 'today') return j.applicationDate >= cutoff && j.applicationDate < tomorrowStart
     return j.applicationDate >= cutoff
   })
   const filteredJobs = applyFilters(rangeJobs, search, hidden, sort)

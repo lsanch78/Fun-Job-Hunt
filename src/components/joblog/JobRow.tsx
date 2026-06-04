@@ -127,8 +127,9 @@ function DateCell({ value, onChange }: { value: string; onChange: (v: string) =>
   const [editing, setEditing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // value is YYYY-MM-DD; display as MM/DD
-  const display = value ? value.slice(5).replace('-', '/') : '—'
+  // value is an ISO timestamp; display as MM/DD
+  const datePart = value ? value.slice(0, 10) : ''
+  const display = datePart ? datePart.slice(5).replace('-', '/') : '—'
 
   function startEditing() {
     setEditing(true)
@@ -154,8 +155,8 @@ function DateCell({ value, onChange }: { value: string; onChange: (v: string) =>
           type="date"
           aria-hidden="true"
           className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
-          value={value}
-          onChange={(e) => { onChange(e.target.value); setEditing(false) }}
+          value={datePart}
+          onChange={(e) => { onChange(new Date(e.target.value + 'T00:00:00').toISOString()); setEditing(false) }}
           onBlur={() => setEditing(false)}
         />
       </div>

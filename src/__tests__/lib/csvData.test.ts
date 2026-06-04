@@ -7,7 +7,7 @@ import type { Job, Contact } from '@/types'
 
 const makeJob = (overrides: Partial<Job> = {}): Job => ({
   id: 'job-1', company: 'Aperture Science', title: 'Frontend Engineer',
-  status: 'APPLIED', postingUrl: 'https://aperture.com', applicationDate: '2026-01-15',
+  status: 'APPLIED', postingUrl: 'https://aperture.com', applicationDate: '2026-01-15T14:30:00.000Z',
   rating: 3, salary: '120', committed: true,
   description: 'Build portals', notes: 'Bring a cube',
   ...overrides,

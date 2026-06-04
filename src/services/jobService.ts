@@ -41,7 +41,7 @@ function dbJobToJob(row: DbJob): Job {
     title:           row.title,
     status:          row.status,
     postingUrl:      row.posting_url ?? '',
-    applicationDate: row.date_applied,
+    applicationDate: row.applied_at,
     rating:          row.rating ?? 0,
     salary:          row.salary ?? '',
     committed:       true,
@@ -58,7 +58,7 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     company:      job.company,
     status:       job.status,
     posting_url:  job.postingUrl || null,
-    date_applied: job.applicationDate,
+    applied_at:   job.applicationDate,
     rating:       job.rating,
     salary:       job.salary || null,
     description:  job.description ?? null,
@@ -72,7 +72,7 @@ function jobToDbUpdate(job: Job): Partial<Omit<DbJob, 'id' | 'user_id'>> {
     company:      job.company,
     status:       job.status,
     posting_url:  job.postingUrl || null,
-    date_applied: job.applicationDate,
+    applied_at:   job.applicationDate,
     rating:       job.rating,
     salary:       job.salary || null,
   }
@@ -93,9 +93,9 @@ export function writeCache(userId: string, jobs: Job[]): void {
 export async function fetchJobs(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,date_applied,rating,salary')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary')
     .eq('user_id', userId)
-    .order('date_applied', { ascending: false })
+    .order('applied_at', { ascending: false })
 
   if (error) {
     console.error('[jobService] fetchJobs:', error.message)
@@ -135,7 +135,8 @@ export async function runAutoGhost(jobs: import('@/types').Job[]): Promise<impor
 
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - setting.days)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  cutoff.setHours(23, 59, 59, 999)
+  const cutoffStr = cutoff.toISOString()
 
   const toGhost = jobs.filter(
     (j) => j.committed && GHOSTABLE.includes(j.status) && j.applicationDate <= cutoffStr
@@ -198,9 +199,9 @@ export async function updateJob(job: Job): Promise<{ error: string | null }> {
 export async function fetchJobsForExport(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,date_applied,rating,salary,description,notes')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,description,notes')
     .eq('user_id', userId)
-    .order('date_applied', { ascending: false })
+    .order('applied_at', { ascending: false })
 
   if (error) {
     console.error('[jobService] fetchJobsForExport:', error.message)

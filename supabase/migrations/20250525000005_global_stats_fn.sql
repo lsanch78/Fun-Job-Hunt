@@ -62,7 +62,7 @@ as $$
       from (
         select
           j.user_id,
-          min(now()::date - j.date_applied::date) as days_diff
+          min(now()::date - j.applied_at::date) as days_diff
         from public.jobs j
         where j.status = 'OFFER'
         group by j.user_id

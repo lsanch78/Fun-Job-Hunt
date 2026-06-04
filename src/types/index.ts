@@ -21,7 +21,7 @@ export interface DbJob {
   company: string
   status: JobStatus
   posting_url: string | null
-  date_applied: string
+  applied_at: string
   rating: number
   salary: string | null
   // Detail-card columns — nullable, lazy-loaded when the card opens
@@ -36,7 +36,7 @@ export interface Job {
   title: string
   status: JobStatus
   postingUrl: string
-  applicationDate: string   // YYYY-MM-DD
+  applicationDate: string   // ISO 8601 timestamp
   rating: number            // 0–5
   salary: string            // numeric string e.g. "120" = $120K
   committed: boolean        // frontend-only: has the row been committed
