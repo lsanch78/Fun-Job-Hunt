@@ -3,6 +3,7 @@ import { playProgressChime, playCelebrationFanfare } from '@/lib/sfx'
 import { Terminal } from 'pixelarticons/react'
 import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS } from '@/services/jobService'
+import { parseSalaryK } from '@/lib/salaryUtils'
 import type { ColConfig } from './types'
 
 export interface JobRowHandle {
@@ -219,7 +220,13 @@ function SalaryCell({ value, onChange, onEnter }: {
   onEnter: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [raw, setRaw] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  function commit() {
+    onChange(parseSalaryK(raw))
+    setEditing(false)
+  }
 
   return (
     <td className="px-2 py-1 w-[72px]">
@@ -227,7 +234,7 @@ function SalaryCell({ value, onChange, onEnter }: {
         <button
           tabIndex={-1}
           className="font-pixel text-xs text-primary bg-transparent border-0 outline-none cursor-pointer hover:text-secondary px-1 py-0.5 whitespace-nowrap"
-          onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0) }}
+          onClick={() => { setRaw(value); setEditing(true); setTimeout(() => inputRef.current?.focus(), 0) }}
         >
           ${value}K
         </button>
@@ -235,13 +242,13 @@ function SalaryCell({ value, onChange, onEnter }: {
         <input
           ref={inputRef}
           className={cellInput}
-          placeholder="_"
-          value={value}
+          placeholder="$/hr or K"
+          value={raw}
           maxLength={JOB_LIMITS.salary}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
-          onKeyDown={(e) => e.key === 'Enter' && onEnter()}
-          onBlur={() => setEditing(false)}
-          onFocus={() => setEditing(true)}
+          onChange={(e) => setRaw(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { commit(); onEnter() } }}
+          onBlur={commit}
+          onFocus={() => { setRaw(value); setEditing(true) }}
         />
       )}
     </td>

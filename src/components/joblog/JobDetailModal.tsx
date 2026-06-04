@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import type { Job, Contact } from '@/types'
 import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
+import { parseSalaryK } from '@/lib/salaryUtils'
 import { useAI } from '@/hooks/useAI'
 import {
   fetchContactsForJob, fetchContacts, linkContactToJob,
@@ -245,6 +246,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [salaryRaw, setSalaryRaw] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiLimitHit, setAiLimitHit] = useState(false)
   const [jdToast, setJdToast] = useState(false)
@@ -300,7 +302,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
     })
   }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { setSaveState('idle') }, [localIdx])
+  useEffect(() => { setSaveState('idle'); setSalaryRaw(null) }, [localIdx])
 
   function goJob(dir: -1 | 1) {
     playConsoleBlip(dir === 1 ? 'forward' : 'back')
@@ -371,6 +373,22 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       <div>
         <div className={labelClass} style={{ color: T.greenDim }}>URL</div>
         <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.postingUrl} maxLength={JOB_LIMITS.postingUrl} onChange={(e) => update('postingUrl', e.target.value)} placeholder="https://…" />
+      </div>
+      <div>
+        <div className={labelClass} style={{ color: T.greenDim }}>Salary</div>
+        <input
+          className={inputClass}
+          style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+          placeholder="e.g. 120 (K) or 28$/hr"
+          value={salaryRaw ?? (job.salary ? `${job.salary}K` : '')}
+          maxLength={JOB_LIMITS.salary}
+          onChange={(e) => setSalaryRaw(e.target.value)}
+          onBlur={() => {
+            if (salaryRaw === null) return
+            update('salary', parseSalaryK(salaryRaw))
+            setSalaryRaw(null)
+          }}
+        />
       </div>
       <div className="flex gap-4">
         <div className="flex-1">
