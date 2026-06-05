@@ -1,4 +1,5 @@
 import type { Theme } from '@/config/game'
+import type { CVContent } from '@/services/cvService'
 
 export type JobStatus =
   | 'APPLIED'
@@ -27,6 +28,7 @@ export interface DbJob {
   // Detail-card columns — nullable, lazy-loaded when the card opens
   description: string | null
   notes: string | null
+  curated_resume_id: string | null
 }
 
 // Frontend-only shape. `committed` and `saving` are never persisted.
@@ -44,6 +46,17 @@ export interface Job {
   // Detail-card fields — lazy-loaded from DB when the card opens
   description?: string
   notes?: string
+  curatedResumeId?: string
+}
+
+export interface CuratedResume {
+  id: string
+  userId: string
+  label: string
+  content: CVContent
+  sectionOrder: string[]
+  matchedKeywords: string[]
+  createdAt: string
 }
 
 export interface Contact {

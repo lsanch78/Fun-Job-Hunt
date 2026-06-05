@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
-import type { Job, Contact } from '@/types'
-import { fetchJobDetails, updateJobDetails, JOB_LIMITS } from '@/services/jobService'
+import type { Job, Contact, CuratedResume } from '@/types'
+import { fetchJobDetails, updateJobDetails, JOB_LIMITS, linkCuratedResumeToJob } from '@/services/jobService'
+import { fetchCuratedResume, fetchCuratedResumes, updateCuratedResumeLabel } from '@/services/curatedResumeService'
+import CVRenderer from '@/components/mastercv/CVRenderer'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import { useAI } from '@/hooks/useAI'
 import {
@@ -236,6 +238,200 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
   )
 }
 
+// ── CuratedResumePanel ────────────────────────────────────────────────────────
+
+function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
+  jobId: string
+  userId: string | null
+  linkedId: string | undefined
+  onChange: (id: string | null) => void
+}) {
+  const [linked, setLinked]         = useState<CuratedResume | null>(null)
+  const [loading, setLoading]       = useState(false)
+  const [picking, setPicking]       = useState(false)
+  const [all, setAll]               = useState<CuratedResume[]>([])
+  const [viewing, setViewing]       = useState(false)
+  const [editingLabel, setEditingLabel] = useState(false)
+  const [labelDraft, setLabelDraft]     = useState('')
+
+  useEffect(() => {
+    if (!linkedId) { setLinked(null); return }
+    setLoading(true)
+    fetchCuratedResume(linkedId).then((r) => { setLinked(r); setLoading(false) })
+  }, [linkedId])
+
+  useEffect(() => {
+    if (picking && userId) fetchCuratedResumes(userId).then(setAll)
+    if (!picking) setAll([])
+  }, [picking, userId])
+
+  async function handleLink(resume: CuratedResume) {
+    const { error } = await linkCuratedResumeToJob(jobId, resume.id)
+    if (!error) { setLinked(resume); onChange(resume.id); setPicking(false) }
+  }
+
+  async function handleUnlink() {
+    const { error } = await linkCuratedResumeToJob(jobId, null)
+    if (!error) { setLinked(null); onChange(null) }
+  }
+
+  async function commitLabelEdit() {
+    if (!linked || !labelDraft.trim()) { setEditingLabel(false); return }
+    const newLabel = labelDraft.trim()
+    await updateCuratedResumeLabel(linked.id, newLabel)
+    setLinked({ ...linked, label: newLabel })
+    setEditingLabel(false)
+  }
+
+  const dimStyle = { fontSize: CRT_FONT.sub, color: T.greenDim }
+  const btnStyle = { fontSize: CRT_FONT.btn, color: T.greenDim, border: `1px solid ${T.border}` }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className={labelClass} style={{ color: T.greenDim }}>Curated Resume</div>
+
+      {loading ? (
+        <span style={dimStyle}>loading…</span>
+      ) : linked ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          {editingLabel ? (
+            <input
+              autoFocus
+              value={labelDraft}
+              onChange={(e) => setLabelDraft(e.target.value)}
+              onBlur={commitLabelEdit}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitLabelEdit(); if (e.key === 'Escape') setEditingLabel(false) }}
+              maxLength={100}
+              style={{ fontFamily: 'monospace', fontSize: CRT_FONT.body, color: T.green, background: T.bg, border: `1px solid ${T.green}`, padding: '1px 6px', outline: 'none', caretColor: T.green, width: 160 }}
+            />
+          ) : (
+            <button
+              onClick={() => { setLabelDraft(linked.label); setEditingLabel(true) }}
+              className="hover:opacity-70 transition-none text-left"
+              style={{ fontFamily: 'monospace', fontSize: CRT_FONT.body, color: T.green, background: 'none', border: 'none', padding: 0, cursor: 'text' }}
+              title="Click to rename"
+            >
+              {linked.label}
+            </button>
+          )}
+          <span style={dimStyle}>{linked.matchedKeywords.length} keywords</span>
+          <button onClick={() => setViewing(true)} className="px-2 py-0.5 hover:opacity-80 transition-none" style={btnStyle}>VIEW</button>
+          <button onClick={handleUnlink} className="px-2 py-0.5 hover:opacity-80 transition-none" style={{ ...btnStyle, color: T.warn, borderColor: T.warn + '55' }}>UNLINK</button>
+        </div>
+      ) : (
+        <span style={dimStyle}>no resume linked</span>
+      )}
+
+      {!picking && !linked && (
+        <div className="mt-1">
+          <button onClick={() => setPicking(true)} className="px-2 py-0.5 hover:opacity-80 transition-none" style={btnStyle}>
+            + LINK RESUME
+          </button>
+        </div>
+      )}
+
+      {picking && (
+        <div className="flex flex-col gap-1.5 mt-1">
+          <div className="relative">
+            <div
+              className="flex flex-col overflow-y-auto"
+              style={{ background: T.bg, border: `1px solid ${T.border}`, maxHeight: '160px' }}
+            >
+              {all.length === 0 ? (
+                <span className="px-1 py-0.5" style={dimStyle}>no saved resumes</span>
+              ) : (
+                all.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => handleLink(r)}
+                    className="text-left px-2 py-1 hover:opacity-70 transition-none flex gap-3 items-baseline"
+                    style={{ fontSize: CRT_FONT.body, color: T.green }}
+                  >
+                    <span>{r.label}</span>
+                    <span style={dimStyle}>{r.matchedKeywords.length} kw · {new Date(r.createdAt).toLocaleDateString()}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          <button onClick={() => setPicking(false)} className="px-2 py-0.5 hover:opacity-80 transition-none self-start" style={btnStyle}>
+            CANCEL
+          </button>
+        </div>
+      )}
+
+      {/* Full-screen read-only preview overlay */}
+      {viewing && linked && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column' }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setViewing(false) }}
+          tabIndex={-1}
+        >
+          <div style={{ borderBottom: `1px solid ${T.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.15em', color: T.green }}>{linked.label}</span>
+            <button
+              onClick={() => setViewing(false)}
+              style={{ fontFamily: 'monospace', fontSize: 13, color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '5px 16px', cursor: 'pointer', letterSpacing: '0.12em' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+            >
+              CLOSE
+            </button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <CVRenderer
+              content={linked.content}
+              sectionOrder={linked.sectionOrder}
+              keywords={linked.matchedKeywords}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── CuratedResumePreviewModal ─────────────────────────────────────────────────
+
+export function CuratedResumePreviewModal({ resumeId, onClose }: { resumeId: string; onClose: () => void }) {
+  const [resume, setResume] = useState<CuratedResume | null>(null)
+
+  useEffect(() => {
+    fetchCuratedResume(resumeId).then(setResume)
+  }, [resumeId])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.15em', color: T.green }}>
+          {resume ? resume.label : '…'}
+        </span>
+        <button
+          onClick={onClose}
+          style={{ fontFamily: 'monospace', fontSize: 13, color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '5px 16px', cursor: 'pointer', letterSpacing: '0.12em' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+        >
+          CLOSE
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {resume ? (
+          <CVRenderer content={resume.content} sectionOrder={resume.sectionOrder} keywords={resume.matchedKeywords} />
+        ) : (
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.greenDim, padding: 24 }}>Loading…</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
@@ -298,7 +494,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       setDetailsLoading(false)
       if (!details) return
       loadedIds.current.add(job.id)
-      onChange({ ...job, description: details.description ?? '', notes: details.notes ?? '' })
+      onChange({ ...job, description: details.description ?? '', notes: details.notes ?? '', curatedResumeId: details.curated_resume_id ?? undefined })
     })
   }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -420,6 +616,12 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
         </div>
       </div>
       <ContactsPanel jobId={job.id} jobTitle={job.title} jobCompany={job.company} userId={userId} />
+      <CuratedResumePanel
+        jobId={job.id}
+        userId={userId}
+        linkedId={job.curatedResumeId}
+        onChange={(id) => onChange({ ...job, curatedResumeId: id ?? undefined })}
+      />
       <div className="flex-1 flex flex-col min-h-0">
         <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>
         <textarea className={textareaClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, flex: 1, resize: 'none' }} maxLength={JOB_LIMITS.notes} value={job.notes ?? ''} onChange={(e) => update('notes', e.target.value)} placeholder={['Interview rounds…','Culture impressions…','Source / how you found it…','Resume version used…','Anything else…'].join('\n')} />

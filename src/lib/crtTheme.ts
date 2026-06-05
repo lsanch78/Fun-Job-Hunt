@@ -10,13 +10,13 @@ export const T = {
 }
 
 // Shared inline styles for CRT panels — tune these to adjust readability across all panels
-export const crtTextShadow = '0 0 4px rgba(57,255,20,0.15)'
+export const crtTextShadow = '0 0 4px rgba(57,255,20,0.07)'
 export const crtBoxShadow = [
   '0 0 0 1px #111',
-  '0 0 8px 1px rgba(57,255,20,0.35)',
-  '0 0 28px 4px rgba(57,255,20,0.25)',
+  '0 0 6px 1px rgba(57,255,20,0.12)',
+  '0 0 16px 2px rgba(57,255,20,0.07)',
   'inset 0 0 60px 30px rgba(0,0,0,0.70)',
-  'inset 0 0 10px 2px rgba(57,255,20,0.06)',
+  'inset 0 0 10px 2px rgba(57,255,20,0.03)',
 ].join(', ')
 
 // Semantic font size scale — sized against TutorialModal as the readability baseline

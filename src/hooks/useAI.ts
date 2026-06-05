@@ -40,9 +40,12 @@ export function useAI() {
 
     let accumulated = ''
 
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const systemWithDate = `Today's date is ${today}. Use this to correctly determine whether dates are in the past or future.\n\n${system}`
+
     await streamCompletion({
       model: modelOverride ?? models[0],
-      system,
+      system: systemWithDate,
       prompt,
       signal: abortRef.current.signal,
       onToken: (token) => { accumulated += token },

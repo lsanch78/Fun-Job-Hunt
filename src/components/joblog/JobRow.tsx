@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { playProgressChime, playCelebrationFanfare } from '@/lib/sfx'
+import { playProgressChime, playCelebrationFanfare, playPageFlip } from '@/lib/sfx'
 import { Terminal } from 'pixelarticons/react'
+import { FileText } from 'pixelarticons/react'
 import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS } from '@/services/jobService'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import type { ColConfig } from './types'
+import { CuratedResumePreviewModal } from './JobDetailModal'
 
 export interface JobRowHandle {
   focusFirstInput(): void
@@ -343,10 +345,25 @@ export const JobRow = forwardRef<JobRowHandle, {
   onOpenDetail?: () => void
   onOpenDetailPage2?: () => void
   onDetailBlur?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur }, ref) {
+  onTailorResume?: (job: Job) => void
+}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onTailorResume }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const ctxMenuRef = useRef<HTMLDivElement>(null)
+  const [previewingResume, setPreviewingResume] = useState(false)
+
+  useEffect(() => {
+    if (!ctxMenu) return
+    function onPointerDown(e: PointerEvent) {
+      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) {
+        setCtxMenu(null)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [ctxMenu])
 
   useImperativeHandle(ref, () => ({
     focusFirstInput() {
@@ -364,9 +381,9 @@ export const JobRow = forwardRef<JobRowHandle, {
   // Keep committed job's detail fields in sync (lazy-loaded after detail card opens)
   useEffect(() => {
     if (job.committed) {
-      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes }))
+      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes, curatedResumeId: job.curatedResumeId }))
     }
-  }, [job.description, job.notes, job.committed])
+  }, [job.description, job.notes, job.curatedResumeId, job.committed])
 
   function update<K extends keyof Job>(key: K, val: Job[K]) {
     const next = { ...draft, [key]: val }
@@ -461,11 +478,17 @@ export const JobRow = forwardRef<JobRowHandle, {
   }
 
   return (
+    <>
     <tr
       ref={rowRef}
       className={rowClass}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={() => setFocused(false)}
+      onContextMenu={(e) => {
+        if (!committed) return
+        e.preventDefault()
+        setCtxMenu({ x: e.clientX, y: e.clientY })
+      }}
     >
       {/* Delete checkbox */}
       {deleteMode && (
@@ -498,8 +521,23 @@ export const JobRow = forwardRef<JobRowHandle, {
 
       {visibleCols.map((col) => renderCell(col.key))}
 
-      {/* Commit hint */}
-      <td className="px-2 py-1 w-8">
+      {/* Curated resume icon */}
+      <td className="px-1 py-1">
+        {committed && !job.saving && draft.curatedResumeId && (
+          <button
+            tabIndex={-1}
+            title="View curated resume"
+            onClick={() => setPreviewingResume(true)}
+            className="inline-flex items-center justify-center text-muted hover:text-secondary transition-none"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, marginTop: 5 }}
+          >
+            <FileText width={13} height={13} />
+          </button>
+        )}
+      </td>
+
+      {/* Save status */}
+      <td className="px-1 py-1">
         {ready && !committed && (
           <button tabIndex={-1} className="text-secondary text-xs animate-blink" title="Press Enter to log" onClick={tryCommit}>
             ↵
@@ -515,5 +553,51 @@ export const JobRow = forwardRef<JobRowHandle, {
         )}
       </td>
     </tr>
+
+    {previewingResume && draft.curatedResumeId && (
+      <CuratedResumePreviewModal resumeId={draft.curatedResumeId} onClose={() => setPreviewingResume(false)} />
+    )}
+
+    {ctxMenu && (
+      <div
+        ref={ctxMenuRef}
+        className="fixed z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-48"
+        style={{ left: ctxMenu.x, top: ctxMenu.y }}
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <span className="text-[9px] tracking-widest text-muted truncate">{draft.company}</span>
+          <button
+            onClick={() => setCtxMenu(null)}
+            className="text-muted hover:text-primary text-[9px] transition-none ml-2 flex-shrink-0"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-3 py-2 flex flex-col gap-1">
+          <button
+            onClick={() => { onOpenDetail?.(); setCtxMenu(null) }}
+            className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
+          >
+            OPEN DETAILS
+          </button>
+          <button
+            onClick={() => { onOpenDetailPage2?.(); setCtxMenu(null) }}
+            className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
+          >
+            VIEW JD
+          </button>
+          {onTailorResume && (
+            <button
+              onClick={() => { if (draft.curatedResumeId) playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
+              className="text-left border text-[9px] px-2 py-1 font-pixel transition-none hover:border-secondary hover:text-secondary"
+              style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
+            >
+              {draft.curatedResumeId ? 'VIEW RESUME' : 'TAILOR RESUME'}
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 })
