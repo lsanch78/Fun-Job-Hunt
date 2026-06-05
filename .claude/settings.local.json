@@ -98,7 +98,8 @@
       "Bash(Select-Object Name)",
       "Bash(Select-Object -First 30)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 50 | ForEach-Object { $_.FullName })",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\supabase\" -Recurse -Force | ForEach-Object { $_.FullName })"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\supabase\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "WebFetch(domain:cdn.jsdelivr.net)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

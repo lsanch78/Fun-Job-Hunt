@@ -93,6 +93,7 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onDelete={onDelete}
+      glowColor="#f97316"
     >
       {/* Row 1: company + title */}
       <div className="flex gap-3">

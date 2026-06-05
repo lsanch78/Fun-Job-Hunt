@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { Trash } from 'pixelarticons/react'
-import { T, crtBoxShadow, crtTextShadow, ensureCrtStyles, CRT_FONT } from '@/lib/crtTheme'
+import { T, ensureCrtStyles, CRT_FONT } from '@/lib/crtTheme'
 
 ensureCrtStyles()
 
@@ -10,10 +10,24 @@ interface Props {
   collapsed: boolean
   onToggleCollapse: () => void
   onDelete?: () => void
+  glowColor?: string
   children: ReactNode
 }
 
-export default function CodexCard({ title, summary, collapsed, onToggleCollapse, onDelete, children }: Props) {
+function makeGlow(hex: string) {
+  return [
+    '0 0 0 1px #111',
+    `0 0 8px 1px ${hex}59`,
+    `0 0 28px 4px ${hex}40`,
+    'inset 0 0 60px 30px rgba(0,0,0,0.70)',
+    `inset 0 0 10px 2px ${hex}0f`,
+  ].join(', ')
+}
+
+export default function CodexCard({ title, summary, collapsed, onToggleCollapse, onDelete, glowColor, children }: Props) {
+  const color    = glowColor ?? T.green
+  const colorDim = glowColor ? `${glowColor}99` : T.greenDim
+
   return (
     <div
       className="crt-card w-full flex flex-col"
@@ -21,8 +35,8 @@ export default function CodexCard({ title, summary, collapsed, onToggleCollapse,
         background: T.bg,
         border: `1px solid ${T.border}`,
         borderRadius: 6,
-        boxShadow: crtBoxShadow,
-        textShadow: crtTextShadow,
+        boxShadow: makeGlow(color),
+        textShadow: `0 0 4px ${color}26`,
         fontFamily: 'monospace',
       }}
     >
@@ -36,15 +50,15 @@ export default function CodexCard({ title, summary, collapsed, onToggleCollapse,
           className="flex items-center gap-3 min-w-0 flex-1 text-left"
           style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
         >
-          <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, letterSpacing: '0.15em', flexShrink: 0 }}>
+          <span style={{ color: colorDim, fontSize: CRT_FONT.chrome, letterSpacing: '0.15em', flexShrink: 0 }}>
             {title}
           </span>
           {collapsed && summary && (
-            <span className="truncate" style={{ color: T.green, fontSize: CRT_FONT.chrome, letterSpacing: '0.08em', opacity: 0.75 }}>
+            <span className="truncate" style={{ color, fontSize: CRT_FONT.chrome, letterSpacing: '0.08em', opacity: 0.75 }}>
               {summary}
             </span>
           )}
-          <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, flexShrink: 0 }}>
+          <span style={{ color: colorDim, fontSize: CRT_FONT.chrome, flexShrink: 0 }}>
             {collapsed ? '▸' : '▾'}
           </span>
         </button>

@@ -93,6 +93,7 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onDelete={onDelete}
+      glowColor="#34d399"
     >
       {/* Row 1: name + role */}
       <div className="flex gap-3">

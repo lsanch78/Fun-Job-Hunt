@@ -467,7 +467,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
         <StarfieldBackdrop expanded={codexOpen} />
 
-        <CodexCanvas visible={codexOpen} userName={userName} />
+        <CodexCanvas visible={codexOpen} userName={userName} userId={userId} />
 
         <div
           style={{

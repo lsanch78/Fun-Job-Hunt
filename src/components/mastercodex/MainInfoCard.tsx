@@ -46,6 +46,13 @@ function Field({
   )
 }
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 export default function MainInfoCard({ data, collapsed, onChange, onToggleCollapse }: Props) {
   function set<K extends keyof MainInfo>(key: K, val: string) {
     onChange({ ...data, [key]: val })
@@ -54,7 +61,7 @@ export default function MainInfoCard({ data, collapsed, onChange, onToggleCollap
   const summary = data.fullName || undefined
 
   return (
-    <CodexCard title="MAIN INFO" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse}>
+    <CodexCard title="MAIN INFO" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} glowColor="#39ff14">
       <div className="flex gap-3">
         <div className="flex-1">
           <Field label="Full Name"    value={data.fullName}  placeholder="Jane Doe"              onChange={(v) => set('fullName', v)} />
@@ -69,7 +76,7 @@ export default function MainInfoCard({ data, collapsed, onChange, onToggleCollap
           <Field label="Email"        value={data.email}     placeholder="jane@example.com"      onChange={(v) => set('email', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Phone"        value={data.phone}     placeholder="+1 555 000 0000"       onChange={(v) => set('phone', v)} />
+          <Field label="Phone"        value={data.phone}     placeholder="(555) 000-0000"        onChange={(v) => set('phone', formatPhone(v))} />
         </div>
       </div>
 

@@ -54,6 +54,7 @@ export default function EducationCard({ data, collapsed, onChange, onToggleColla
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onDelete={onDelete}
+      glowColor="#a78bfa"
     >
       {/* Row 1: institution + location */}
       <div className="flex gap-3">

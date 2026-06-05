@@ -194,6 +194,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onDelete={onDelete}
+      glowColor="#38bdf8"
     >
       {/* ── Evergreen ────────────────────────────────────────────────────────── */}
       <div>
