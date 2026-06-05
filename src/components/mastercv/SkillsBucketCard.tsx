@@ -160,9 +160,9 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
 
   function addGroup() {
     const id = nextGroupId()
-    setModular([...data.modular, { id, label: 'NEW GROUP', skills: [] }])
+    setModular([...data.modular, { id, label: 'New Group', skills: [] }])
     setEditingGroupId(id)
-    setGroupDraft('NEW GROUP')
+    setGroupDraft('New Group')
   }
 
   function removeGroup(id: string) {
@@ -175,7 +175,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
   }
 
   function commitRename(id: string) {
-    const trimmed = groupDraft.trim().toUpperCase()
+    const trimmed = groupDraft.trim()
     if (trimmed) updateGroup(id, { label: trimmed })
     setEditingGroupId(null)
   }
@@ -199,7 +199,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
       {/* ── Evergreen ────────────────────────────────────────────────────────── */}
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-          <SectionLabel>Evergreen Skills</SectionLabel>
+          <SectionLabel>Core</SectionLabel>
           <span style={{ color: T.border, fontSize: CRT_FONT.chrome, fontFamily: 'monospace' }}>
             — works on any application
           </span>
@@ -223,7 +223,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
                   <input
                     autoFocus
                     value={groupDraft}
-                    onChange={(e) => setGroupDraft(e.target.value.toUpperCase())}
+                    onChange={(e) => setGroupDraft(e.target.value)}
                     onBlur={() => commitRename(group.id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') commitRename(group.id)

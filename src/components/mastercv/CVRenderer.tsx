@@ -440,7 +440,7 @@ function RenderedSkills({ data, showHeading, onChange, keywords }: {
       <ul className="resume-skills-list">
         {data.evergreen.length > 0 && (
           <li>
-            <span style={{ fontWeight: 'bold' }}>Languages/Core</span>
+            <span style={{ fontWeight: 'bold' }}>Core</span>
             {': '}
             <HL text={data.evergreen.join(', ')} keywords={keywords}
               onChange={onChange ? (val) => onChange({ evergreen: val.split(',').map((s) => s.trim()).filter(Boolean) }) : undefined}
