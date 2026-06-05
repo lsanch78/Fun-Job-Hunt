@@ -205,7 +205,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
 
   const [panelRect, setPanelRect] = useState<{ left: number; width: number; top: number; height: number } | null>(null)
   const [overflowLines, setOverflowLines] = useState(0)
-  const [scanOpen, setScanOpen] = useState(false)
+  const [scanOpen, setScanOpen] = useState(() => localStorage.getItem('cv-scan-open') === 'true')
 
   useEffect(() => {
     if (!scanOpen) return
@@ -1319,7 +1319,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
             </button>
 
             <button
-              onClick={() => setScanOpen((v) => !v)}
+              onClick={() => setScanOpen((v) => { const next = !v; localStorage.setItem('cv-scan-open', String(next)); return next })}
               style={{
                 fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
                 color: scanOpen ? T.green : T.greenDim,

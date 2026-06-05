@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { playProgressChime, playCelebrationFanfare } from '@/lib/sfx'
+import { playProgressChime, playCelebrationFanfare, playPageFlip } from '@/lib/sfx'
 import { Terminal } from 'pixelarticons/react'
 import { FileText } from 'pixelarticons/react'
 import type { Job, JobStatus } from '@/types'
@@ -588,7 +588,7 @@ export const JobRow = forwardRef<JobRowHandle, {
           </button>
           {onTailorResume && (
             <button
-              onClick={() => { onTailorResume(draft); setCtxMenu(null) }}
+              onClick={() => { if (draft.curatedResumeId) playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
               className="text-left border text-[9px] px-2 py-1 font-pixel transition-none hover:border-secondary hover:text-secondary"
               style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
             >
