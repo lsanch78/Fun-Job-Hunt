@@ -1,5 +1,5 @@
 import { T, labelClass, inputClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface MainInfo {
   fullName: string
@@ -61,7 +61,7 @@ export default function MainInfoCard({ data, collapsed, onChange, onToggleCollap
   const summary = data.fullName || undefined
 
   return (
-    <CodexCard title="MAIN INFO" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} glowColor="#39ff14">
+    <CVCard title="MAIN INFO" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} glowColor="#39ff14">
       <div className="flex gap-3">
         <div className="flex-1">
           <Field label="Full Name"    value={data.fullName}  placeholder="Jane Doe"              onChange={(v) => set('fullName', v)} />
@@ -97,6 +97,6 @@ export default function MainInfoCard({ data, collapsed, onChange, onToggleCollap
           <Field label="GitHub"       value={data.github}    placeholder="github.com/jane"       onChange={(v) => set('github', v)} />
         </div>
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }

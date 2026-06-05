@@ -1,5 +1,5 @@
 import { T, labelClass, inputClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface Certification {
   id: string
@@ -45,7 +45,7 @@ export default function CertificationCard({ data, collapsed, onChange, onToggleC
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="CERTIFICATION"
       summary={summary}
       collapsed={collapsed}
@@ -80,6 +80,6 @@ export default function CertificationCard({ data, collapsed, onChange, onToggleC
       <div>
         <Field label="Verification URL" value={data.url} placeholder="credly.com/badges/…" onChange={(v) => set('url', v)} />
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }

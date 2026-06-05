@@ -1,10 +1,10 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
-import { useCodexState } from '@/hooks/useCodexState'
+import { useCVState } from '@/hooks/useCVState'
 import { useAI } from '@/hooks/useAI'
-import { PROMPT_CODEX_IMPORT, PROMPT_CODEX_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
-import type { CodexContent } from '@/services/codexService'
+import { PROMPT_CV_IMPORT, PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
+import type { CVContent } from '@/services/cvService'
 import MainInfoCard from './MainInfoCard'
 import ExperienceCard, { type Experience } from './ExperienceCard'
 import EducationCard, { type Education } from './EducationCard'
@@ -13,7 +13,7 @@ import SkillsBucketCard, { type SkillsBucket } from './SkillsBucketCard'
 import SummaryCard, { type Summary } from './SummaryCard'
 import CertificationCard, { type Certification } from './CertificationCard'
 import AwardCard, { type Award } from './AwardCard'
-import CodexRenderer, { type ContentChangeEvent, type CodexRendererHandle } from './CodexRenderer'
+import CVRenderer, { type ContentChangeEvent, type CVRendererHandle } from './CVRenderer'
 import { T } from '@/lib/crtTheme'
 import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes } from '@/services/curatedResumeService'
 
@@ -23,18 +23,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 // ── 3-D title keyframes ───────────────────────────────────────────────────────
-const TITLE_STYLE_ID = 'codex-title-styles'
+const TITLE_STYLE_ID = 'cv-title-styles'
 if (typeof document !== 'undefined' && !document.getElementById(TITLE_STYLE_ID)) {
   const el = document.createElement('style')
   el.id = TITLE_STYLE_ID
   el.textContent = `
-@keyframes codex-rock {
+@keyframes cv-rock {
   0%   { transform: perspective(600px) rotateY(-8deg) rotateX(3deg); }
   50%  { transform: perspective(600px) rotateY( 8deg) rotateX(-2deg); }
   100% { transform: perspective(600px) rotateY(-8deg) rotateX(3deg); }
 }
-.codex-title-3d {
-  animation: codex-rock 6s ease-in-out infinite;
+.cv-title-3d {
+  animation: cv-rock 6s ease-in-out infinite;
   transform-style: preserve-3d;
   display: inline-block;
 }
@@ -154,7 +154,7 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
   return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
-export default function CodexCanvas({ visible, userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
+export default function CVCanvas({ visible, userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
   const {
     mainInfo, setMainInfo,
     experiences, setExperiences,
@@ -165,8 +165,8 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
     certifications, setCertifications,
     awards, setAwards,
     collapsed, toggleCollapse,
-    codexContent, sectionOrder, loading: codexLoading,
-  } = useCodexState(userId)
+    cvContent, sectionOrder, loading: cvLoading,
+  } = useCVState(userId)
 
   const [newMenuOpen, setNewMenuOpen]   = useState(false)
   const [previewOpen, setPreviewOpen]   = useState(false)
@@ -192,13 +192,13 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
   const [curateError, setCurateError]           = useState<string | null>(null)
   const [curateResult, setCurateResult]         = useState<CurateResult | null>(null)
 
-  // Isolated curated content — never touches codexContent / master codex
-  const [curatedContent, setCuratedContent]         = useState<CodexContent | null>(null)
+  // Isolated curated content — never touches cvContent / Master CV
+  const [curatedContent, setCuratedContent]         = useState<CVContent | null>(null)
   const [curatedOrder, setCuratedOrder]             = useState<string[]>([])
 
   // Save curated resume state
   const [savePhase, setSavePhase] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const curatedRendererRef = useRef<CodexRendererHandle>(null)
+  const curatedRendererRef = useRef<CVRendererHandle>(null)
   const [overflowLines, setOverflowLines] = useState(0)
 
   // ── Auto-curation / pre-load when opened from job row context menu ────────
@@ -212,9 +212,9 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
     if (!visible) initialHandledRef.current = false
   }, [visible])
 
-  // Fire only after the codex has finished loading so experiences/projects are populated
+  // Fire only after the CV has finished loading so experiences/projects are populated
   useEffect(() => {
-    if (!visible || codexLoading) return
+    if (!visible || cvLoading) return
     if (initialHandledRef.current) return
     initialHandledRef.current = true
     pendingJobIdRef.current = initialJobId ?? null
@@ -246,7 +246,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
       handleCurate(initialCurateText)
       onInitialCurateConsumed?.()
     }
-  }, [visible, codexLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, cvLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function initAcceptedKeys(result: OrgResult) {
     const keys = new Set<string>()
@@ -316,7 +316,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
     return pages.join('\n\n')
   }
 
-  function mergeImport(parsed: CodexContent) {
+  function mergeImport(parsed: CVContent) {
     setMainInfo({
       fullName:  mainInfo.fullName  || parsed.mainInfo?.fullName  || '',
       jobTitle:  mainInfo.jobTitle  || parsed.mainInfo?.jobTitle  || '',
@@ -365,13 +365,13 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
     setImportPhase('thinking')
 
     runAI({
-      system: PROMPT_CODEX_IMPORT,
+      system: PROMPT_CV_IMPORT,
       prompt: rawText,
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
         try {
           const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
-          const parsed = JSON.parse(cleaned) as CodexContent
+          const parsed = JSON.parse(cleaned) as CVContent
           mergeImport(parsed)
           setImportPhase('idle')
         } catch {
@@ -398,10 +398,10 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
 
     const prompt =
       'PASTED TEXT:\n' + text +
-      '\n\nCURRENT CODEX:\n' + JSON.stringify(codexContent, null, 2)
+      '\n\nCURRENT CV:\n' + JSON.stringify(cvContent, null, 2)
 
     runAI({
-      system: PROMPT_CODEX_ORGANIZE,
+      system: PROMPT_CV_ORGANIZE,
       prompt,
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
@@ -523,7 +523,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
 
     const prompt =
       'JOB DESCRIPTION:\n' + text +
-      '\n\nCODEX:\n' + JSON.stringify(codexContent, null, 2)
+      '\n\nMASTER CV:\n' + JSON.stringify(cvContent, null, 2)
 
     runAI({
       system: PROMPT_CURATE_RESUME,
@@ -535,7 +535,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           const parsed = JSON.parse(cleaned) as CurateResult
           setCurateResult(parsed)
 
-          // Build isolated curated content — never touches master codex
+          // Build isolated curated content — never touches Master CV
           const cExperiences = parsed.experiences
             .map((entry) => { const exp = experiences.find((e) => e.id === entry.id); return exp ? { ...exp, bullets: entry.bullets } : null })
             .filter((e): e is Experience => e !== null)
@@ -620,16 +620,16 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
     clone.querySelectorAll('mark').forEach((mark) => {
       mark.replaceWith(...Array.from(mark.childNodes))
     })
-    clone.id = 'codex-print-target'
+    clone.id = 'cv-print-target'
     clone.style.boxShadow = 'none'
 
     // Inject print stylesheet + clone into document
     const style = document.createElement('style')
-    style.id = 'codex-print-style'
+    style.id = 'cv-print-style'
     style.textContent = `
       @media print {
-        body > *:not(#codex-print-target) { display: none !important; }
-        #codex-print-target {
+        body > *:not(#cv-print-target) { display: none !important; }
+        #cv-print-target {
           display: block !important;
           position: fixed !important;
           inset: 0 !important;
@@ -640,7 +640,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        #codex-print-target * {
+        #cv-print-target * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
@@ -658,8 +658,8 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
 
     const cleanup = () => {
       document.title = prevTitle
-      document.getElementById('codex-print-style')?.remove()
-      document.getElementById('codex-print-target')?.remove()
+      document.getElementById('cv-print-style')?.remove()
+      document.getElementById('cv-print-target')?.remove()
       window.removeEventListener('afterprint', cleanup)
     }
     window.addEventListener('afterprint', cleanup)
@@ -899,7 +899,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           {/* Header */}
           <div style={{ borderBottom: `1px solid ${T.border}`, padding: '18px 24px 14px', flexShrink: 0 }}>
             <div style={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: '0.18em', color: T.green, marginBottom: 8 }}>
-              CODEX UPDATE STAGING
+              CV UPDATE STAGING
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: 13, color: T.greenDim, letterSpacing: '0.06em', lineHeight: 1.6 }}>
               {stagingResult.summary}
@@ -913,7 +913,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
             {stagingResult.changes.length === 0 ? (
               <div style={{ fontFamily: 'monospace', fontSize: 14, color: T.greenDim, padding: '32px 0' }}>
-                Nothing new found — everything is already in your codex.
+                Nothing new found — everything is already in your CV.
               </div>
             ) : stagingResult.changes.map((change, i) => {
               const accepted = acceptedKeys.has(String(i))
@@ -1046,7 +1046,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
 
       {/* ── Curate result panel ─────────────────────────────────────────── */}
       {curateResult && (
-        <div className="absolute inset-0" style={{ zIndex: 50, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column' }}>
+        <div className="absolute inset-0" style={{ zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <div style={{ borderBottom: `1px solid ${T.border}`, padding: '18px 24px 14px', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -1069,25 +1069,16 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
                       <span style={{ color: T.greenDim }}>KEYWORD MATCH SCORE </span>
                       <span style={{ fontSize: 22, color, fontWeight: 'bold' }}>{score}</span>
                       <span style={{ color: T.greenDim, fontSize: 13 }}>%</span>
-                      <div style={{ color: T.border, fontSize: 9, marginTop: 2 }}>{liveMatchScore}/{total} KEYWORDS</div>
                     </div>
                   )
                 })()}
               </div>
             </div>
-            {(() => {
-              const totalBullets =
-                curateResult.experiences.reduce((n, e) => n + e.bullets.length, 0) +
-                curateResult.projects.reduce((n, p) => n + p.bullets.length, 0)
-              const overBudget = totalBullets > 16
-              return (
-                <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', marginBottom: 10, display: 'flex', gap: 16, alignItems: 'center' }}>
-                  <span style={{ color: overBudget ? T.warn : T.green, flexShrink: 0 }}>
-                    {totalBullets}/16 BULLETS {overBudget ? '⚠ OVER BUDGET' : '✓ ON PAGE'}
-                  </span>
-                </div>
-              )
-            })()}
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', marginBottom: 10 }}>
+              <span style={{ color: T.green, flexShrink: 0 }}>
+                {liveMatchScore}/{curateResult.matchedKeywords.length} KEYWORDS
+              </span>
+            </div>
 
             {/* Keywords — green = found in bullets, orange = missing */}
             {curateResult.matchedKeywords.length > 0 && curatedContent && (() => {
@@ -1116,7 +1107,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           {/* Live editable preview */}
           {curatedContent && (
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              <CodexRenderer
+              <CVRenderer
                 ref={curatedRendererRef}
                 content={curatedContent}
                 sectionOrder={curatedOrder}
@@ -1192,7 +1183,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
           {userName && (
             <div className="flex justify-center pointer-events-none mb-6">
               <span
-                className="codex-title-3d select-none"
+                className="cv-title-3d select-none"
                 style={{
                   fontFamily: 'monospace', fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', fontWeight: 700,
                   letterSpacing: '0.18em', color: T.green, textTransform: 'uppercase',
@@ -1313,7 +1304,7 @@ export default function CodexCanvas({ visible, userName, userId, initialCurateTe
       {/* ── Preview ──────────────────────────────────────────────────────── */}
       {previewOpen && (
         <div className="absolute inset-0 overflow-y-auto">
-          <CodexRenderer content={codexContent} sectionOrder={sectionOrder} />
+          <CVRenderer content={cvContent} sectionOrder={sectionOrder} />
         </div>
       )}
     </div>

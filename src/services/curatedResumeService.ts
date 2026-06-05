@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { CuratedResume } from '@/types'
-import type { CodexContent } from '@/services/codexService'
+import type { CVContent } from '@/services/cvService'
 
 export const CURATED_RESUME_LIMITS = {
   label: 100,
@@ -12,7 +12,7 @@ interface DbCuratedResume {
   id: string
   user_id: string
   label: string
-  content: CodexContent
+  content: CVContent
   section_order: string[]
   matched_keywords: string[]
   created_at: string
@@ -65,7 +65,7 @@ export async function fetchCuratedResumes(userId: string): Promise<CuratedResume
 export async function insertCuratedResume(
   userId: string,
   label: string,
-  content: CodexContent,
+  content: CVContent,
   sectionOrder: string[],
   matchedKeywords: string[],
 ): Promise<{ data: CuratedResume | null; error: string | null }> {

@@ -1,5 +1,5 @@
 import { T, labelClass, inputClass, textareaClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface Project {
   id: string
@@ -87,7 +87,7 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="PROJECT"
       summary={summary}
       collapsed={collapsed}
@@ -182,6 +182,6 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
           + ADD BULLET
         </button>
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }

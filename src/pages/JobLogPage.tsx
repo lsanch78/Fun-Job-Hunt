@@ -4,9 +4,9 @@ import { Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/hud/XpTracker'
-import MasterCodex from '@/components/hud/MasterCodex'
+import MasterCV from '@/components/hud/MasterCV'
 import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
-import CodexCanvas from '@/components/mastercodex/CodexCanvas'
+import CVCanvas from '@/components/mastercv/CVCanvas'
 import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { JOB_CAP, fetchJobDetails } from '@/services/jobService'
@@ -169,12 +169,12 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [detailJobPage, setDetailJobPage] = useState<1 | 2>(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
-  const [codexOpen, setCodexOpen] = useState(false)
-  const [codexInitialCurateText, setCodexInitialCurateText] = useState<string | null>(null)
-  const [codexInitialCuratedResumeId, setCodexInitialCuratedResumeId] = useState<string | null>(null)
-  const [codexInitialOpenCuratePanel, setCodexInitialOpenCuratePanel] = useState(false)
-  const [codexInitialCompany, setCodexInitialCompany] = useState<string | null>(null)
-  const [codexInitialJobId, setCodexInitialJobId] = useState<string | null>(null)
+  const [cvOpen, setCvOpen] = useState(false)
+  const [cvInitialCurateText, setCvInitialCurateText] = useState<string | null>(null)
+  const [cvInitialCuratedResumeId, setCvInitialCuratedResumeId] = useState<string | null>(null)
+  const [cvInitialOpenCuratePanel, setCvInitialOpenCuratePanel] = useState(false)
+  const [cvInitialCompany, setCvInitialCompany] = useState<string | null>(null)
+  const [cvInitialJobId, setCvInitialJobId] = useState<string | null>(null)
   const columns = useColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
@@ -202,33 +202,33 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
   async function handleTailorResume(job: Job) {
     const company = job.company || null
-    setCodexInitialJobId(job.id)
+    setCvInitialJobId(job.id)
 
     // Already has a linked curated resume — open it for viewing/editing
     if (job.curatedResumeId) {
-      setCodexInitialCuratedResumeId(job.curatedResumeId)
-      setCodexInitialCurateText(null)
-      setCodexInitialOpenCuratePanel(false)
-      setCodexInitialCompany(company)
-      setCodexOpen(true)
+      setCvInitialCuratedResumeId(job.curatedResumeId)
+      setCvInitialCurateText(null)
+      setCvInitialOpenCuratePanel(false)
+      setCvInitialCompany(company)
+      setCvOpen(true)
       return
     }
 
     // Use description already in memory if available, otherwise lazy-load
     const jd = job.description ?? (await fetchJobDetails(job.id).then((d) => d?.description ?? null))
 
-    setCodexInitialCompany(company)
+    setCvInitialCompany(company)
     if (jd?.trim()) {
-      setCodexInitialCurateText(jd)
-      setCodexInitialCuratedResumeId(null)
-      setCodexInitialOpenCuratePanel(false)
+      setCvInitialCurateText(jd)
+      setCvInitialCuratedResumeId(null)
+      setCvInitialOpenCuratePanel(false)
     } else {
-      // No JD — open codex with the curate panel already open so user can paste
-      setCodexInitialCurateText(null)
-      setCodexInitialCuratedResumeId(null)
-      setCodexInitialOpenCuratePanel(true)
+      // No JD — open Master CV with the curate panel already open so user can paste
+      setCvInitialCurateText(null)
+      setCvInitialCuratedResumeId(null)
+      setCvInitialOpenCuratePanel(true)
     }
-    setCodexOpen(true)
+    setCvOpen(true)
   }
 
   function handleDraftChange(draft: Job) {
@@ -307,14 +307,14 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && codexOpen) {
+      if (e.key === 'Escape' && cvOpen) {
         playNetworkMapClose()
-        setCodexOpen(false)
+        setCvOpen(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [codexOpen])
+  }, [cvOpen])
 
   const committedFiltered = filteredJobs.filter((j) => j.committed)
   const drafts            = filteredJobs.filter((j) => !j.committed)
@@ -391,7 +391,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           </p>
         </div>
         <div className="flex items-stretch gap-3">
-          <MasterCodex expanded={codexOpen} onToggle={() => { codexOpen ? playNetworkMapClose() : playNetworkMapOpen(); setCodexOpen((v) => !v) }} />
+          <MasterCV expanded={cvOpen} onToggle={() => { cvOpen ? playNetworkMapClose() : playNetworkMapOpen(); setCvOpen((v) => !v) }} />
           <button
             onClick={() => navigate('/story')}
             className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -502,32 +502,32 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Table */}
       <div data-tutorial="job-rows" className="overflow-hidden flex-1 relative">
 
-        <StarfieldBackdrop expanded={codexOpen} />
+        <StarfieldBackdrop expanded={cvOpen} />
 
-        <CodexCanvas
-          visible={codexOpen}
+        <CVCanvas
+          visible={cvOpen}
           userName={userName}
           userId={userId}
-          initialCurateText={codexInitialCurateText}
-          initialCuratedResumeId={codexInitialCuratedResumeId}
-          initialOpenCuratePanel={codexInitialOpenCuratePanel}
-          initialCompany={codexInitialCompany}
-          initialJobId={codexInitialJobId}
+          initialCurateText={cvInitialCurateText}
+          initialCuratedResumeId={cvInitialCuratedResumeId}
+          initialOpenCuratePanel={cvInitialOpenCuratePanel}
+          initialCompany={cvInitialCompany}
+          initialJobId={cvInitialJobId}
           onResumeSaved={(jobId, resumeId) => patchJobCuratedResume(jobId, resumeId)}
-          onClose={() => { playNetworkMapClose(); setCodexOpen(false) }}
+          onClose={() => { playNetworkMapClose(); setCvOpen(false) }}
           onInitialCurateConsumed={() => {
-            setCodexInitialCurateText(null)
-            setCodexInitialCuratedResumeId(null)
-            setCodexInitialOpenCuratePanel(false)
-            setCodexInitialCompany(null)
-            setCodexInitialJobId(null)
+            setCvInitialCurateText(null)
+            setCvInitialCuratedResumeId(null)
+            setCvInitialOpenCuratePanel(false)
+            setCvInitialCompany(null)
+            setCvInitialJobId(null)
           }}
         />
 
         <div
           style={{
-            opacity: codexOpen ? 0 : 1,
-            pointerEvents: codexOpen ? 'none' : undefined,
+            opacity: cvOpen ? 0 : 1,
+            pointerEvents: cvOpen ? 'none' : undefined,
             transition: 'opacity 600ms ease',
             overflowY: 'auto',
             overflowX: 'hidden',

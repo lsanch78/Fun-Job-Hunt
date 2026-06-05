@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { T, labelClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,7 +188,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
   ].filter(Boolean).join('  ·  ') || undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="SKILLS"
       summary={summary}
       collapsed={collapsed}
@@ -301,6 +301,6 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
       >
         + ADD MODULAR GROUP
       </button>
-    </CodexCard>
+    </CVCard>
   )
 }

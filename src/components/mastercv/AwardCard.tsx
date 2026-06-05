@@ -1,5 +1,5 @@
 import { T, labelClass, inputClass, textareaClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface Award {
   id: string
@@ -43,7 +43,7 @@ export default function AwardCard({ data, collapsed, onChange, onToggleCollapse,
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="AWARD / HONOR"
       summary={summary}
       collapsed={collapsed}
@@ -78,6 +78,6 @@ export default function AwardCard({ data, collapsed, onChange, onToggleCollapse,
           onChange={(e) => set('description', e.target.value)}
         />
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }

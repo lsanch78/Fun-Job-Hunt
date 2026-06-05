@@ -24,7 +24,7 @@ function makeGlow(hex: string) {
   ].join(', ')
 }
 
-export default function CodexCard({ title, summary, collapsed, onToggleCollapse, onDelete, glowColor, children }: Props) {
+export default function CVCard({ title, summary, collapsed, onToggleCollapse, onDelete, glowColor, children }: Props) {
   const color    = glowColor ?? T.green
   const colorDim = glowColor ? `${glowColor}99` : T.greenDim
 

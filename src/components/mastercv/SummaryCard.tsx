@@ -1,5 +1,5 @@
 import { T, labelClass, textareaClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface Summary {
   id: string
@@ -24,7 +24,7 @@ export default function SummaryCard({ data, collapsed, onChange, onToggleCollaps
   const summary = [data.label, words > 0 ? `${words} words` : null].filter(Boolean).join('  ·  ') || undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="SUMMARY"
       summary={summary}
       collapsed={collapsed}
@@ -57,6 +57,6 @@ export default function SummaryCard({ data, collapsed, onChange, onToggleCollaps
           onChange={(e) => set('text', e.target.value)}
         />
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }

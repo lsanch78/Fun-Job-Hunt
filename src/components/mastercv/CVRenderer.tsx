@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import type { CodexContent } from '@/services/codexService'
+import type { CVContent } from '@/services/cvService'
 import type { MainInfo }      from './MainInfoCard'
 import type { Summary }       from './SummaryCard'
 import type { Experience }    from './ExperienceCard'
@@ -22,7 +22,7 @@ export type ContentChangeEvent =
   | { type: 'award';          id: string; data: Partial<Award> }
 
 interface Props {
-  content: CodexContent
+  content: CVContent
   sectionOrder: string[]
   onChange?: (e: ContentChangeEvent) => void
   keywords?: string[]
@@ -50,7 +50,7 @@ function getSectionType(id: string): SectionType {
 const RESUME_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
-  .codex-paper {
+  .cv-paper {
     font-family: 'Carlito', sans-serif;
     font-size: 12pt;
     line-height: 1.25;
@@ -520,13 +520,13 @@ function RenderedAward({ data, showHeading, onChange, keywords }: {
 
 const PAGE_HEIGHT_PX = 1056
 
-export interface CodexRendererHandle {
+export interface CVRendererHandle {
   getPaperElement: () => HTMLDivElement | null
 }
 
 const LINE_HEIGHT_PX = 20
 
-const CodexRenderer = forwardRef<CodexRendererHandle, Props>(function CodexRenderer({ content, sectionOrder, onChange, keywords, onOverflowChange }, ref) {
+const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ content, sectionOrder, onChange, keywords, onOverflowChange }, ref) {
   const firstOfType = new Map<SectionType, string>()
   sectionOrder.forEach((id) => {
     const type = getSectionType(id)
@@ -574,7 +574,7 @@ const CodexRenderer = forwardRef<CodexRendererHandle, Props>(function CodexRende
     }}>
       <style>{RESUME_STYLES}</style>
       <div style={{ position: 'relative' }}>
-        <div className="codex-paper" ref={paperRef}>
+        <div className="cv-paper" ref={paperRef}>
           {sectionOrder.map((id) => {
             const type = getSectionType(id)
             const showHeading = isFirst(id)
@@ -650,4 +650,4 @@ const CodexRenderer = forwardRef<CodexRendererHandle, Props>(function CodexRende
   )
 })
 
-export default CodexRenderer
+export default CVRenderer

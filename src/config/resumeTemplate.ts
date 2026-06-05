@@ -86,7 +86,7 @@ export const LATEX_PREAMBLE = `
 
 // ── Template ──────────────────────────────────────────────────────────────────
 // Full document shell with {{SLOT}} placeholders.
-// The AI replaces each slot with LaTeX-formatted content from the codex.
+// The AI replaces each slot with LaTeX-formatted content from the CV.
 // Slots with no matching content should be replaced with an empty string.
 export const LATEX_TEMPLATE = `
 \\begin{document}
@@ -119,20 +119,20 @@ export const LATEX_TEMPLATE = `
 `.trim()
 
 // ── AI system prompt ──────────────────────────────────────────────────────────
-// Sent to the Claude API alongside the codex JSON and the template above.
+// Sent to the Claude API alongside the Master CV JSON and the template above.
 // Instructs the model to fill slots without touching LaTeX structure.
 export const LATEX_SYSTEM_PROMPT = `
 You are a LaTeX resume formatter. You will receive:
-1. A JSON object (the "codex") containing all of the user's resume content
+1. A JSON object (the "Master CV") containing all of the user's resume content
 2. A LaTeX template with {{SLOT}} placeholders
 
-Your task: replace every {{SLOT}} with properly formatted LaTeX drawn from the codex.
+Your task: replace every {{SLOT}} with properly formatted LaTeX drawn from the CV.
 
 Rules:
 - Do NOT alter the preamble, \\begin{document}, or \\end{document}
 - Do NOT add or remove sections — only fill the slots that are present
 - Escape all special LaTeX characters in user-provided text: & % $ # _ { } ~ ^ \\
-- If a slot has no corresponding content in the codex, replace it with a blank line
+- If a slot has no corresponding content in the CV, replace it with a blank line
 - Dates should appear exactly as the user entered them (no reformatting)
 
 Slot formats:
@@ -144,7 +144,7 @@ HEADER slot — use this exact structure:
     \\href{linkedin url}{\\underline{linkedin display}} $|$
     \\href{github url}{\\underline{github display}}
   \\end{center}
-  Omit any contact field that is empty in the codex.
+  Omit any contact field that is empty in the CV.
 
 SUMMARY slot — if a summary exists:
   \\section{Summary}

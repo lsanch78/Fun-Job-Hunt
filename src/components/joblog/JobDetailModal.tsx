@@ -3,7 +3,7 @@ import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import type { Job, Contact, CuratedResume } from '@/types'
 import { fetchJobDetails, updateJobDetails, JOB_LIMITS, linkCuratedResumeToJob } from '@/services/jobService'
 import { fetchCuratedResume, fetchCuratedResumes, updateCuratedResumeLabel } from '@/services/curatedResumeService'
-import CodexRenderer from '@/components/mastercodex/CodexRenderer'
+import CVRenderer from '@/components/mastercv/CVRenderer'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import { useAI } from '@/hooks/useAI'
 import {
@@ -379,7 +379,7 @@ function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
             </button>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            <CodexRenderer
+            <CVRenderer
               content={linked.content}
               sectionOrder={linked.sectionOrder}
               keywords={linked.matchedKeywords}
@@ -423,7 +423,7 @@ export function CuratedResumePreviewModal({ resumeId, onClose }: { resumeId: str
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {resume ? (
-          <CodexRenderer content={resume.content} sectionOrder={resume.sectionOrder} keywords={resume.matchedKeywords} />
+          <CVRenderer content={resume.content} sectionOrder={resume.sectionOrder} keywords={resume.matchedKeywords} />
         ) : (
           <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.greenDim, padding: 24 }}>Loading…</div>
         )}

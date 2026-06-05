@@ -1,5 +1,5 @@
 import type { Theme } from '@/config/game'
-import type { CodexContent } from '@/services/codexService'
+import type { CVContent } from '@/services/cvService'
 
 export type JobStatus =
   | 'APPLIED'
@@ -53,7 +53,7 @@ export interface CuratedResume {
   id: string
   userId: string
   label: string
-  content: CodexContent
+  content: CVContent
   sectionOrder: string[]
   matchedKeywords: string[]
   createdAt: string

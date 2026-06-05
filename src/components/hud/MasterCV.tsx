@@ -3,7 +3,7 @@ interface Props {
   onToggle: () => void
 }
 
-export default function MasterCodex({ expanded, onToggle }: Props) {
+export default function MasterCV({ expanded, onToggle }: Props) {
   return (
     <button
       onClick={onToggle}
@@ -13,7 +13,7 @@ export default function MasterCodex({ expanded, onToggle }: Props) {
           : 'border-border text-muted hover:border-secondary hover:text-secondary'
       }`}
     >
-      MASTER CODEX
+      MASTER CV
     </button>
   )
 }

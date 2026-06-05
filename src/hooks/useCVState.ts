@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchCodex, upsertCodex, type CodexContent } from '@/services/codexService'
-import type { MainInfo }      from '@/components/mastercodex/MainInfoCard'
-import type { Experience }    from '@/components/mastercodex/ExperienceCard'
-import type { Education }     from '@/components/mastercodex/EducationCard'
-import type { Project }       from '@/components/mastercodex/ProjectCard'
-import type { SkillsBucket }  from '@/components/mastercodex/SkillsBucketCard'
-import type { Summary }       from '@/components/mastercodex/SummaryCard'
-import type { Certification } from '@/components/mastercodex/CertificationCard'
-import type { Award }         from '@/components/mastercodex/AwardCard'
+import { fetchCV, upsertCV, type CVContent } from '@/services/cvService'
+import type { MainInfo }      from '@/components/mastercv/MainInfoCard'
+import type { Experience }    from '@/components/mastercv/ExperienceCard'
+import type { Education }     from '@/components/mastercv/EducationCard'
+import type { Project }       from '@/components/mastercv/ProjectCard'
+import type { SkillsBucket }  from '@/components/mastercv/SkillsBucketCard'
+import type { Summary }       from '@/components/mastercv/SummaryCard'
+import type { Certification } from '@/components/mastercv/CertificationCard'
+import type { Award }         from '@/components/mastercv/AwardCard'
 
 const EMPTY_MAIN: MainInfo = {
   fullName: '', jobTitle: '', email: '', phone: '',
   location: '', website: '', linkedin: '', github: '',
 }
 
-export interface CodexState {
+export interface CVState {
   mainInfo:       MainInfo
   experiences:    Experience[]
   educations:     Education[]
@@ -35,12 +35,12 @@ export interface CodexState {
   setAwards:         (v: Award[]) => void
   toggleCollapse:    (id: string) => void
 
-  codexContent: CodexContent
+  cvContent:    CVContent
   sectionOrder: string[]
-  loading: boolean
+  loading:      boolean
 }
 
-export function useCodexState(userId: string | null | undefined): CodexState {
+export function useCVState(userId: string | null | undefined): CVState {
   const [loading, setLoading]           = useState(true)
   const [mainInfo, setMainInfo]         = useState<MainInfo>(EMPTY_MAIN)
   const [experiences, setExperiences]   = useState<Experience[]>([])
@@ -60,7 +60,7 @@ export function useCodexState(userId: string | null | undefined): CodexState {
   useEffect(() => {
     if (!userId) { setLoading(false); return }
     setLoading(true)
-    fetchCodex(userId).then((row) => {
+    fetchCV(userId).then((row) => {
       if (!row) { setLoading(false); return }
       const c = row.content
       if (c.mainInfo)                     setMainInfo(c.mainInfo)
@@ -81,7 +81,7 @@ export function useCodexState(userId: string | null | undefined): CodexState {
   }, [userId])
 
   // ── Computed snapshot ──────────────────────────────────────────────────────
-  const codexContent = useMemo<CodexContent>(() => ({
+  const cvContent = useMemo<CVContent>(() => ({
     mainInfo, experiences, educations, projects,
     skills, summaries, certifications, awards,
   }), [mainInfo, experiences, educations, projects, skills, summaries, certifications, awards])
@@ -105,15 +105,15 @@ export function useCodexState(userId: string | null | undefined): CodexState {
     if (!userId || loading) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      upsertCodex(userId, codexContent, sectionOrder)
+      upsertCV(userId, cvContent, sectionOrder)
     }, 1500)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [codexContent, sectionOrder, userId, loading])
+  }, [cvContent, sectionOrder, userId, loading])
 
   return {
     mainInfo, experiences, educations, projects, skills, summaries, certifications, awards, collapsed,
     setMainInfo, setExperiences, setEducations, setProjects, setSkills,
     setSummaries, setCertifications, setAwards, toggleCollapse,
-    codexContent, sectionOrder, loading,
+    cvContent, sectionOrder, loading,
   }
 }

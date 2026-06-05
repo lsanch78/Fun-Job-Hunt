@@ -1,5 +1,5 @@
 import { T, labelClass, inputClass, CRT_FONT } from '@/lib/crtTheme'
-import CodexCard from './CodexCard'
+import CVCard from './CVCard'
 
 export interface Education {
   id: string
@@ -48,7 +48,7 @@ export default function EducationCard({ data, collapsed, onChange, onToggleColla
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CodexCard
+    <CVCard
       title="EDUCATION"
       summary={summary}
       collapsed={collapsed}
@@ -101,6 +101,6 @@ export default function EducationCard({ data, collapsed, onChange, onToggleColla
           onChange={(e) => set('notes', e.target.value)}
         />
       </div>
-    </CodexCard>
+    </CVCard>
   )
 }
