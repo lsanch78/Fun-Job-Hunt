@@ -9,7 +9,7 @@ import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
 import CodexCanvas from '@/components/mastercodex/CodexCanvas'
 import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
-import { JOB_CAP } from '@/services/jobService'
+import { JOB_CAP, fetchJobDetails } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import TutorialModal from '@/components/modals/TutorialModal'
@@ -152,6 +152,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     onDraftChange,
     onCommit,
     updateJobDetails,
+    patchJobCuratedResume,
     deleteJobs,
     pendingFocusIdRef,
   } = useJobList(userId, bumpXp)
@@ -169,6 +170,11 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
   const [codexOpen, setCodexOpen] = useState(false)
+  const [codexInitialCurateText, setCodexInitialCurateText] = useState<string | null>(null)
+  const [codexInitialCuratedResumeId, setCodexInitialCuratedResumeId] = useState<string | null>(null)
+  const [codexInitialOpenCuratePanel, setCodexInitialOpenCuratePanel] = useState(false)
+  const [codexInitialCompany, setCodexInitialCompany] = useState<string | null>(null)
+  const [codexInitialJobId, setCodexInitialJobId] = useState<string | null>(null)
   const columns = useColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
@@ -193,6 +199,37 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   }
 
   // ── Draft-change handler — adds workday punch-in signal on top of hook ───────
+
+  async function handleTailorResume(job: Job) {
+    const company = job.company || null
+    setCodexInitialJobId(job.id)
+
+    // Already has a linked curated resume — open it for viewing/editing
+    if (job.curatedResumeId) {
+      setCodexInitialCuratedResumeId(job.curatedResumeId)
+      setCodexInitialCurateText(null)
+      setCodexInitialOpenCuratePanel(false)
+      setCodexInitialCompany(company)
+      setCodexOpen(true)
+      return
+    }
+
+    // Use description already in memory if available, otherwise lazy-load
+    const jd = job.description ?? (await fetchJobDetails(job.id).then((d) => d?.description ?? null))
+
+    setCodexInitialCompany(company)
+    if (jd?.trim()) {
+      setCodexInitialCurateText(jd)
+      setCodexInitialCuratedResumeId(null)
+      setCodexInitialOpenCuratePanel(false)
+    } else {
+      // No JD — open codex with the curate panel already open so user can paste
+      setCodexInitialCurateText(null)
+      setCodexInitialCuratedResumeId(null)
+      setCodexInitialOpenCuratePanel(true)
+    }
+    setCodexOpen(true)
+  }
 
   function handleDraftChange(draft: Job) {
     // Signal WorkdayBar that the user is actively typing in a job row.
@@ -467,7 +504,25 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
         <StarfieldBackdrop expanded={codexOpen} />
 
-        <CodexCanvas visible={codexOpen} userName={userName} userId={userId} />
+        <CodexCanvas
+          visible={codexOpen}
+          userName={userName}
+          userId={userId}
+          initialCurateText={codexInitialCurateText}
+          initialCuratedResumeId={codexInitialCuratedResumeId}
+          initialOpenCuratePanel={codexInitialOpenCuratePanel}
+          initialCompany={codexInitialCompany}
+          initialJobId={codexInitialJobId}
+          onResumeSaved={(jobId, resumeId) => patchJobCuratedResume(jobId, resumeId)}
+          onClose={() => { playNetworkMapClose(); setCodexOpen(false) }}
+          onInitialCurateConsumed={() => {
+            setCodexInitialCurateText(null)
+            setCodexInitialCuratedResumeId(null)
+            setCodexInitialOpenCuratePanel(false)
+            setCodexInitialCompany(null)
+            setCodexInitialJobId(null)
+          }}
+        />
 
         <div
           style={{
@@ -508,15 +563,16 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             {columns.visibleCols.map((col) => (
               <col key={col.key} style={{ width: `${((col.width / totalColWeight) * 100).toFixed(2)}%` }} />
             ))}
-            <col style={{ width: 32 }} />
+            <col style={{ width: 24 }} />
+            <col style={{ width: 24 }} />
           </colgroup>
           <thead>
             <tr className="border-b border-border text-primary text-left select-none">
               {deleteMode && <th className="px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
               <th className="px-2 py-2 w-6" scope="col"><span className="sr-only">Details</span></th>
               <ColumnHeader columns={columns} />
-              {/* Commit-hint col */}
-              <th className="px-2 py-2 w-8" scope="col"><span className="sr-only">Save status</span></th>
+              <th className="px-1 py-2" scope="col"><span className="sr-only">Curated resume</span></th>
+              <th className="px-1 py-2" scope="col"><span className="sr-only">Save status</span></th>
             </tr>
           </thead>
           <tbody>
@@ -544,6 +600,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   checked={selected.has(job.id)}
                   onOpenDetail={job.committed ? () => { setDetailJobPage(1); setDetailJobId(job.id) } : undefined}
                   onOpenDetailPage2={job.committed ? () => { setDetailJobPage(2); setDetailJobId(job.id) } : undefined}
+                  onTailorResume={job.committed ? handleTailorResume : undefined}
                   onDetailBlur={(j) => {
                     if (!j.committed) return
                     updateJobDetails(j.id, {

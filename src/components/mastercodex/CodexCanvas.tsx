@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import { useCodexState } from '@/hooks/useCodexState'
@@ -13,8 +13,9 @@ import SkillsBucketCard, { type SkillsBucket } from './SkillsBucketCard'
 import SummaryCard, { type Summary } from './SummaryCard'
 import CertificationCard, { type Certification } from './CertificationCard'
 import AwardCard, { type Award } from './AwardCard'
-import CodexRenderer, { type ContentChangeEvent } from './CodexRenderer'
+import CodexRenderer, { type ContentChangeEvent, type CodexRendererHandle } from './CodexRenderer'
 import { T } from '@/lib/crtTheme'
+import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes } from '@/services/curatedResumeService'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -37,6 +38,25 @@ if (typeof document !== 'undefined' && !document.getElementById(TITLE_STYLE_ID))
   transform-style: preserve-3d;
   display: inline-block;
 }
+@keyframes crt-glitch-h {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-4px); }
+  40%     { transform: translateX(3px); }
+  60%     { transform: translateX(-2px); }
+  80%     { transform: translateX(1px); }
+}
+@keyframes crt-flicker2 {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.85; }
+}
+.crt-glitch-wrap {
+  animation: crt-glitch-h 0.18s steps(1) infinite, crt-flicker2 0.6s ease-in-out infinite;
+  filter: saturate(0) contrast(1.4) brightness(0.7) hue-rotate(80deg);
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes crt-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+.crt-blink { animation: crt-blink 1s step-start infinite; }
 `
   document.head.appendChild(el)
 }
@@ -81,9 +101,60 @@ interface Props {
   visible: boolean
   userName?: string | null
   userId?: string | null
+  initialCurateText?: string | null
+  initialCuratedResumeId?: string | null
+  initialOpenCuratePanel?: boolean
+  initialCompany?: string | null
+  initialJobId?: string | null
+  onInitialCurateConsumed?: () => void
+  onResumeSaved?: (jobId: string, resumeId: string) => void
+  onClose?: () => void
 }
 
-export default function CodexCanvas({ visible, userName, userId }: Props) {
+function GlitchOverlay({ width, height, words }: { width: number; height: number; words: string[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wordsRef = useRef(words)
+  useEffect(() => { wordsRef.current = words }, [words])
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    const CHARS = '01█▓▒░10110100'
+    let frame: number
+    function draw() {
+      ctx.clearRect(0, 0, width, height)
+      ctx.font = '11px monospace'
+      for (let y = 0; y < height; y += 14) {
+        for (let x = 0; x < width; x += 9) {
+          const alpha = Math.random() * 0.55 + 0.1
+          ctx.fillStyle = `rgba(57,255,20,${alpha.toFixed(2)})`
+          // ~8% chance to draw a job-description word instead of a binary char
+          const pool = wordsRef.current
+          if (pool.length > 0 && Math.random() < 0.08) {
+            const word = pool[Math.floor(Math.random() * pool.length)]
+            ctx.fillText(word, x, y + 11)
+            x += ctx.measureText(word).width  // skip past the word
+          } else {
+            ctx.fillText(CHARS[Math.floor(Math.random() * CHARS.length)], x, y + 11)
+          }
+        }
+      }
+      const barY = (Date.now() % 1800) / 1800 * height
+      const grad = ctx.createLinearGradient(0, barY - 30, 0, barY + 30)
+      grad.addColorStop(0, 'rgba(57,255,20,0)')
+      grad.addColorStop(0.5, 'rgba(57,255,20,0.18)')
+      grad.addColorStop(1, 'rgba(57,255,20,0)')
+      ctx.fillStyle = grad
+      ctx.fillRect(0, barY - 30, width, 60)
+      frame = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => cancelAnimationFrame(frame)
+  }, [width, height])
+  return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+}
+
+export default function CodexCanvas({ visible, userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
   const {
     mainInfo, setMainInfo,
     experiences, setExperiences,
@@ -94,7 +165,7 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
     certifications, setCertifications,
     awards, setAwards,
     collapsed, toggleCollapse,
-    codexContent, sectionOrder,
+    codexContent, sectionOrder, loading: codexLoading,
   } = useCodexState(userId)
 
   const [newMenuOpen, setNewMenuOpen]   = useState(false)
@@ -124,6 +195,58 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
   // Isolated curated content — never touches codexContent / master codex
   const [curatedContent, setCuratedContent]         = useState<CodexContent | null>(null)
   const [curatedOrder, setCuratedOrder]             = useState<string[]>([])
+
+  // Save curated resume state
+  const [savePhase, setSavePhase] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const curatedRendererRef = useRef<CodexRendererHandle>(null)
+  const [overflowLines, setOverflowLines] = useState(0)
+
+  // ── Auto-curation / pre-load when opened from job row context menu ────────
+  const initialHandledRef = useRef(false)
+  // Captures jobId at trigger time so handleSaveCurated still has it after the
+  // parent clears initialJobId via onInitialCurateConsumed
+  const pendingJobIdRef = useRef<string | null>(null)
+
+  // Reset guard when the canvas closes so re-opening triggers again
+  useEffect(() => {
+    if (!visible) initialHandledRef.current = false
+  }, [visible])
+
+  // Fire only after the codex has finished loading so experiences/projects are populated
+  useEffect(() => {
+    if (!visible || codexLoading) return
+    if (initialHandledRef.current) return
+    initialHandledRef.current = true
+    pendingJobIdRef.current = initialJobId ?? null
+
+    if (initialOpenCuratePanel) {
+      setCurateOpen(true)
+      onInitialCurateConsumed?.()
+    } else if (initialCuratedResumeId) {
+      setCurateResult(null)
+      setCuratePhase('thinking')
+      fetchCuratedResume(initialCuratedResumeId).then((resume) => {
+        if (!resume) { setCuratePhase('idle'); return }
+        setCurateResult({
+          matchedKeywords: resume.matchedKeywords,
+          summary: null,
+          experiences: resume.content.experiences.map((e) => ({ id: e.id, bullets: e.bullets })),
+          projects:    resume.content.projects.map((p)    => ({ id: p.id, bullets: p.bullets })),
+          skills:      resume.content.skills
+            ? { evergreen: resume.content.skills.evergreen, modular: resume.content.skills.modular.map((g) => ({ id: g.id, label: g.label, skills: g.skills })) }
+            : { evergreen: [], modular: [] },
+        })
+        setCuratedContent(resume.content)
+        setCuratedOrder(resume.sectionOrder)
+        setCuratePhase('idle')
+        onInitialCurateConsumed?.()
+      })
+    } else if (initialCurateText) {
+      setCurateText(initialCurateText)
+      handleCurate(initialCurateText)
+      onInitialCurateConsumed?.()
+    }
+  }, [visible, codexLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function initAcceptedKeys(result: OrgResult) {
     const keys = new Set<string>()
@@ -391,10 +514,11 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
     organizePhase === 'error'    ? 'ERROR' : 'IMPORT TEXT'
 
   // ── Curate handler ────────────────────────────────────────────────────────
-  function handleCurate() {
-    const text = curateText.trim()
+  function handleCurate(overrideText?: string) {
+    const text = (overrideText ?? curateText).trim()
     if (!text) return
     setCurateError(null)
+    setCurateResult(null)
     setCuratePhase('thinking')
 
     const prompt =
@@ -453,6 +577,95 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
   const curateLabel =
     curatePhase === 'thinking' ? 'THINKING…' :
     curatePhase === 'error'    ? 'ERROR' : 'CURATE'
+
+  // ── Save curated resume handler ───────────────────────────────────────────
+  async function handleSaveCurated() {
+    if (!curatedContent || !curateResult || !userId) return
+    setSavePhase('saving')
+
+    // Auto-label: CompanyName_LastName, or LastName_N if no company
+    const lastName = mainInfo.fullName.trim().split(/\s+/).pop() ?? 'Resume'
+    let label: string
+    if (initialCompany?.trim()) {
+      label = `${initialCompany.trim()}_${lastName}`
+    } else {
+      const existing = await fetchCuratedResumes(userId)
+      label = `${lastName}_${existing.length + 1}`
+    }
+
+    const { data: savedResume, error } = await insertCuratedResume(userId, label, curatedContent, curatedOrder, curateResult.matchedKeywords)
+
+    if (error || !savedResume) {
+      setSavePhase('error')
+      setTimeout(() => { setSavePhase('idle') }, 4000)
+    } else {
+      const jobId = pendingJobIdRef.current
+      if (jobId) onResumeSaved?.(jobId, savedResume.id)
+      pendingJobIdRef.current = null
+      setSavePhase('saved')
+      setTimeout(() => { setSavePhase('idle'); onClose?.() }, 1500)
+    }
+  }
+
+  function resetSaveState() {
+    setSavePhase('idle')
+  }
+
+  function handlePrintCurated() {
+    const paper = curatedRendererRef.current?.getPaperElement()
+    if (!paper) return
+
+    // Clone paper and strip keyword <mark> highlights
+    const clone = paper.cloneNode(true) as HTMLElement
+    clone.querySelectorAll('mark').forEach((mark) => {
+      mark.replaceWith(...Array.from(mark.childNodes))
+    })
+    clone.id = 'codex-print-target'
+    clone.style.boxShadow = 'none'
+
+    // Inject print stylesheet + clone into document
+    const style = document.createElement('style')
+    style.id = 'codex-print-style'
+    style.textContent = `
+      @media print {
+        body > *:not(#codex-print-target) { display: none !important; }
+        #codex-print-target {
+          display: block !important;
+          position: fixed !important;
+          inset: 0 !important;
+          width: 816px !important;
+          margin: 0 auto !important;
+          padding: 48px !important;
+          box-shadow: none !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        #codex-print-target * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        @page { size: letter; margin: 0; }
+      }
+    `
+    document.head.appendChild(style)
+    document.body.appendChild(clone)
+
+    const label = initialCompany?.trim()
+      ? `${initialCompany.trim()}_resume`
+      : 'resume'
+    const prevTitle = document.title
+    document.title = label
+
+    const cleanup = () => {
+      document.title = prevTitle
+      document.getElementById('codex-print-style')?.remove()
+      document.getElementById('codex-print-target')?.remove()
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+
+    window.print()
+  }
 
   // Recompute match score locally on every edit — count keyword hits across all bullet text
   const liveMatchScore = useMemo(() => {
@@ -521,157 +734,163 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
       {/* ── Top toolbar ─────────────────────────────────────────────────── */}
       <div style={{ position: 'absolute', top: 16, left: 20, right: 20, zIndex: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
 
-        {/* LEFT — IMPORT */}
-        <div className="flex flex-col gap-1">
-          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={handleImportFile} />
-          <button
-            disabled={importPhase !== 'idle'}
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-              color: importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.greenDim,
-              border: `1px solid ${importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.border}`,
-              background: T.bg, padding: '5px 14px',
-              cursor: importPhase !== 'idle' ? 'default' : 'pointer',
-            }}
-            onMouseEnter={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
-            onMouseLeave={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-          >
-            {importLabel}
-          </button>
-          {importError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{importError}</span>}
+        {/* LEFT — IMPORT FILE + IMPORT TEXT */}
+        <div className="flex items-start gap-2">
+          {/* Import File */}
+          <div className="flex flex-col gap-1">
+            <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={handleImportFile} />
+            <button
+              disabled={importPhase !== 'idle'}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
+                color: importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.greenDim,
+                border: `1px solid ${importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.border}`,
+                background: T.bg, padding: '5px 14px',
+                cursor: importPhase !== 'idle' ? 'default' : 'pointer',
+              }}
+              onMouseEnter={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+              onMouseLeave={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              {importLabel}
+            </button>
+            {importError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{importError}</span>}
+          </div>
+
+          {/* Import Text (Organize) */}
+          <div className="flex flex-col gap-1" style={{ maxWidth: 340 }}>
+            <button
+              onClick={() => setOrganizeOpen((v) => !v)}
+              style={{
+                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
+                color: organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.greenDim,
+                border: `1px solid ${organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.border}`,
+                background: T.bg, padding: '5px 14px', cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { if (!organizeOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              {organizeLabel}
+            </button>
+
+            {organizeOpen && (
+              <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
+                  PASTE FROM AN OLD RESUME, LINKEDIN, OR ANY CAREER DOC. HAIKU WILL FIND WHAT'S NEW AND ASK BEFORE ADDING ANYTHING.
+                </div>
+                <textarea
+                  value={organizeText}
+                  onChange={(e) => setOrganizeText(e.target.value)}
+                  placeholder="Paste resume text here…"
+                  rows={6}
+                  style={{
+                    fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
+                    border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
+                    outline: 'none', caretColor: T.green, lineHeight: 1.5,
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => { setOrganizeOpen(false); setOrganizeText('') }}
+                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    disabled={organizePhase === 'thinking' || !organizeText.trim()}
+                    onClick={handleOrganize}
+                    style={{
+                      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
+                      color: organizePhase === 'thinking' ? T.green : T.bg,
+                      background: organizePhase === 'thinking' ? 'transparent' : T.green,
+                      border: `1px solid ${T.green}`,
+                      padding: '4px 10px', cursor: organizePhase === 'thinking' ? 'default' : 'pointer',
+                    }}
+                  >
+                    {organizePhase === 'thinking' ? 'THINKING…' : 'ANALYZE →'}
+                  </button>
+                </div>
+                {organizeError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{organizeError}</span>}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* CENTER — ORGANIZE */}
-        <div className="flex flex-col items-center gap-1" style={{ maxWidth: 340, flex: 1, margin: '0 16px' }}>
+        {/* RIGHT — CURATE + PREVIEW */}
+        <div className="flex items-start gap-2">
+          {/* Curate */}
+          <div className="flex flex-col gap-1" style={{ maxWidth: 260 }}>
+            <button
+              onClick={() => setCurateOpen((v) => !v)}
+              style={{
+                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
+                color: curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.greenDim,
+                border: `1px solid ${curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.border}`,
+                background: T.bg, padding: '5px 14px', cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { if (!curateOpen) { (e.currentTarget as HTMLElement).style.color = curateResult ? T.green : T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = curateResult ? T.green : T.border } }}
+            >
+              {curateLabel}
+            </button>
+
+            {curateOpen && (
+              <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
+                  PASTE A JOB DESCRIPTION. HAIKU WILL REORDER YOUR BULLETS AND SURFACE KEYWORD MATCHES — NO REWRITING.
+                </div>
+                <textarea
+                  value={curateText}
+                  onChange={(e) => setCurateText(e.target.value)}
+                  placeholder="Paste job description here…"
+                  rows={6}
+                  style={{
+                    fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
+                    border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
+                    outline: 'none', caretColor: T.green, lineHeight: 1.5,
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => { setCurateOpen(false); setCurateText('') }}
+                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    disabled={curatePhase === 'thinking' || !curateText.trim()}
+                    onClick={() => handleCurate()}
+                    style={{
+                      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
+                      color: curatePhase === 'thinking' ? T.green : T.bg,
+                      background: curatePhase === 'thinking' ? 'transparent' : T.green,
+                      border: `1px solid ${T.green}`,
+                      padding: '4px 10px', cursor: curatePhase === 'thinking' ? 'default' : 'pointer',
+                    }}
+                  >
+                    {curatePhase === 'thinking' ? 'THINKING…' : 'CURATE →'}
+                  </button>
+                </div>
+                {curateError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{curateError}</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Preview */}
           <button
-            onClick={() => setOrganizeOpen((v) => !v)}
+            onClick={() => setPreviewOpen((v) => !v)}
             style={{
               fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-              color: organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.greenDim,
-              border: `1px solid ${organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.border}`,
+              color: previewOpen ? T.green : T.greenDim,
+              border: `1px solid ${previewOpen ? T.green : T.border}`,
               background: T.bg, padding: '5px 14px', cursor: 'pointer',
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-            onMouseLeave={(e) => { if (!organizeOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            onMouseLeave={(e) => { if (!previewOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
           >
-            {organizeLabel}
+            {previewOpen ? 'EDIT' : 'PREVIEW'}
           </button>
-
-          {organizeOpen && (
-            <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
-                PASTE FROM AN OLD RESUME, LINKEDIN, OR ANY CAREER DOC. HAIKU WILL FIND WHAT'S NEW AND ASK BEFORE ADDING ANYTHING.
-              </div>
-              <textarea
-                value={organizeText}
-                onChange={(e) => setOrganizeText(e.target.value)}
-                placeholder="Paste resume text here…"
-                rows={6}
-                style={{
-                  fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
-                  border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
-                  outline: 'none', caretColor: T.green, lineHeight: 1.5,
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => { setOrganizeOpen(false); setOrganizeText('') }}
-                  style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
-                >
-                  CANCEL
-                </button>
-                <button
-                  disabled={organizePhase === 'thinking' || !organizeText.trim()}
-                  onClick={handleOrganize}
-                  style={{
-                    fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
-                    color: organizePhase === 'thinking' ? T.green : T.bg,
-                    background: organizePhase === 'thinking' ? 'transparent' : T.green,
-                    border: `1px solid ${T.green}`,
-                    padding: '4px 10px', cursor: organizePhase === 'thinking' ? 'default' : 'pointer',
-                  }}
-                >
-                  {organizePhase === 'thinking' ? 'THINKING…' : 'ANALYZE →'}
-                </button>
-              </div>
-              {organizeError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{organizeError}</span>}
-            </div>
-          )}
         </div>
-
-        {/* CENTER-RIGHT — CURATE */}
-        <div className="flex flex-col items-center gap-1" style={{ maxWidth: 260, marginRight: 8 }}>
-          <button
-            onClick={() => setCurateOpen((v) => !v)}
-            style={{
-              fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-              color: curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.greenDim,
-              border: `1px solid ${curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.border}`,
-              background: T.bg, padding: '5px 14px', cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-            onMouseLeave={(e) => { if (!curateOpen) { (e.currentTarget as HTMLElement).style.color = curateResult ? T.green : T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = curateResult ? T.green : T.border } }}
-          >
-            {curateLabel}
-          </button>
-
-          {curateOpen && (
-            <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
-                PASTE A JOB DESCRIPTION. HAIKU WILL REORDER YOUR BULLETS AND SURFACE KEYWORD MATCHES — NO REWRITING.
-              </div>
-              <textarea
-                value={curateText}
-                onChange={(e) => setCurateText(e.target.value)}
-                placeholder="Paste job description here…"
-                rows={6}
-                style={{
-                  fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
-                  border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
-                  outline: 'none', caretColor: T.green, lineHeight: 1.5,
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => { setCurateOpen(false); setCurateText('') }}
-                  style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
-                >
-                  CANCEL
-                </button>
-                <button
-                  disabled={curatePhase === 'thinking' || !curateText.trim()}
-                  onClick={handleCurate}
-                  style={{
-                    fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
-                    color: curatePhase === 'thinking' ? T.green : T.bg,
-                    background: curatePhase === 'thinking' ? 'transparent' : T.green,
-                    border: `1px solid ${T.green}`,
-                    padding: '4px 10px', cursor: curatePhase === 'thinking' ? 'default' : 'pointer',
-                  }}
-                >
-                  {curatePhase === 'thinking' ? 'THINKING…' : 'CURATE →'}
-                </button>
-              </div>
-              {curateError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{curateError}</span>}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT — PREVIEW */}
-        <button
-          onClick={() => setPreviewOpen((v) => !v)}
-          style={{
-            fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-            color: previewOpen ? T.green : T.greenDim,
-            border: `1px solid ${previewOpen ? T.green : T.border}`,
-            background: T.bg, padding: '5px 14px', cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-          onMouseLeave={(e) => { if (!previewOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-        >
-          {previewOpen ? 'EDIT' : 'PREVIEW'}
-        </button>
       </div>
 
       {/* ── Staging screen ───────────────────────────────────────────────── */}
@@ -809,6 +1028,22 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
         </div>
       )}
 
+      {/* ── Curate thinking screen (auto-curate path only) ──────────────── */}
+      {curatePhase === 'thinking' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: T.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <div className="crt-glitch-wrap" style={{ position: 'relative', width: 816, maxWidth: '90%', aspectRatio: '816/1056', border: `1px solid ${T.border}`, overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 0.04 }} />
+            <GlitchOverlay width={816} height={1056} words={curateText.split(/\s+/).filter(w => w.length > 4).map(w => w.replace(/[^a-zA-Z0-9+#]/g, ''))} />
+          </div>
+          <div style={{ marginTop: 24, fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.2em', color: T.green }}>
+            TAILORING RESUME<span className="crt-blink">…</span>
+          </div>
+          <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em', color: T.greenDim }}>
+            HAIKU IS MATCHING YOUR BULLETS TO THE JOB DESCRIPTION
+          </div>
+        </div>
+      )}
+
       {/* ── Curate result panel ─────────────────────────────────────────── */}
       {curateResult && (
         <div className="absolute inset-0" style={{ zIndex: 50, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column' }}>
@@ -818,19 +1053,27 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
               <div style={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: '0.18em', color: T.green }}>
                 CURATED VIEW
               </div>
-              {(() => {
-                const total = curateResult.matchedKeywords.length
-                const score = total > 0 ? Math.round((liveMatchScore / total) * 100) : 0
-                const color = score >= 70 ? T.green : score >= 40 ? '#facc15' : T.warn
-                return (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', textAlign: 'right' }}>
-                    <span style={{ color: T.greenDim }}>KEYWORD MATCH SCORE </span>
-                    <span style={{ fontSize: 22, color, fontWeight: 'bold' }}>{score}</span>
-                    <span style={{ color: T.greenDim, fontSize: 13 }}>%</span>
-                    <div style={{ color: T.border, fontSize: 9, marginTop: 2 }}>{liveMatchScore}/{total} KEYWORDS</div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
+                {overflowLines > 0 && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.1em', textAlign: 'right', color: T.warn }}>
+                    <div>⚠ PAGE OVERFLOW</div>
+                    <div style={{ fontSize: 9, marginTop: 2, color: T.warn + 'aa' }}>SHORTEN BY ~{overflowLines} LINE{overflowLines !== 1 ? 'S' : ''}</div>
                   </div>
-                )
-              })()}
+                )}
+                {(() => {
+                  const total = curateResult.matchedKeywords.length
+                  const score = total > 0 ? Math.round((liveMatchScore / total) * 100) : 0
+                  const color = score >= 70 ? T.green : score >= 40 ? '#facc15' : T.warn
+                  return (
+                    <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', textAlign: 'right' }}>
+                      <span style={{ color: T.greenDim }}>KEYWORD MATCH SCORE </span>
+                      <span style={{ fontSize: 22, color, fontWeight: 'bold' }}>{score}</span>
+                      <span style={{ color: T.greenDim, fontSize: 13 }}>%</span>
+                      <div style={{ color: T.border, fontSize: 9, marginTop: 2 }}>{liveMatchScore}/{total} KEYWORDS</div>
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
             {(() => {
               const totalBullets =
@@ -839,7 +1082,6 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
               const overBudget = totalBullets > 16
               return (
                 <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', marginBottom: 10, display: 'flex', gap: 16, alignItems: 'center' }}>
-                  <span style={{ color: T.border }}>BULLETS REORDERED BY KEYWORD MATCH. NOTHING HAS BEEN CHANGED IN YOUR CODEX.</span>
                   <span style={{ color: overBudget ? T.warn : T.green, flexShrink: 0 }}>
                     {totalBullets}/16 BULLETS {overBudget ? '⚠ OVER BUDGET' : '✓ ON PAGE'}
                   </span>
@@ -875,9 +1117,11 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
           {curatedContent && (
             <div style={{ flex: 1, overflowY: 'auto' }}>
               <CodexRenderer
+                ref={curatedRendererRef}
                 content={curatedContent}
                 sectionOrder={curatedOrder}
                 keywords={curateResult.matchedKeywords}
+                onOverflowChange={setOverflowLines}
                 onChange={(evt: ContentChangeEvent) => {
                   setCuratedContent((prev) => {
                     if (!prev) return prev
@@ -897,21 +1141,46 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
           )}
 
           {/* Footer */}
-          <div style={{ borderTop: `1px solid ${T.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ borderTop: `1px solid ${T.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
             <button
-              onClick={() => { setCurateResult(null); setCuratedContent(null); setCuratedOrder([]) }}
+              onClick={() => { setCurateResult(null); setCuratedContent(null); setCuratedOrder([]); resetSaveState() }}
               style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
             >
               CLOSE
             </button>
+
             <button
-              onClick={() => { setCurateResult(null); setCuratedContent(null); setCuratedOrder([]); setCurateOpen(true) }}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.bg, background: T.green, border: `1px solid ${T.green}`, padding: '7px 20px', cursor: 'pointer' }}
+              onClick={handlePrintCurated}
+              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
             >
-              RE-CURATE
+              DOWNLOAD PDF
             </button>
+
+            {/* Save resume */}
+            {savePhase === 'idle' && userId && (
+              <button
+                onClick={handleSaveCurated}
+                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+              >
+                SAVE RESUME
+              </button>
+            )}
+            {savePhase === 'saving' && (
+              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>
+            )}
+            {savePhase === 'saved' && (
+              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.green }}>SAVED ✓</span>
+            )}
+            {savePhase === 'error' && (
+              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.warn }}>SAVE FAILED</span>
+            )}
+
           </div>
         </div>
       )}
@@ -931,7 +1200,7 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
                     '1px 1px 0 #1a7a06', '2px 2px 0 #166604', '3px 3px 0 #124f03',
                     '4px 4px 0 #0d3a02', '5px 5px 0 #092601',
                     '6px 6px 12px rgba(0,0,0,0.8)',
-                    '0 0 40px rgba(57,255,20,0.4)', '0 0 80px rgba(57,255,20,0.15)',
+                    '0 0 20px rgba(57,255,20,0.15)', '0 0 50px rgba(57,255,20,0.06)',
                   ].join(', '),
                 }}
               >
@@ -1002,11 +1271,11 @@ export default function CodexCanvas({ visible, userName, userId }: Props) {
                 background: T.bg, padding: '5px 16px', cursor: 'pointer',
               }}
             >
-              NEW…
+              +
             </button>
 
             {newMenuOpen && (
-              <div className="absolute left-0 flex flex-col" style={{ top: 'calc(100% + 4px)', background: T.bg, border: `1px solid ${T.border}`, minWidth: 160, boxShadow: '0 0 12px rgba(57,255,20,0.15)', zIndex: 30 }}>
+              <div className="absolute left-0 flex flex-col" style={{ top: 'calc(100% + 4px)', background: T.bg, border: `1px solid ${T.border}`, minWidth: 160, boxShadow: '0 0 8px rgba(57,255,20,0.06)', zIndex: 30 }}>
                 {NEW_ITEMS.map((item) => {
                   const disabled = item === 'Skills' && skills !== null
                   return (

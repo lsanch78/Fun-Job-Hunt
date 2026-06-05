@@ -17,10 +17,10 @@ interface Props {
 function makeGlow(hex: string) {
   return [
     '0 0 0 1px #111',
-    `0 0 8px 1px ${hex}59`,
-    `0 0 28px 4px ${hex}40`,
+    `0 0 6px 1px ${hex}22`,
+    `0 0 16px 2px ${hex}14`,
     'inset 0 0 60px 30px rgba(0,0,0,0.70)',
-    `inset 0 0 10px 2px ${hex}0f`,
+    `inset 0 0 10px 2px ${hex}06`,
   ].join(', ')
 }
 
@@ -36,7 +36,7 @@ export default function CodexCard({ title, summary, collapsed, onToggleCollapse,
         border: `1px solid ${T.border}`,
         borderRadius: 6,
         boxShadow: makeGlow(color),
-        textShadow: `0 0 4px ${color}26`,
+        textShadow: `0 0 4px ${color}0d`,
         fontFamily: 'monospace',
       }}
     >

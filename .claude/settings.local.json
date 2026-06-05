@@ -99,7 +99,8 @@
       "Bash(Select-Object -First 30)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\" -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 50 | ForEach-Object { $_.FullName })",
       "PowerShell(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\supabase\" -Recurse -Force | ForEach-Object { $_.FullName })",
-      "WebFetch(domain:cdn.jsdelivr.net)"
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "PowerShell(\\(Get-Content \"c:\\\\effjobhunt\\\\src\\\\components\\\\mastercodex\\\\CodexCanvas.tsx\" | Measure-Object -Line\\).Lines)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

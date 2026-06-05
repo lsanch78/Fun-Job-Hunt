@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import type { CodexContent } from '@/services/codexService'
 import type { MainInfo }      from './MainInfoCard'
 import type { Summary }       from './SummaryCard'
@@ -26,6 +26,7 @@ interface Props {
   sectionOrder: string[]
   onChange?: (e: ContentChangeEvent) => void
   keywords?: string[]
+  onOverflowChange?: (overflowLines: number) => void
 }
 
 type SectionType =
@@ -94,7 +95,7 @@ const RESUME_STYLES = `
   .resume-section-rule {
     border: none;
     border-top: 0.5pt solid #000;
-    margin: 1px 0 3px 0;
+    margin: 1px 0 4px 0;
   }
 
   .resume-sublist {
@@ -313,7 +314,7 @@ function RenderedMainInfo({ data, onChange, keywords }: { data: MainInfo; onChan
           {contactFields.map(({ key, value }, i) => (
             <span key={key}>
               {i > 0 && <span className="resume-contact-sep">|</span>}
-              <span style={{ textDecoration: 'underline' }}>
+              <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
                 <HL text={value} keywords={keywords} onChange={onChange ? (val) => onChange({ [key]: val }) : undefined} />
               </span>
             </span>
@@ -519,7 +520,13 @@ function RenderedAward({ data, showHeading, onChange, keywords }: {
 
 const PAGE_HEIGHT_PX = 1056
 
-export default function CodexRenderer({ content, sectionOrder, onChange, keywords }: Props) {
+export interface CodexRendererHandle {
+  getPaperElement: () => HTMLDivElement | null
+}
+
+const LINE_HEIGHT_PX = 20
+
+const CodexRenderer = forwardRef<CodexRendererHandle, Props>(function CodexRenderer({ content, sectionOrder, onChange, keywords, onOverflowChange }, ref) {
   const firstOfType = new Map<SectionType, string>()
   sectionOrder.forEach((id) => {
     const type = getSectionType(id)
@@ -533,14 +540,22 @@ export default function CodexRenderer({ content, sectionOrder, onChange, keyword
   const paperRef = useRef<HTMLDivElement>(null)
   const [paperHeight, setPaperHeight] = useState(PAGE_HEIGHT_PX)
 
+  useImperativeHandle(ref, () => ({
+    getPaperElement: () => paperRef.current,
+  }))
+
   useEffect(() => {
     if (!paperRef.current) return
     const obs = new ResizeObserver(() => {
-      if (paperRef.current) setPaperHeight(paperRef.current.offsetHeight)
+      if (!paperRef.current) return
+      const h = paperRef.current.offsetHeight
+      setPaperHeight(h)
+      const overflowPx = Math.max(0, h - PAGE_HEIGHT_PX - 1)
+      onOverflowChange?.(Math.ceil(overflowPx / LINE_HEIGHT_PX))
     })
     obs.observe(paperRef.current)
     return () => obs.disconnect()
-  }, [])
+  }, [onOverflowChange])
 
   const pageBreaks: number[] = []
   for (let y = PAGE_HEIGHT_PX; y < paperHeight; y += PAGE_HEIGHT_PX) {
@@ -618,12 +633,12 @@ export default function CodexRenderer({ content, sectionOrder, onChange, keyword
 
         {pageBreaks.map((y) => (
           <div key={y} style={{ position: 'absolute', top: y, left: 0, right: 0, pointerEvents: 'none', zIndex: 10 }}>
-            <div style={{ borderTop: '1.5px dashed rgba(255,80,80,0.55)', position: 'relative' }}>
+            <div style={{ borderTop: '2.5px dashed rgba(255,60,60,0.9)', position: 'relative', boxShadow: '0 0 6px rgba(255,60,60,0.4)' }}>
               <span style={{
                 position: 'absolute', right: 6, top: -10,
-                fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,80,80,0.6)',
+                fontFamily: 'monospace', fontSize: 9, color: 'rgba(220,40,40,0.95)',
                 letterSpacing: '0.08em', userSelect: 'none',
-                background: 'rgba(255,255,255,0.85)', padding: '0 4px',
+                background: 'rgba(255,255,255,0.95)', padding: '0 4px',
               }}>
                 PAGE {Math.round(y / PAGE_HEIGHT_PX) + 1}
               </span>
@@ -633,4 +648,6 @@ export default function CodexRenderer({ content, sectionOrder, onChange, keyword
       </div>
     </div>
   )
-}
+})
+
+export default CodexRenderer

@@ -4,6 +4,7 @@ import { THEMES, type Theme } from '@/config/game'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
+import { deleteAllCuratedResumes } from '@/services/curatedResumeService'
 import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
 import { deleteAllWorkdays } from '@/services/workdayService'
@@ -189,6 +190,7 @@ export default function SettingsPage() {
       deleteAllJobs(userId),
       deleteAllWorkdays(userId),
       deleteAllContacts(userId),
+      deleteAllCuratedResumes(userId),
       deleteAllResumes(userId),
       deleteAllTracks(userId),
       deleteAllLinks(userId),
