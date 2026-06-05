@@ -198,8 +198,31 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
 
   // Save curated resume state
   const [savePhase, setSavePhase] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // Quick wins state
+  const [quickWinsPhase, setQuickWinsPhase] = useState<'idle' | 'thinking' | 'error'>('idle')
   const curatedRendererRef = useRef<CVRendererHandle>(null)
+
+  const [panelRect, setPanelRect] = useState<{ left: number; width: number; top: number; height: number } | null>(null)
   const [overflowLines, setOverflowLines] = useState(0)
+  const [scanOpen, setScanOpen] = useState(false)
+
+  useEffect(() => {
+    if (!scanOpen) return
+    const update = () => {
+      const paper = curatedRendererRef.current?.getPaperElement()
+      if (!paper) return
+      const r = paper.getBoundingClientRect()
+      setPanelRect({ left: r.left, width: r.width, top: r.top, height: r.height })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [scanOpen])
 
   // ── Auto-curation / pre-load when opened from job row context menu ────────
   const initialHandledRef = useRef(false)
@@ -667,6 +690,136 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     window.print()
   }
 
+  function handleQuickWins() {
+    if (!curatedContent || !curateResult) return
+    setQuickWinsPhase('thinking')
+    const allText = [
+      ...curatedContent.experiences.flatMap((e) => e.bullets),
+      ...curatedContent.projects.flatMap((p) => p.bullets),
+      ...(curatedContent.skills ? [...curatedContent.skills.evergreen, ...curatedContent.skills.modular.flatMap((g) => g.skills)] : []),
+      ...curatedContent.summaries.map((s) => s.text),
+    ].join(' ').toLowerCase()
+    const missingKeywords = curateResult.matchedKeywords.filter((kw) => !allText.includes(kw.toLowerCase()))
+    const prompt =
+      'MISSING KEYWORDS: ' + (missingKeywords.length ? missingKeywords.join(', ') : 'none') + '\n\n' +
+      'CURATED CV:\n' + JSON.stringify(curatedContent, null, 2)
+    runAI({
+      system:
+        'You are a resume editor. Given missing keywords and a curated CV, surface as many keywords as possible using only minimal edits. Look for ALL of these opportunities:\n\n' +
+        '1. SYNONYM SWAP — bullet uses a synonym or related term; swap it for the exact keyword (e.g. "utilized" → "leveraged React").\n' +
+        '2. APPEND TO TECH LIST — bullet mentions a list of tools/technologies; append the keyword if the work genuinely involved it (e.g. "...using Node and Postgres" → "...using Node, Postgres, and Docker").\n' +
+        '3. PARENTHETICAL — keyword is implied by the work described; add it in parentheses (e.g. "built CI pipeline" → "built CI pipeline (GitHub Actions)").\n' +
+        '4. UMBRELLA TERM — keyword is a broad concept (e.g. "software development lifecycle", "cross-functional collaboration", "stakeholder management") that the CV already demonstrates through specific bullets. Add it to skills or insert it naturally into a bullet or summary where it fits.\n' +
+        '5. SKILLS ADDITION — keyword is a tool or skill the candidate clearly used (evidenced by bullets) but isn\'t listed in skills; add it to evergreen skills.\n' +
+        '6. SUMMARY TWEAK — if a summary exists, insert the keyword naturally into an existing sentence.\n\n' +
+        'Return ONLY a valid JSON array — no markdown, no explanation:\n' +
+        '[\n' +
+        '  { "type": "experience" | "project", "id": "<entry id>", "bulletIndex": <number>, "original": "<exact original>", "revised": "<edited text>" },\n' +
+        '  { "type": "skill", "value": "<keyword to add to evergreen skills>" },\n' +
+        '  { "type": "summary", "id": "<summary id>", "original": "<exact original>", "revised": "<edited text>" },\n' +
+        '  ...\n' +
+        ']\n\n' +
+        'Rules:\n' +
+        '• Be aggressive — surface every keyword that can honestly fit. Missing keywords on a resume are a missed opportunity.\n' +
+        '• Never fabricate experience. Only add a keyword if the CV content makes clear the candidate did that work.\n' +
+        '• Each edit must be minimal — change as few words as possible.\n' +
+        '• If no quick wins exist, return [].',
+      prompt,
+      model: 'claude-haiku-4-5',
+      onComplete: (result) => {
+        try {
+          const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+          type QuickWinEdit =
+            | { type: 'experience' | 'project'; id: string; bulletIndex: number; original: string; revised: string }
+            | { type: 'skill'; value: string }
+            | { type: 'summary'; id: string; original: string; revised: string }
+          const edits = JSON.parse(cleaned) as QuickWinEdit[]
+          if (edits.length === 0) { setQuickWinsPhase('idle'); return }
+          setCuratedContent((prev) => {
+            if (!prev) return prev
+            let next = { ...prev }
+            for (const edit of edits) {
+              if (edit.type === 'experience') {
+                next = { ...next, experiences: next.experiences.map((e) => {
+                  if (e.id !== edit.id) return e
+                  const bullets = [...e.bullets]
+                  bullets[edit.bulletIndex] = edit.revised
+                  return { ...e, bullets }
+                })}
+              } else if (edit.type === 'project') {
+                next = { ...next, projects: next.projects.map((p) => {
+                  if (p.id !== edit.id) return p
+                  const bullets = [...p.bullets]
+                  bullets[edit.bulletIndex] = edit.revised
+                  return { ...p, bullets }
+                })}
+              } else if (edit.type === 'skill') {
+                const existing = next.skills ?? { evergreen: [], modular: [] }
+                if (!existing.evergreen.includes(edit.value)) {
+                  next = { ...next, skills: { ...existing, evergreen: [...existing.evergreen, edit.value] } }
+                }
+              } else if (edit.type === 'summary') {
+                next = { ...next, summaries: next.summaries.map((s) =>
+                  s.id === edit.id ? { ...s, text: edit.revised } : s
+                )}
+              }
+            }
+            return next
+          })
+          // ── Section reorder by keyword density (6-second scan) ──────────
+          // Pinned at top: main, summaries, educations
+          // Ranked by keyword hits: experiences, projects, skills, certs, awards
+          setCuratedOrder((prevOrder) => {
+            if (!curateResult) return prevOrder
+            const keywords = curateResult.matchedKeywords.map((k) => k.toLowerCase())
+
+            const score = (text: string) =>
+              keywords.reduce((n, kw) => n + (text.toLowerCase().includes(kw) ? 1 : 0), 0)
+
+            // Collect IDs per section type from current order
+            const pinned:   string[] = [] // main + summaries + educations — always top
+            const expIds:   string[] = []
+            const projIds:  string[] = []
+            const skillsId: string[] = []
+            const restIds:  string[] = [] // certs, awards
+
+            for (const id of prevOrder) {
+              if (id === 'main')  { pinned.push(id); continue }
+              if (curatedContent?.summaries.find((s) => s.id === id))      { pinned.push(id);  continue }
+              if (curatedContent?.educations.find((e) => e.id === id))     { pinned.push(id);  continue }
+              if (curatedContent?.experiences.find((e) => e.id === id))    { expIds.push(id);  continue }
+              if (curatedContent?.projects.find((p) => p.id === id))       { projIds.push(id); continue }
+              if (id === 'skills')                                          { skillsId.push(id); continue }
+              restIds.push(id)
+            }
+
+            // Score each movable section group
+            const expScore   = curatedContent?.experiences.reduce((n, e) => n + e.bullets.reduce((m, b) => m + score(b), 0), 0) ?? 0
+            const projScore  = curatedContent?.projects.reduce((n, p) => n + p.bullets.reduce((m, b) => m + score(b), 0), 0) ?? 0
+            const skillsText = curatedContent?.skills
+              ? [...(curatedContent.skills.evergreen), ...curatedContent.skills.modular.flatMap((g) => g.skills)].join(' ')
+              : ''
+            const skillsScore = score(skillsText)
+
+            const ranked = [
+              { ids: expIds,   s: expScore },
+              { ids: projIds,  s: projScore },
+              { ids: skillsId, s: skillsScore },
+            ].sort((a, b) => b.s - a.s)
+
+            return [...pinned, ...ranked.flatMap((r) => r.ids), ...restIds]
+          })
+
+          setQuickWinsPhase('idle')
+        } catch {
+          setQuickWinsPhase('error')
+          setTimeout(() => setQuickWinsPhase('idle'), 3000)
+        }
+      },
+      onError: () => { setQuickWinsPhase('error'); setTimeout(() => setQuickWinsPhase('idle'), 3000) },
+    })
+  }
+
   // Recompute match score locally on every edit — count keyword hits across all bullet text
   const liveMatchScore = useMemo(() => {
     if (!curateResult || !curatedContent) return 0
@@ -1104,6 +1257,29 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
             })()}
           </div>
 
+          {/* 6-second scan overlay — fixed to the paper element, never scrolls */}
+          {scanOpen && panelRect && (
+            <div style={{
+              position: 'fixed', zIndex: 60, pointerEvents: 'none',
+              top: panelRect.top, left: panelRect.left, width: panelRect.width,
+              height: panelRect.height ?? '100vh',
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '38%', border: `2px solid ${T.green}55`, boxSizing: 'border-box' }}>
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
+                  background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 100%)',
+                }} />
+                <div style={{
+                  position: 'absolute', top: 6, right: 10,
+                  fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', color: T.green, opacity: 0.7,
+                }}>
+                  6-SEC SCAN ZONE
+                </div>
+              </div>
+              <div style={{ position: 'absolute', top: '38%', left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)' }} />
+            </div>
+          )}
+
           {/* Live editable preview */}
           {curatedContent && (
             <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -1140,6 +1316,35 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
             >
               CLOSE
+            </button>
+
+            <button
+              onClick={() => setScanOpen((v) => !v)}
+              style={{
+                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
+                color: scanOpen ? T.green : T.greenDim,
+                border: `1px solid ${scanOpen ? T.green : T.border}`,
+                background: 'none',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { if (!scanOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              6-SEC SCAN
+            </button>
+
+            <button
+              onClick={handleQuickWins}
+              disabled={quickWinsPhase === 'thinking'}
+              style={{
+                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: quickWinsPhase === 'thinking' ? 'default' : 'pointer',
+                color: quickWinsPhase === 'error' ? T.warn : quickWinsPhase === 'thinking' ? T.green : T.greenDim,
+                border: `1px solid ${quickWinsPhase === 'error' ? T.warn : quickWinsPhase === 'thinking' ? T.green : T.border}`,
+                background: 'none',
+              }}
+              onMouseEnter={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+              onMouseLeave={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              {quickWinsPhase === 'thinking' ? 'THINKING…' : quickWinsPhase === 'error' ? 'ERROR' : 'QUICK WINS ✦'}
             </button>
 
             <button
