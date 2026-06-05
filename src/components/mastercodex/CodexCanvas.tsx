@@ -131,6 +131,7 @@ export default function CodexCanvas({ visible, userName }: Props) {
             collapsed={collapsed[edu.id] ?? false}
             onChange={(updated) => setEducations((prev) => prev.map((e) => e.id === updated.id ? updated : e))}
             onToggleCollapse={() => toggleCollapse(edu.id)}
+            onDelete={() => setEducations((prev) => prev.filter((e) => e.id !== edu.id))}
           />
         ))}
 
@@ -142,6 +143,7 @@ export default function CodexCanvas({ visible, userName }: Props) {
             collapsed={collapsed[exp.id] ?? false}
             onChange={(updated) => setExperiences((prev) => prev.map((e) => e.id === updated.id ? updated : e))}
             onToggleCollapse={() => toggleCollapse(exp.id)}
+            onDelete={() => setExperiences((prev) => prev.filter((e) => e.id !== exp.id))}
           />
         ))}
 
@@ -153,6 +155,7 @@ export default function CodexCanvas({ visible, userName }: Props) {
             collapsed={collapsed[proj.id] ?? false}
             onChange={(updated) => setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p))}
             onToggleCollapse={() => toggleCollapse(proj.id)}
+            onDelete={() => setProjects((prev) => prev.filter((p) => p.id !== proj.id))}
           />
         ))}
 
@@ -163,6 +166,7 @@ export default function CodexCanvas({ visible, userName }: Props) {
             collapsed={collapsed.skills ?? false}
             onChange={setSkills}
             onToggleCollapse={() => toggleCollapse('skills')}
+            onDelete={() => setSkills(null)}
           />
         )}
 

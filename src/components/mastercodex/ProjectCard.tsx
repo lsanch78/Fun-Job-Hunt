@@ -17,6 +17,7 @@ interface Props {
   collapsed: boolean
   onChange: (data: Project) => void
   onToggleCollapse: () => void
+  onDelete?: () => void
 }
 
 function Field({ label, value, placeholder, onChange }: {
@@ -36,7 +37,7 @@ function Field({ label, value, placeholder, onChange }: {
   )
 }
 
-export default function ProjectCard({ data, collapsed, onChange, onToggleCollapse }: Props) {
+export default function ProjectCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
   function set<K extends keyof Project>(key: K, val: Project[K]) {
     onChange({ ...data, [key]: val })
   }
@@ -91,6 +92,7 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
       summary={summary}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDelete={onDelete}
     >
       {/* Row 1: name + role */}
       <div className="flex gap-3">

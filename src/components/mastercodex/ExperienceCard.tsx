@@ -16,6 +16,7 @@ interface Props {
   collapsed: boolean
   onChange: (data: Experience) => void
   onToggleCollapse: () => void
+  onDelete?: () => void
 }
 
 function Field({ label, value, placeholder, onChange }: {
@@ -35,7 +36,7 @@ function Field({ label, value, placeholder, onChange }: {
   )
 }
 
-export default function ExperienceCard({ data, collapsed, onChange, onToggleCollapse }: Props) {
+export default function ExperienceCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
   function set<K extends keyof Experience>(key: K, val: Experience[K]) {
     onChange({ ...data, [key]: val })
   }
@@ -91,6 +92,7 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
       summary={summary}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDelete={onDelete}
     >
       {/* Row 1: company + title */}
       <div className="flex gap-3">

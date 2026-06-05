@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { Trash } from 'pixelarticons/react'
 import { T, crtBoxShadow, crtTextShadow, ensureCrtStyles, CRT_FONT } from '@/lib/crtTheme'
 
 ensureCrtStyles()
@@ -8,10 +9,11 @@ interface Props {
   summary?: string
   collapsed: boolean
   onToggleCollapse: () => void
+  onDelete?: () => void
   children: ReactNode
 }
 
-export default function CodexCard({ title, summary, collapsed, onToggleCollapse, children }: Props) {
+export default function CodexCard({ title, summary, collapsed, onToggleCollapse, onDelete, children }: Props) {
   return (
     <div
       className="crt-card w-full flex flex-col"
@@ -25,12 +27,15 @@ export default function CodexCard({ title, summary, collapsed, onToggleCollapse,
       }}
     >
       {/* Header — click to collapse/expand */}
-      <button
-        onClick={onToggleCollapse}
-        className="flex items-center justify-between px-4 py-2.5 w-full text-left flex-shrink-0"
-        style={{ borderBottom: collapsed ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: 'none', border: 'none' }}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 w-full flex-shrink-0"
+        style={{ borderBottom: collapsed ? 'none' : `1px solid ${T.border}` }}
       >
-        <div className="flex items-baseline gap-3 min-w-0">
+        <button
+          onClick={onToggleCollapse}
+          className="flex items-center gap-3 min-w-0 flex-1 text-left"
+          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+        >
           <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, letterSpacing: '0.15em', flexShrink: 0 }}>
             {title}
           </span>
@@ -39,11 +44,23 @@ export default function CodexCard({ title, summary, collapsed, onToggleCollapse,
               {summary}
             </span>
           )}
-        </div>
-        <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, flexShrink: 0, marginLeft: 8 }}>
-          {collapsed ? '▸' : '▾'}
-        </span>
-      </button>
+          <span style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, flexShrink: 0 }}>
+            {collapsed ? '▸' : '▾'}
+          </span>
+        </button>
+
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            title="Delete card"
+            style={{ color: T.border, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 12px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.border }}
+          >
+            <Trash style={{ width: 14, height: 14 }} />
+          </button>
+        )}
+      </div>
 
       {/* Body — hidden when collapsed */}
       {!collapsed && (

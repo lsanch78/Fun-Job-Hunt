@@ -20,6 +20,7 @@ interface Props {
   collapsed: boolean
   onChange: (data: SkillsBucket) => void
   onToggleCollapse: () => void
+  onDelete?: () => void
 }
 
 // ── Tag chip input ─────────────────────────────────────────────────────────────
@@ -141,7 +142,7 @@ function SectionLabel({ children }: { children: string }) {
 let _groupSeq = 0
 function nextGroupId() { return `sg-${++_groupSeq}` }
 
-export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCollapse }: Props) {
+export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [groupDraft, setGroupDraft] = useState('')
 
@@ -192,6 +193,7 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
       summary={summary}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDelete={onDelete}
     >
       {/* ── Evergreen ────────────────────────────────────────────────────────── */}
       <div>
