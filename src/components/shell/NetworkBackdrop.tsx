@@ -10,6 +10,7 @@ import {
   type Simulation,
 } from 'd3-force'
 import type { Contact } from '@/types'
+import StarfieldBackdrop from './StarfieldBackdrop'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -79,34 +80,6 @@ function pulseDuration(exp: number) {
   return 1.2 + (1 - exp / 100) * 2
 }
 
-// ── Stars ─────────────────────────────────────────────────────────────────────
-
-interface Star {
-  id: number
-  baseX: number   // 0–1 normalised
-  baseY: number
-  r: number
-  opacity: number
-  depth: number   // 0–1, deeper = slower parallax + dimmer
-  phase: number
-  freq: number
-}
-
-function generateStars(count: number): Star[] {
-  return Array.from({ length: count }, (_, i) => {
-    const depth = Math.random()
-    return {
-      id: i,
-      baseX: Math.random(),
-      baseY: Math.random(),
-      r: 0.3 + (1 - depth) * 1.4,          // far stars smaller
-      opacity: 0.15 + (1 - depth) * 0.55,   // far stars dimmer
-      depth,
-      phase: Math.random() * Math.PI * 2,
-      freq: 0.00015 + Math.random() * 0.0002,
-    }
-  })
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -129,13 +102,6 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
   const linksRef  = useRef<GraphLink[]>([])
   const phasesRef = useRef<Map<string, { phase: number; freq: number }>>(new Map())
 
-  // Stars — generated once, animated via RAF
-  const starsRef     = useRef<Star[]>(generateStars(120))
-  const starSvgRef   = useRef<SVGSVGElement>(null)
-  const starRafRef   = useRef<number>(0)
-  const mousePosRef    = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 }) // raw, normalised 0–1
-  const smoothMouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 }) // lerped
-
   // Measure container via ResizeObserver
   useEffect(() => {
     const el = containerRef.current
@@ -148,49 +114,29 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
     return () => ro.disconnect()
   }, [])
 
-  // Star parallax animation — direct DOM writes for perf (no React state)
-  const animateStars = useCallback(() => {
-    const svg = starSvgRef.current
-    if (!svg) { starRafRef.current = requestAnimationFrame(animateStars); return }
-    const w = svg.clientWidth
-    const h = svg.clientHeight
-    const t = performance.now()
+  // Node SVG parallax — tracks mouse independently of StarfieldBackdrop
+  const nodeSvgRef    = useRef<SVGSVGElement>(null)
+  const mousePosRef   = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
+  const smoothMouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
+  const nodeRafRef    = useRef<number>(0)
 
-    // Lerp smoothed mouse toward raw target (lower = slower/smoother)
+  const animateNodes = useCallback(() => {
     const ease = 0.04
     smoothMouseRef.current.x += (mousePosRef.current.x - smoothMouseRef.current.x) * ease
     smoothMouseRef.current.y += (mousePosRef.current.y - smoothMouseRef.current.y) * ease
     const mx = smoothMouseRef.current.x - 0.5
     const my = smoothMouseRef.current.y - 0.5
-
-    // Update node SVG offset here so it uses the same smoothed value
     const nodeSvg = nodeSvgRef.current
     if (nodeSvg) {
-      const ox = mx * -12
-      const oy = my * -12
-      nodeSvg.style.transform = `translate(${ox}px, ${oy}px)`
+      nodeSvg.style.transform = `translate(${mx * -12}px, ${my * -12}px)`
     }
-
-    const circles = svg.querySelectorAll<SVGCircleElement>('circle[data-star]')
-    starsRef.current.forEach((star, i) => {
-      const el = circles[i]
-      if (!el) return
-      const drift = 6 * (1 - star.depth)
-      const parallax = 30 * (1 - star.depth)
-      const cx = star.baseX * w + Math.sin(t * star.freq + star.phase) * drift + mx * parallax
-      const cy = star.baseY * h + Math.cos(t * star.freq + star.phase + 1.7) * drift + my * parallax
-      el.setAttribute('cx', String(cx))
-      el.setAttribute('cy', String(cy))
-    })
-    starRafRef.current = requestAnimationFrame(animateStars)
+    nodeRafRef.current = requestAnimationFrame(animateNodes)
   }, [])
 
   useEffect(() => {
-    starRafRef.current = requestAnimationFrame(animateStars)
-    return () => cancelAnimationFrame(starRafRef.current)
-  }, [animateStars])
-
-  const nodeSvgRef = useRef<SVGSVGElement>(null)
+    nodeRafRef.current = requestAnimationFrame(animateNodes)
+    return () => cancelAnimationFrame(nodeRafRef.current)
+  }, [animateNodes])
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -358,20 +304,7 @@ export default function NetworkBackdrop({ contacts, jobsByContact, expanded = fa
         transformOrigin: 'center center',
       }}
     >
-      {/* Star field — direct DOM writes via RAF, no React re-renders */}
-      <svg ref={starSvgRef} className="absolute inset-0 w-full h-full" aria-hidden="true">
-        {starsRef.current.map((star) => (
-          <circle
-            key={star.id}
-            data-star="true"
-            cx={star.baseX * (dims.w || 800)}
-            cy={star.baseY * (dims.h || 600)}
-            r={star.r}
-            fill="white"
-            fillOpacity={star.opacity}
-          />
-        ))}
-      </svg>
+      <StarfieldBackdrop expanded={expanded} />
 
       {dims.w > 0 && (
         <svg ref={nodeSvgRef} width={dims.w} height={dims.h} aria-hidden="true">

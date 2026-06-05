@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { playThud, playDeleteBump, playSelectClick, playTrash } from '@/lib/sfx'
+import { playThud, playDeleteBump, playSelectClick, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
 import { Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/hud/XpTracker'
+import MasterCodex from '@/components/hud/MasterCodex'
+import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
+import CodexCanvas from '@/components/mastercodex/CodexCanvas'
 import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { JOB_CAP } from '@/services/jobService'
@@ -165,6 +168,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [detailJobPage, setDetailJobPage] = useState<1 | 2>(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
+  const [codexOpen, setCodexOpen] = useState(false)
   const columns = useColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
@@ -264,6 +268,17 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     return () => { unregisterTutorialTrigger() }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && codexOpen) {
+        playNetworkMapClose()
+        setCodexOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [codexOpen])
+
   const committedFiltered = filteredJobs.filter((j) => j.committed)
   const drafts            = filteredJobs.filter((j) => !j.committed)
   const totalPages        = Math.max(1, Math.ceil(committedFiltered.length / PAGE_SIZE))
@@ -338,13 +353,16 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
               : `${todayCount} application${todayCount !== 1 ? 's' : ''} tracked today`}
           </p>
         </div>
-        <button
-          onClick={() => navigate('/story')}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          title="View Story Map"
-        >
-          <XpTracker xp={xp} />
-        </button>
+        <div className="flex items-stretch gap-3">
+          <MasterCodex expanded={codexOpen} onToggle={() => { codexOpen ? playNetworkMapClose() : playNetworkMapOpen(); setCodexOpen((v) => !v) }} />
+          <button
+            onClick={() => navigate('/story')}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            title="View Story Map"
+          >
+            <XpTracker xp={xp} />
+          </button>
+        </div>
       </div>
 
       {/* Filter / sort toolbar */}
@@ -445,7 +463,22 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       </div>{/* end toolbar */}
 
       {/* Table */}
-      <div data-tutorial="job-rows" className="overflow-y-auto overflow-x-hidden flex-1">
+      <div data-tutorial="job-rows" className="overflow-hidden flex-1 relative">
+
+        <StarfieldBackdrop expanded={codexOpen} />
+
+        <CodexCanvas visible={codexOpen} userName={userName} />
+
+        <div
+          style={{
+            opacity: codexOpen ? 0 : 1,
+            pointerEvents: codexOpen ? 'none' : undefined,
+            transition: 'opacity 600ms ease',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            height: '100%',
+          }}
+        >
         {/* Column context menu */}
         {columns.menu && (() => {
           const { menu, visibleCols, cols } = columns
@@ -569,6 +602,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             {committedCount} total applications
           </span>
         </div>
+        </div>{/* end fade wrapper */}
       </div>
 
       {/* Application detail card */}
