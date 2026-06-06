@@ -540,6 +540,9 @@ export default function QuickCast() {
   }
 
   // ── AI quick-generate ─────────────────────────────────────────────────────
+  // @deprecated — superseded by CoverLetterCanvas (cover letter) and the job row
+  // context menu AI flow. Kept for the WHY I WANT THIS JOB and CUSTOM shortcuts
+  // until those are migrated. Do not extend.
 
   async function handleAiQuickGenerate(mode: 'cover_letter' | 'why_work_here' | 'custom') {
     if (!userId || aiGenerating) return
@@ -920,6 +923,7 @@ export default function QuickCast() {
                   </button>
                 </div>
                 <div className="px-3 py-2 flex flex-col gap-1">
+                  {/* @deprecated — cover letter, why-good-fit, and custom quick-gen are superseded by the job row context menu (CoverLetterCanvas / AiModal flow). Remove this block when the context menu is confirmed stable. */}
                   {([
                     ['cover_letter',  'COVER LETTER'],
                     ['why_work_here', 'WHY I WANT THIS JOB'],
@@ -933,6 +937,7 @@ export default function QuickCast() {
                       {label}
                     </button>
                   ))}
+                  {/* @deprecated — history shortcut superseded by the job row context menu flow */}
                   <button
                     onClick={() => { setAiMenuOpen(false); setAiInitialView('history'); setAiModalOpen(true) }}
                     className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
