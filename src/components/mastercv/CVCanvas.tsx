@@ -15,7 +15,7 @@ import CertificationCard, { type Certification } from './CertificationCard'
 import AwardCard, { type Award } from './AwardCard'
 import CVRenderer, { type ContentChangeEvent, type CVRendererHandle } from './CVRenderer'
 import { T } from '@/lib/crtTheme'
-import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes } from '@/services/curatedResumeService'
+import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes, updateCuratedResume } from '@/services/curatedResumeService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { fetchUsage, getAiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
@@ -642,6 +642,34 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     handleSaveCurated()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curatePhase, curatedContent, curateResult, userId, savePhase])
+
+  // ── Auto-update in view mode (save on blur) ──────────────────────────────
+  // Tracks the ID of the resume currently loaded for viewing so edits persist.
+  // CVRenderer fires onChange only on blur, so each state change == a blur event.
+
+  const viewResumeIdRef = useRef<string | null>(null)
+  const viewLoadedRef   = useRef(false) // skips the initial load-triggered change
+
+  useEffect(() => {
+    if (!visible) { viewResumeIdRef.current = null; viewLoadedRef.current = false; return }
+  }, [visible])
+
+  useEffect(() => {
+    if (initialCuratedResumeId && curatePhase === 'idle' && curatedContent && !freshCuratedRef.current) {
+      if (viewResumeIdRef.current !== initialCuratedResumeId) {
+        viewResumeIdRef.current = initialCuratedResumeId
+        viewLoadedRef.current = false
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curatePhase, curatedContent])
+
+  useEffect(() => {
+    if (!viewResumeIdRef.current || !curatedContent) return
+    if (!viewLoadedRef.current) { viewLoadedRef.current = true; return }
+    updateCuratedResume(viewResumeIdRef.current, curatedContent, curatedOrder)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curatedContent, curatedOrder])
 
   // ── Save curated resume handler ───────────────────────────────────────────
   async function handleSaveCurated() {
@@ -1436,17 +1464,6 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
               DOWNLOAD PDF
             </button>
 
-            {/* Save resume */}
-            {savePhase === 'idle' && userId && (
-              <button
-                onClick={handleSaveCurated}
-                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-              >
-                SAVE RESUME
-              </button>
-            )}
             {savePhase === 'saving' && (
               <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>
             )}

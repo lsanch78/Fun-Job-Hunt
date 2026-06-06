@@ -3,7 +3,7 @@ import { useCVState } from '@/hooks/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
 import { T } from '@/lib/crtTheme'
-import { insertCoverLetter, fetchCoverLetter } from '@/services/coverLetterService'
+import { insertCoverLetter, fetchCoverLetter, updateCoverLetter } from '@/services/coverLetterService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { fetchUsage, getAiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
@@ -244,6 +244,34 @@ export default function CoverLetterCanvas({
     handleSave()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, body, userId, savePhase])
+
+  // ── Auto-update in view mode (save on blur) ──────────────────────────────
+  // Tracks the ID of the letter currently loaded for viewing so edits persist.
+  // The contentEditable div fires setBody only on blur, so each change == a blur.
+
+  const viewLetterIdRef = useRef<string | null>(null)
+  const viewLoadedRef   = useRef(false)
+
+  useEffect(() => {
+    if (!visible) { viewLetterIdRef.current = null; viewLoadedRef.current = false; return }
+  }, [visible])
+
+  useEffect(() => {
+    if (initialCoverLetterId && phase === 'idle' && body && !freshGeneratedRef.current) {
+      if (viewLetterIdRef.current !== initialCoverLetterId) {
+        viewLetterIdRef.current = initialCoverLetterId
+        viewLoadedRef.current = false
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, body])
+
+  useEffect(() => {
+    if (!viewLetterIdRef.current || !body) return
+    if (!viewLoadedRef.current) { viewLoadedRef.current = true; return }
+    updateCoverLetter(viewLetterIdRef.current, body)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [body])
 
   // ── Save ─────────────────────────────────────────────────────────────────────
 
@@ -571,16 +599,6 @@ export default function CoverLetterCanvas({
               DOWNLOAD PDF
             </button>
 
-            {savePhase === 'idle' && userId && (
-              <button
-                onClick={handleSave}
-                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-              >
-                SAVE LETTER
-              </button>
-            )}
             {savePhase === 'saving' && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>}
             {savePhase === 'saved'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.green }}>SAVED ✓</span>}
             {savePhase === 'error'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.warn }}>SAVE FAILED</span>}

@@ -84,6 +84,19 @@ export async function insertCuratedResume(
   return { data: dbToCuratedResume(data as DbCuratedResume), error: null }
 }
 
+export async function updateCuratedResume(
+  id: string,
+  content: CVContent,
+  sectionOrder: string[],
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('curated_resumes')
+    .update({ content, section_order: sectionOrder })
+    .eq('id', id)
+  if (error) console.error('[curatedResumeService] updateCuratedResume:', error.message)
+  return { error: error?.message ?? null }
+}
+
 export async function updateCuratedResumeLabel(id: string, label: string): Promise<{ error: string | null }> {
   const trimmedLabel = label.trim().slice(0, CURATED_RESUME_LIMITS.label) || 'Untitled'
   const { error } = await supabase.from('curated_resumes').update({ label: trimmedLabel }).eq('id', id)
