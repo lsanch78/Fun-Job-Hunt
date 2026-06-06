@@ -177,6 +177,7 @@ export default function CoverLetterCanvas({
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
         setBody(result.trim())
+        freshGeneratedRef.current = true
         setPhase('idle')
         const kws = Array.from(
           new Set(
@@ -222,6 +223,27 @@ export default function CoverLetterCanvas({
       },
     })
   }
+
+  // ── Auto-save when generation completes from a job context ──────────────────
+  // Only fires for freshly-generated letters (not when loading an existing one).
+
+  const autoSavedRef      = useRef(false)
+  const freshGeneratedRef = useRef(false) // true only after a live AI generation run
+
+  useEffect(() => {
+    if (!visible) { autoSavedRef.current = false; freshGeneratedRef.current = false; return }
+  }, [visible])
+
+  useEffect(() => {
+    if (phase !== 'idle' || !body || !userId) return
+    if (!pendingJobIdRef.current) return
+    if (!freshGeneratedRef.current) return
+    if (autoSavedRef.current) return
+    if (savePhase !== 'idle') return
+    autoSavedRef.current = true
+    handleSave()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, body, userId, savePhase])
 
   // ── Save ─────────────────────────────────────────────────────────────────────
 

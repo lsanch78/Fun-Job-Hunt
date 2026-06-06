@@ -599,6 +599,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           setCuratedContent({ mainInfo, summaries: cSummaries, experiences: cExperiences, educations, projects: cProjects, skills: cSkills, certifications, awards })
           setCuratedOrder(cOrder)
 
+          freshCuratedRef.current = true
           setCuratePhase('idle')
           setCurateOpen(false)
           setCurateText('')
@@ -620,6 +621,27 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
   const curateLabel =
     curatePhase === 'thinking' ? 'THINKING…' :
     curatePhase === 'error'    ? 'ERROR' : 'CURATE'
+
+  // ── Auto-save when curation completes from a job context ─────────────────
+  // Only fires for newly-curated resumes (not when loading an existing one).
+
+  const autoSavedRef    = useRef(false)
+  const freshCuratedRef = useRef(false) // true only after a live AI curation run
+
+  useEffect(() => {
+    if (!visible) { autoSavedRef.current = false; freshCuratedRef.current = false; return }
+  }, [visible])
+
+  useEffect(() => {
+    if (curatePhase !== 'idle' || !curatedContent || !curateResult || !userId) return
+    if (!pendingJobIdRef.current) return
+    if (!freshCuratedRef.current) return
+    if (autoSavedRef.current) return
+    if (savePhase !== 'idle') return
+    autoSavedRef.current = true
+    handleSaveCurated()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curatePhase, curatedContent, curateResult, userId, savePhase])
 
   // ── Save curated resume handler ───────────────────────────────────────────
   async function handleSaveCurated() {
