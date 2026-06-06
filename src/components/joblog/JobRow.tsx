@@ -346,7 +346,8 @@ export const JobRow = forwardRef<JobRowHandle, {
   onOpenDetailPage2?: () => void
   onDetailBlur?: (job: Job) => void
   onTailorResume?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onTailorResume }, ref) {
+  onCoverLetter?: (job: Job) => void
+}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onTailorResume, onCoverLetter }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
@@ -381,9 +382,9 @@ export const JobRow = forwardRef<JobRowHandle, {
   // Keep committed job's detail fields in sync (lazy-loaded after detail card opens)
   useEffect(() => {
     if (job.committed) {
-      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes, curatedResumeId: job.curatedResumeId }))
+      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes, curatedResumeId: job.curatedResumeId, coverLetterId: job.coverLetterId }))
     }
-  }, [job.description, job.notes, job.curatedResumeId, job.committed])
+  }, [job.description, job.notes, job.curatedResumeId, job.coverLetterId, job.committed])
 
   function update<K extends keyof Job>(key: K, val: Job[K]) {
     const next = { ...draft, [key]: val }
@@ -521,8 +522,26 @@ export const JobRow = forwardRef<JobRowHandle, {
 
       {visibleCols.map((col) => renderCell(col.key))}
 
+      {/* Cover letter icon */}
+      <td className="px-1 py-1 w-6">
+        {committed && !job.saving && draft.coverLetterId && onCoverLetter && (
+          <button
+            tabIndex={-1}
+            title="View cover letter"
+            onClick={() => onCoverLetter(draft)}
+            className="inline-flex items-center justify-center text-muted hover:text-primary transition-none"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, marginTop: 5 }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <polyline points="2,4 12,13 22,4"/>
+            </svg>
+          </button>
+        )}
+      </td>
+
       {/* Curated resume icon */}
-      <td className="px-1 py-1">
+      <td className="px-1 py-1 w-6">
         {committed && !job.saving && draft.curatedResumeId && (
           <button
             tabIndex={-1}
@@ -593,6 +612,17 @@ export const JobRow = forwardRef<JobRowHandle, {
               style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
             >
               {draft.curatedResumeId ? 'VIEW RESUME' : 'TAILOR RESUME'}
+            </button>
+          )}
+          {onCoverLetter && (
+            <button
+              onClick={() => { if (draft.coverLetterId) playPageFlip(); onCoverLetter(draft); setCtxMenu(null) }}
+              className="text-left border text-[9px] px-2 py-1 font-pixel transition-none"
+              style={{ color: 'var(--color-primary)', borderColor: 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
+            >
+              {draft.coverLetterId ? 'VIEW LETTER' : 'CREATE LETTER'}
             </button>
           )}
         </div>

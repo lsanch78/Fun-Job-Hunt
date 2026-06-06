@@ -29,6 +29,7 @@ export interface DbJob {
   description: string | null
   notes: string | null
   curated_resume_id: string | null
+  cover_letter_id: string | null
 }
 
 // Frontend-only shape. `committed` and `saving` are never persisted.
@@ -47,6 +48,16 @@ export interface Job {
   description?: string
   notes?: string
   curatedResumeId?: string
+  coverLetterId?: string
+}
+
+export interface CoverLetter {
+  id: string
+  userId: string
+  label: string
+  body: string
+  jobDescription: string
+  createdAt: string
 }
 
 export interface CuratedResume {

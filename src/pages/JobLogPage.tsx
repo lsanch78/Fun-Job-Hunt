@@ -7,6 +7,7 @@ import XpTracker from '@/components/hud/XpTracker'
 import MasterCV from '@/components/hud/MasterCV'
 import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
 import CVCanvas from '@/components/mastercv/CVCanvas'
+import CoverLetterCanvas from '@/components/coverletter/CoverLetterCanvas'
 import { useXp } from '@/services/xpService'
 import type { Job, JobStatus } from '@/types'
 import { JOB_CAP, fetchJobDetails } from '@/services/jobService'
@@ -153,6 +154,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     onCommit,
     updateJobDetails,
     patchJobCuratedResume,
+    patchJobCoverLetter,
     deleteJobs,
     pendingFocusIdRef,
   } = useJobList(userId, bumpXp)
@@ -175,6 +177,11 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [cvInitialOpenCuratePanel, setCvInitialOpenCuratePanel] = useState(false)
   const [cvInitialCompany, setCvInitialCompany] = useState<string | null>(null)
   const [cvInitialJobId, setCvInitialJobId] = useState<string | null>(null)
+  const [clOpen, setClOpen] = useState(false)
+  const [clInitialJd, setClInitialJd] = useState<string | null>(null)
+  const [clInitialCoverLetterId, setClInitialCoverLetterId] = useState<string | null>(null)
+  const [clInitialCompany, setClInitialCompany] = useState<string | null>(null)
+  const [clInitialJobId, setClInitialJobId] = useState<string | null>(null)
   const columns = useColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
@@ -229,6 +236,28 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       setCvInitialOpenCuratePanel(true)
     }
     setCvOpen(true)
+  }
+
+  async function handleCoverLetter(job: Job) {
+    const company = job.company || null
+    setClInitialJobId(job.id)
+    setClInitialCompany(company)
+
+    if (job.coverLetterId) {
+      setClInitialCoverLetterId(job.coverLetterId)
+      setClInitialJd(null)
+      setClOpen(true)
+      return
+    }
+
+    const jd = job.description ?? (await fetchJobDetails(job.id).then((d) => d?.description ?? null))
+    if (!jd?.trim()) {
+      alert('No job description found. Add a JD to this job before creating a cover letter.')
+      return
+    }
+    setClInitialCoverLetterId(null)
+    setClInitialJd(jd)
+    setClOpen(true)
   }
 
   function handleDraftChange(draft: Job) {
@@ -502,7 +531,24 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       {/* Table */}
       <div data-tutorial="job-rows" className="overflow-hidden flex-1 relative">
 
-        <StarfieldBackdrop expanded={cvOpen} />
+        <StarfieldBackdrop expanded={cvOpen || clOpen} />
+
+        <CoverLetterCanvas
+          visible={clOpen}
+          userId={userId}
+          initialJd={clInitialJd}
+          initialCoverLetterId={clInitialCoverLetterId}
+          initialCompany={clInitialCompany}
+          initialJobId={clInitialJobId}
+          onLetterSaved={(jobId, coverLetterId) => patchJobCoverLetter(jobId, coverLetterId)}
+          onClose={() => { playNetworkMapClose(); setClOpen(false) }}
+          onInitialConsumed={() => {
+            setClInitialJd(null)
+            setClInitialCoverLetterId(null)
+            setClInitialCompany(null)
+            setClInitialJobId(null)
+          }}
+        />
 
         <CVCanvas
           visible={cvOpen}
@@ -526,8 +572,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
         <div
           style={{
-            opacity: cvOpen ? 0 : 1,
-            pointerEvents: cvOpen ? 'none' : undefined,
+            opacity: cvOpen || clOpen ? 0 : 1,
+            pointerEvents: cvOpen || clOpen ? 'none' : undefined,
             transition: 'opacity 600ms ease',
             overflowY: 'auto',
             overflowX: 'hidden',
@@ -565,12 +611,14 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
             ))}
             <col style={{ width: 24 }} />
             <col style={{ width: 24 }} />
+            <col style={{ width: 24 }} />
           </colgroup>
           <thead>
             <tr className="border-b border-border text-primary text-left select-none">
               {deleteMode && <th className="px-2 py-2" scope="col"><span className="sr-only">Delete</span></th>}
               <th className="px-2 py-2 w-6" scope="col"><span className="sr-only">Details</span></th>
               <ColumnHeader columns={columns} />
+              <th className="px-1 py-2" scope="col"><span className="sr-only">Cover letter</span></th>
               <th className="px-1 py-2" scope="col"><span className="sr-only">Curated resume</span></th>
               <th className="px-1 py-2" scope="col"><span className="sr-only">Save status</span></th>
             </tr>
@@ -601,6 +649,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   onOpenDetail={job.committed ? () => { setDetailJobPage(1); setDetailJobId(job.id) } : undefined}
                   onOpenDetailPage2={job.committed ? () => { setDetailJobPage(2); setDetailJobId(job.id) } : undefined}
                   onTailorResume={job.committed ? handleTailorResume : undefined}
+                  onCoverLetter={job.committed ? handleCoverLetter : undefined}
                   onDetailBlur={(j) => {
                     if (!j.committed) return
                     updateJobDetails(j.id, {

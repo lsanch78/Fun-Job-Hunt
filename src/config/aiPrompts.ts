@@ -26,6 +26,59 @@ export const PROMPT_COVER_LETTER =
   'Best,\n' +
   '[candidate full name extracted from the resume]'
 
+// ── Cover letter canvas prompt (used in CoverLetterCanvas, receives JSON CV) ──
+// Distinct from PROMPT_COVER_LETTER (used in AiModal with plain text resume).
+// Receives structured JSON so it can pull fields precisely. Longer body allowed.
+
+export const PROMPT_COVER_LETTER_CANVAS =
+  META_RULES +
+  'ADDITIONAL RULES:\n' +
+  '• Do NOT include contact info, phone numbers, email addresses, or dates.\n' +
+  '• Do NOT use filler phrases like "I thrive in environments", "passionate about", "fast-paced", "end-to-end", or "push beyond".\n' +
+  '• The body should be 2 paragraphs, 80–140 words total. No more. Output only the formatted letter, nothing else.\n' +
+  '• The candidate name is at cvContent.mainInfo.fullName. The company name is in the job description.\n\n' +
+  'You will receive:\n' +
+  '  1. JOB DESCRIPTION — plain text of the posting\n' +
+  '  2. MASTER CV — the candidate\'s full resume as a JSON object with fields: mainInfo, summaries, experiences, projects, skills, educations, certifications, awards\n\n' +
+  'Write a cover letter in first person. Tone: direct, confident, human — not corporate.\n' +
+  'Paragraph 1: Name one specific, concrete connection between the candidate\'s actual experience (from the CV) and a requirement that appears explicitly in the job description. Name the project, role, or outcome. Do not be vague.\n' +
+  'Paragraph 2: Add one more proof point from the CV that addresses a second need in the JD. End with one short sentence inviting a conversation.\n\n' +
+  'Format the output exactly like this:\n' +
+  'Dear Hiring Team at [company name from job description],\n\n' +
+  '[paragraph 1]\n\n' +
+  '[paragraph 2]\n\n' +
+  'Best,\n' +
+  '[candidate full name from cvContent.mainInfo.fullName]'
+
+// ── Cover letter angle prompt (used in CoverLetterCanvas ANGLE button) ────────
+// Returns structured coaching: recommended angle + talking points + keywords.
+// Does NOT write the letter — gives the user a strategic frame to write from.
+
+export const PROMPT_COVER_LETTER_ANGLE =
+  META_RULES +
+  'You are a cover letter strategist. Do NOT write a cover letter.\n\n' +
+  'You will receive:\n' +
+  '  1. JOB DESCRIPTION — plain text of the posting\n' +
+  '  2. MASTER CV — the candidate\'s full resume as a JSON object\n\n' +
+  'Analyze the fit and return ONLY a valid JSON object — no markdown fences, no explanation.\n\n' +
+  'Shape:\n' +
+  '{\n' +
+  '  "angle": "<One sentence: the single strongest narrative angle — the most specific, honest connection between this candidate and this role. Name a real project or role from the CV.>",\n' +
+  '  "talkingPoints": [\n' +
+  '    "<raw phrase or fact from the CV to thread in — not a polished sentence>",\n' +
+  '    "<raw phrase or fact>",\n' +
+  '    "<raw phrase or fact>"\n' +
+  '  ],\n' +
+  '  "keywords": ["<1–3 word term from JD to weave into the letter>", "<term>", "<term>", "<term>"],\n' +
+  '  "watchOut": "<One sentence: the biggest gap or mismatch to address or acknowledge>"\n' +
+  '}\n\n' +
+  'Rules:\n' +
+  '• angle must reference a specific CV entry (project name, company, or outcome) — not a vague summary.\n' +
+  '• talkingPoints must be 3 short raw phrases pulled verbatim or near-verbatim from the CV. Not full sentences.\n' +
+  '• keywords must be 3–5 short terms from the job description that are absent or underrepresented in the CV text.\n' +
+  '• watchOut must be honest — name the actual gap, not a generic observation.\n' +
+  '• Output ONLY the JSON object. Nothing before it, nothing after it.'
+
 export const PROMPT_WHY_GOOD_FIT =
   META_RULES +
   'ADDITIONAL RULES:\n' +

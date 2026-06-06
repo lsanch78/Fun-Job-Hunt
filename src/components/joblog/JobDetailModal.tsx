@@ -494,7 +494,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       setDetailsLoading(false)
       if (!details) return
       loadedIds.current.add(job.id)
-      onChange({ ...job, description: details.description ?? '', notes: details.notes ?? '', curatedResumeId: details.curated_resume_id ?? undefined })
+      onChange({ ...job, description: details.description ?? '', notes: details.notes ?? '', curatedResumeId: details.curated_resume_id ?? undefined, coverLetterId: details.cover_letter_id ?? undefined })
     })
   }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -5,6 +5,7 @@ import {
   fetchJobs, insertJob, updateJob, updateJobDetails as svcUpdateJobDetails,
   deleteJobs as svcDeleteJobs,
   linkCuratedResumeToJob,
+  linkCoverLetterToJob,
   runAutoGhost,
   JOB_CAP,
 } from '@/services/jobService'
@@ -69,6 +70,7 @@ export interface JobListState {
     details: { description: string | null; notes: string | null },
   ) => void
   patchJobCuratedResume: (jobId: string, resumeId: string) => void
+  patchJobCoverLetter: (jobId: string, coverLetterId: string) => void
 
   /**
    * Deletes the given job IDs from DB and removes them from state + cache.
@@ -213,6 +215,13 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
     linkCuratedResumeToJob(jobId, resumeId)
   }, [])
 
+  // ── patchJobCoverLetter ─────────────────────────────────────────────────────
+
+  const patchJobCoverLetter = useCallback((jobId: string, coverLetterId: string) => {
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, coverLetterId } : j))
+    linkCoverLetterToJob(jobId, coverLetterId)
+  }, [])
+
   // ── deleteJobs ──────────────────────────────────────────────────────────────
 
   const deleteJobs = useCallback(async (ids: string[]) => {
@@ -269,6 +278,7 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
     onCommit,
     updateJobDetails,
     patchJobCuratedResume,
+    patchJobCoverLetter,
     deleteJobs,
     addJob,
     pendingFocusIdRef,
