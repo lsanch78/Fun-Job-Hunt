@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import type { CVContent } from '@/services/cvService'
 import type { MainInfo }      from './MainInfoCard'
 import type { Summary }       from './SummaryCard'
@@ -27,6 +27,7 @@ interface Props {
   onChange?: (e: ContentChangeEvent) => void
   keywords?: string[]
   onOverflowChange?: (overflowLines: number) => void
+  onOrderChange?: (newOrder: string[]) => void
 }
 
 type SectionType =
@@ -151,6 +152,14 @@ const RESUME_STYLES = `
   [contenteditable]:focus {
     outline: 1.5px solid rgba(59,130,246,0.5);
     border-radius: 1px;
+  }
+
+  .cv-drag-section:hover > .cv-drag-handle {
+    opacity: 1 !important;
+  }
+
+  @media print {
+    .cv-drag-handle { display: none !important; }
   }
 `
 
@@ -516,8 +525,6 @@ function RenderedAward({ data, showHeading, onChange, keywords }: {
   )
 }
 
-// ── Main renderer ─────────────────────────────────────────────────────────────
-
 const PAGE_HEIGHT_PX = 1056
 
 export interface CVRendererHandle {
@@ -526,7 +533,18 @@ export interface CVRendererHandle {
 
 const LINE_HEIGHT_PX = 20
 
-const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ content, sectionOrder, onChange, keywords, onOverflowChange }, ref) {
+// ── Drag state ────────────────────────────────────────────────────────────────
+
+interface DragState {
+  dragId: string        // ID being dragged
+  dropIndex: number     // insertion index in sectionOrder (0 = before first)
+  ghostY: number        // cursor Y relative to viewport
+  ghostX: number
+}
+
+// ── Main renderer ─────────────────────────────────────────────────────────────
+
+const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ content, sectionOrder, onChange, keywords, onOverflowChange, onOrderChange }, ref) {
   const firstOfType = new Map<SectionType, string>()
   sectionOrder.forEach((id) => {
     const type = getSectionType(id)
@@ -539,6 +557,9 @@ const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ con
 
   const paperRef = useRef<HTMLDivElement>(null)
   const [paperHeight, setPaperHeight] = useState(PAGE_HEIGHT_PX)
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useImperativeHandle(ref, () => ({
     getPaperElement: () => paperRef.current,
@@ -557,10 +578,102 @@ const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ con
     return () => obs.disconnect()
   }, [onOverflowChange])
 
+  // ── Pointer-based drag ────────────────────────────────────────────────────
+
+  const computeDropIndex = useCallback((clientY: number): number => {
+    // Find which gap between sections the cursor is closest to
+    const draggableIds = sectionOrder.filter((id) => id !== 'main')
+    let best = draggableIds.length  // default: after all
+    for (let i = 0; i < draggableIds.length; i++) {
+      const el = sectionRefs.current.get(draggableIds[i])
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      const mid = rect.top + rect.height / 2
+      if (clientY < mid) { best = i; break }
+    }
+    return best
+  }, [sectionOrder])
+
+  const onHandlePointerDown = useCallback((e: React.PointerEvent, id: string) => {
+    if (!onOrderChange) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const initial: DragState = {
+      dragId: id,
+      dropIndex: computeDropIndex(e.clientY),
+      ghostY: e.clientY,
+      ghostX: e.clientX,
+    }
+    dragRef.current = initial
+    setDrag(initial)
+  }, [onOrderChange, computeDropIndex])
+
+  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    const updated: DragState = {
+      ...dragRef.current,
+      dropIndex: computeDropIndex(e.clientY),
+      ghostY: e.clientY,
+      ghostX: e.clientX,
+    }
+    dragRef.current = updated
+    setDrag(updated)
+  }, [computeDropIndex])
+
+  const onHandlePointerUp = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d || !onOrderChange) { dragRef.current = null; setDrag(null); return }
+    e.currentTarget.releasePointerCapture(e.pointerId)
+
+    const draggableIds = sectionOrder.filter((id) => id !== 'main')
+    const fromIdx = draggableIds.indexOf(d.dragId)
+    const toIdx   = d.dropIndex > fromIdx ? d.dropIndex - 1 : d.dropIndex
+
+    if (fromIdx !== toIdx) {
+      const next = [...draggableIds]
+      next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, d.dragId)
+      onOrderChange(['main', ...next])
+    }
+
+    dragRef.current = null
+    setDrag(null)
+  }, [sectionOrder, onOrderChange])
+
+  // ── Drop indicator position ───────────────────────────────────────────────
+
+  function getDropIndicatorTop(): number | null {
+    if (!drag || !paperRef.current) return null
+    const draggableIds = sectionOrder.filter((id) => id !== 'main')
+    const paperRect = paperRef.current.getBoundingClientRect()
+
+    if (drag.dropIndex === 0) {
+      const first = sectionRefs.current.get(draggableIds[0])
+      if (!first) return null
+      return first.getBoundingClientRect().top - paperRect.top - 2
+    }
+    if (drag.dropIndex >= draggableIds.length) {
+      const last = sectionRefs.current.get(draggableIds[draggableIds.length - 1])
+      if (!last) return null
+      const r = last.getBoundingClientRect()
+      return r.bottom - paperRect.top + 2
+    }
+    // Between index-1 and index
+    const above = sectionRefs.current.get(draggableIds[drag.dropIndex - 1])
+    const below = sectionRefs.current.get(draggableIds[drag.dropIndex])
+    if (!above || !below) return null
+    const aboveBottom = above.getBoundingClientRect().bottom
+    const belowTop    = below.getBoundingClientRect().top
+    return (aboveBottom + belowTop) / 2 - paperRect.top
+  }
+
   const pageBreaks: number[] = []
   for (let y = PAGE_HEIGHT_PX; y < paperHeight; y += PAGE_HEIGHT_PX) {
     pageBreaks.push(y)
   }
+
+  const draggableIds = sectionOrder.filter((id) => id !== 'main')
+  const dropIndicatorTop = getDropIndicatorTop()
 
   return (
     <div style={{
@@ -571,65 +684,112 @@ const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ con
       justifyContent: 'center',
       alignItems: 'flex-start',
       overflowY: 'auto',
+      userSelect: drag ? 'none' : undefined,
     }}>
       <style>{RESUME_STYLES}</style>
       <div style={{ position: 'relative' }}>
         <div className="cv-paper" ref={paperRef}>
-          {sectionOrder.map((id) => {
+          {/* Main info — never draggable */}
+          {sectionOrder.includes('main') && (
+            <RenderedMainInfo data={content.mainInfo} keywords={keywords}
+              onChange={onChange ? (d) => onChange({ type: 'mainInfo', data: d }) : undefined}
+            />
+          )}
+
+          {/* Draggable sections */}
+          {draggableIds.map((id) => {
             const type = getSectionType(id)
             const showHeading = isFirst(id)
+            const isDragging = drag?.dragId === id
 
-            if (type === 'main') {
-              return <RenderedMainInfo key={id} data={content.mainInfo} keywords={keywords}
-                onChange={onChange ? (d) => onChange({ type: 'mainInfo', data: d }) : undefined}
-              />
-            }
+            let inner: React.ReactNode = null
             if (type === 'summary') {
               const data = content.summaries.find((s) => s.id === id)
-              return data ? <RenderedSummary key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedSummary data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'summary', id, data: d }) : undefined}
               /> : null
-            }
-            if (type === 'experience') {
+            } else if (type === 'experience') {
               const data = content.experiences.find((e) => e.id === id)
-              return data ? <RenderedExperience key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedExperience data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'experience', id, data: d }) : undefined}
               /> : null
-            }
-            if (type === 'education') {
+            } else if (type === 'education') {
               const data = content.educations.find((e) => e.id === id)
-              return data ? <RenderedEducation key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedEducation data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'education', id, data: d }) : undefined}
               /> : null
-            }
-            if (type === 'project') {
+            } else if (type === 'project') {
               const data = content.projects.find((p) => p.id === id)
-              return data ? <RenderedProject key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedProject data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'project', id, data: d }) : undefined}
               /> : null
-            }
-            if (type === 'skills') {
-              return content.skills
-                ? <RenderedSkills key={id} data={content.skills} showHeading={showHeading} keywords={keywords}
+            } else if (type === 'skills') {
+              inner = content.skills
+                ? <RenderedSkills data={content.skills} showHeading={showHeading} keywords={keywords}
                     onChange={onChange ? (d) => onChange({ type: 'skills', data: d }) : undefined}
                   />
                 : null
-            }
-            if (type === 'certification') {
+            } else if (type === 'certification') {
               const data = content.certifications.find((c) => c.id === id)
-              return data ? <RenderedCertification key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedCertification data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'certification', id, data: d }) : undefined}
               /> : null
-            }
-            if (type === 'award') {
+            } else if (type === 'award') {
               const data = content.awards.find((a) => a.id === id)
-              return data ? <RenderedAward key={id} data={data} showHeading={showHeading} keywords={keywords}
+              inner = data ? <RenderedAward data={data} showHeading={showHeading} keywords={keywords}
                 onChange={onChange ? (d) => onChange({ type: 'award', id, data: d }) : undefined}
               /> : null
             }
-            return null
+
+            if (!inner) return null
+
+            return (
+              <div
+                key={id}
+                ref={(el) => { if (el) sectionRefs.current.set(id, el); else sectionRefs.current.delete(id) }}
+                style={{ position: 'relative', opacity: isDragging ? 0.35 : 1 }}
+                className={onOrderChange ? 'cv-drag-section' : undefined}
+                onPointerMove={drag ? onHandlePointerMove : undefined}
+                onPointerUp={drag ? onHandlePointerUp : undefined}
+              >
+                {/* Drag handle — only shown when onOrderChange is wired */}
+                {onOrderChange && (
+                  <div
+                    className="cv-drag-handle"
+                    onPointerDown={(e) => onHandlePointerDown(e, id)}
+                    onPointerMove={onHandlePointerMove}
+                    onPointerUp={onHandlePointerUp}
+                    title="Drag to reorder"
+                    style={{
+                      position: 'absolute', left: -22, top: 2,
+                      width: 18, height: '100%',
+                      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+                      paddingTop: 2,
+                      cursor: 'grab', touchAction: 'none',
+                      opacity: 0, transition: 'opacity 0.15s',
+                      color: '#888', fontSize: 13, userSelect: 'none',
+                    }}
+                  >⠿</div>
+                )}
+                {inner}
+              </div>
+            )
           })}
         </div>
+
+        {/* Drop indicator line */}
+        {drag && dropIndicatorTop !== null && (
+          <div style={{
+            position: 'absolute',
+            top: dropIndicatorTop,
+            left: 0, right: 0,
+            height: 2,
+            background: 'rgba(34,197,94,0.9)',
+            boxShadow: '0 0 6px rgba(34,197,94,0.6)',
+            pointerEvents: 'none',
+            zIndex: 20,
+          }} />
+        )}
 
         {pageBreaks.map((y) => (
           <div key={y} style={{ position: 'absolute', top: y, left: 0, right: 0, pointerEvents: 'none', zIndex: 10 }}>
@@ -646,6 +806,31 @@ const CVRenderer = forwardRef<CVRendererHandle, Props>(function CVRenderer({ con
           </div>
         ))}
       </div>
+
+      {/* Drag ghost — follows cursor */}
+      {drag && (
+        <div style={{
+          position: 'fixed',
+          top: drag.ghostY + 12,
+          left: drag.ghostX + 12,
+          pointerEvents: 'none',
+          zIndex: 9999,
+          background: 'rgba(34,197,94,0.15)',
+          border: '1px solid rgba(34,197,94,0.5)',
+          padding: '3px 10px',
+          fontFamily: 'monospace',
+          fontSize: 10,
+          color: 'rgba(34,197,94,0.9)',
+          letterSpacing: '0.1em',
+          whiteSpace: 'nowrap',
+        }}>
+          {drag.dragId.replace(/^(exp|edu|proj|sum|cert|awd|skills)-?\d*$/, (_, p) =>
+            p === 'exp' ? 'EXPERIENCE' : p === 'edu' ? 'EDUCATION' :
+            p === 'proj' ? 'PROJECT' : p === 'sum' ? 'SUMMARY' :
+            p === 'cert' ? 'CERTIFICATION' : p === 'awd' ? 'AWARD' : 'SKILLS'
+          )}
+        </div>
+      )}
     </div>
   )
 })

@@ -16,6 +16,10 @@ import AwardCard, { type Award } from './AwardCard'
 import CVRenderer, { type ContentChangeEvent, type CVRendererHandle } from './CVRenderer'
 import { T } from '@/lib/crtTheme'
 import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes } from '@/services/curatedResumeService'
+import { useSubscription } from '@/lib/SubscriptionContext'
+import { fetchUsage, getAiProvider } from '@/services/aiService'
+import { createCheckoutSession } from '@/services/subscriptionService'
+import { PRO_UPGRADE_CTA } from '@/config/pricing'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -317,6 +321,19 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
 
   const { run: runAI } = useAI()
 
+  const { isSubscribed } = useSubscription()
+  const [limitHit, setLimitHit] = useState(false)
+  const [usage, setUsage]       = useState<{ count: number; limit: number } | null>(null)
+
+  useEffect(() => {
+    if (getAiProvider() !== 'proxy') return
+    fetchUsage().then((u) => { if (u) setUsage(u) })
+  }, [])
+
+  function markLimitIfNeeded(msg: string) {
+    if (msg.includes('Monthly limit') || msg.includes('limit reached')) setLimitHit(true)
+  }
+
   // ── Import helpers ────────────────────────────────────────────────────────
 
   async function extractText(file: File): Promise<string> {
@@ -404,6 +421,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
         }
       },
       onError: (msg) => {
+        markLimitIfNeeded(msg)
         setImportPhase('error')
         setImportError(msg)
         setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
@@ -443,6 +461,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
         }
       },
       onError: (msg) => {
+        markLimitIfNeeded(msg)
         setOrganizePhase('error')
         setOrganizeError(msg)
         setTimeout(() => { setOrganizePhase('idle'); setOrganizeError(null) }, 4000)
@@ -590,6 +609,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
         }
       },
       onError: (msg) => {
+        markLimitIfNeeded(msg)
         setCuratePhase('error')
         setCurateError(msg)
         setTimeout(() => { setCuratePhase('idle'); setCurateError(null) }, 4000)
@@ -816,7 +836,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           setTimeout(() => setQuickWinsPhase('idle'), 3000)
         }
       },
-      onError: () => { setQuickWinsPhase('error'); setTimeout(() => setQuickWinsPhase('idle'), 3000) },
+      onError: (msg) => { markLimitIfNeeded(msg); setQuickWinsPhase('error'); setTimeout(() => setQuickWinsPhase('idle'), 3000) },
     })
   }
 
@@ -1045,6 +1065,43 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           </button>
         </div>
       </div>
+
+      {/* ── AI usage / limit banner ──────────────────────────────────────── */}
+      {getAiProvider() === 'proxy' && (
+        <div style={{ position: 'absolute', top: 60, left: 20, right: 20, zIndex: 19, display: 'flex', alignItems: 'center', gap: 16 }}>
+          {limitHit ? (
+            <>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn, letterSpacing: '0.1em' }}>
+                // AI LIMIT REACHED — upgrade for unlimited use
+              </span>
+              <button
+                onClick={() => createCheckoutSession().catch(() => {})}
+                style={{
+                  fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em',
+                  color: T.bg, background: T.warn, border: `1px solid ${T.warn}`,
+                  padding: '3px 12px', cursor: 'pointer',
+                }}
+              >
+                {PRO_UPGRADE_CTA}
+              </button>
+            </>
+          ) : !isSubscribed && usage ? (
+            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em' }}>
+              <span style={{ color: T.greenDim }}>{usage.count}/{usage.limit} AI uses this month — </span>
+              <span
+                onClick={() => createCheckoutSession().catch(() => {})}
+                style={{ color: T.warn, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                upgrade for unlimited
+              </span>
+            </span>
+          ) : isSubscribed ? (
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.greenDim, letterSpacing: '0.1em' }}>
+              Pro — unlimited AI
+            </span>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Staging screen ───────────────────────────────────────────────── */}
       {stagingResult && (
@@ -1289,6 +1346,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
                 sectionOrder={curatedOrder}
                 keywords={curateResult.matchedKeywords}
                 onOverflowChange={setOverflowLines}
+                onOrderChange={setCuratedOrder}
                 onChange={(evt: ContentChangeEvent) => {
                   setCuratedContent((prev) => {
                     if (!prev) return prev
