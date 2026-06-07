@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import { useCVState } from '@/hooks/useCVState'
 import { useAI } from '@/hooks/useAI'
-import { PROMPT_CV_IMPORT, PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
+import { PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
 import type { CVContent } from '@/services/cvService'
 import MainInfoCard from './MainInfoCard'
 import ExperienceCard, { type Experience } from './ExperienceCard'
@@ -14,12 +14,11 @@ import SummaryCard, { type Summary } from './SummaryCard'
 import CertificationCard, { type Certification } from './CertificationCard'
 import AwardCard, { type Award } from './AwardCard'
 import CVRenderer, { type ContentChangeEvent, type CVRendererHandle } from './CVRenderer'
+import CanvasShell from '@/components/canvas/CanvasShell'
 import { T } from '@/lib/crtTheme'
+import { P, CV_FONT } from '@/lib/CVCardTheme'
+import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes, updateCuratedResume } from '@/services/curatedResumeService'
-import { useSubscription } from '@/lib/SubscriptionContext'
-import { fetchUsage, getAiProvider } from '@/services/aiService'
-import { createCheckoutSession } from '@/services/subscriptionService'
-import { PRO_UPGRADE_CTA } from '@/config/pricing'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -158,7 +157,7 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
   return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
-export default function CVCanvas({ visible, userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
+export default function CVCanvas({ visible, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
   const {
     mainInfo, setMainInfo,
     experiences, setExperiences,
@@ -169,24 +168,25 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     certifications, setCertifications,
     awards, setAwards,
     collapsed, toggleCollapse,
-    cvContent, sectionOrder, loading: cvLoading,
+    cvContent, sectionOrder, setSectionOrder, loading: cvLoading,
   } = useCVState(userId)
 
   const [newMenuOpen, setNewMenuOpen]   = useState(false)
   const [previewOpen, setPreviewOpen]   = useState(false)
 
+  // Card drag-to-reorder state
+  const [dragId, setDragId]         = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragFromHandle              = useRef(false)
+
   // Import state
   const [importPhase, setImportPhase]   = useState<'idle' | 'parsing' | 'thinking' | 'error'>('idle')
   const [importError, setImportError]   = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dropActive, setDropActive]     = useState(false)
+  const dropZoneInputRef = useRef<HTMLInputElement>(null)
 
-  // Organizer state
-  const [organizeText, setOrganizeText]         = useState('')
-  const [organizeOpen, setOrganizeOpen]         = useState(false)
-  const [organizePhase, setOrganizePhase]       = useState<'idle' | 'thinking' | 'error'>('idle')
-  const [organizeError, setOrganizeError]       = useState<string | null>(null)
+  // Organizer state (staging screen — populated programmatically)
   const [stagingResult, setStagingResult]       = useState<OrgResult | null>(null)
-  // acceptedKeys: "2" = whole change accepted, "2.bullet.0" = specific bullet accepted
   const [acceptedKeys, setAcceptedKeys]         = useState<Set<string>>(new Set())
 
   // Curate state
@@ -321,18 +321,6 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
 
   const { run: runAI } = useAI()
 
-  const { isSubscribed } = useSubscription()
-  const [limitHit, setLimitHit] = useState(false)
-  const [usage, setUsage]       = useState<{ count: number; limit: number } | null>(null)
-
-  useEffect(() => {
-    if (getAiProvider() !== 'proxy') return
-    fetchUsage().then((u) => { if (u) setUsage(u) })
-  }, [])
-
-  function markLimitIfNeeded(msg: string) {
-    if (msg.includes('Monthly limit') || msg.includes('limit reached')) setLimitHit(true)
-  }
 
   // ── Import helpers ────────────────────────────────────────────────────────
 
@@ -356,42 +344,10 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     return pages.join('\n\n')
   }
 
-  function mergeImport(parsed: CVContent) {
-    setMainInfo({
-      fullName:  mainInfo.fullName  || parsed.mainInfo?.fullName  || '',
-      jobTitle:  mainInfo.jobTitle  || parsed.mainInfo?.jobTitle  || '',
-      email:     mainInfo.email     || parsed.mainInfo?.email     || '',
-      phone:     mainInfo.phone     || parsed.mainInfo?.phone     || '',
-      location:  mainInfo.location  || parsed.mainInfo?.location  || '',
-      website:   mainInfo.website   || parsed.mainInfo?.website   || '',
-      linkedin:  mainInfo.linkedin  || parsed.mainInfo?.linkedin  || '',
-      github:    mainInfo.github    || parsed.mainInfo?.github    || '',
-    })
-    if (parsed.summaries?.length)      setSummaries([...summaries, ...parsed.summaries])
-    if (parsed.experiences?.length)    setExperiences([...experiences, ...parsed.experiences])
-    if (parsed.educations?.length)     setEducations([...educations, ...parsed.educations])
-    if (parsed.projects?.length)       setProjects([...projects, ...parsed.projects])
-    if (parsed.certifications?.length) setCertifications([...certifications, ...parsed.certifications])
-    if (parsed.awards?.length)         setAwards([...awards, ...parsed.awards])
-    if (parsed.skills) {
-      if (!skills) {
-        setSkills(parsed.skills)
-      } else {
-        const mergedEvergreen = Array.from(new Set([...skills.evergreen, ...parsed.skills.evergreen]))
-        setSkills({ evergreen: mergedEvergreen, modular: [...skills.modular, ...parsed.skills.modular] })
-      }
-    }
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!e.target) return
-    e.target.value = ''
-    if (!file) return
-
+  async function handleDropFile(file: File) {
+    if (importPhase !== 'idle') return
     setImportError(null)
     setImportPhase('parsing')
-
     let rawText = ''
     try {
       rawText = await extractText(file)
@@ -401,46 +357,8 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
       setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
       return
     }
-
     setImportPhase('thinking')
-
-    runAI({
-      system: PROMPT_CV_IMPORT,
-      prompt: rawText,
-      model: 'claude-haiku-4-5',
-      onComplete: (result) => {
-        try {
-          const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
-          const parsed = JSON.parse(cleaned) as CVContent
-          mergeImport(parsed)
-          setImportPhase('idle')
-        } catch {
-          setImportPhase('error')
-          setImportError('AI returned invalid data.')
-          setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
-        }
-      },
-      onError: (msg) => {
-        markLimitIfNeeded(msg)
-        setImportPhase('error')
-        setImportError(msg)
-        setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
-      },
-    })
-  }
-
-  // ── Organizer helpers ─────────────────────────────────────────────────────
-
-  function handleOrganize() {
-    const text = organizeText.trim()
-    if (!text) return
-    setOrganizeError(null)
-    setOrganizePhase('thinking')
-
-    const prompt =
-      'PASTED TEXT:\n' + text +
-      '\n\nCURRENT CV:\n' + JSON.stringify(cvContent, null, 2)
-
+    const prompt = 'PASTED TEXT:\n' + rawText + '\n\nCURRENT CV:\n' + JSON.stringify(cvContent, null, 2)
     runAI({
       system: PROMPT_CV_ORGANIZE,
       prompt,
@@ -451,23 +369,22 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           const parsed = JSON.parse(cleaned) as OrgResult
           setStagingResult(parsed)
           initAcceptedKeys(parsed)
-          setOrganizePhase('idle')
-          setOrganizeOpen(false)
-          setOrganizeText('')
+          setImportPhase('idle')
         } catch {
-          setOrganizePhase('error')
-          setOrganizeError('AI returned invalid data.')
-          setTimeout(() => { setOrganizePhase('idle'); setOrganizeError(null) }, 4000)
+          setImportPhase('error')
+          setImportError('AI returned invalid data.')
+          setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
         }
       },
       onError: (msg) => {
-        markLimitIfNeeded(msg)
-        setOrganizePhase('error')
-        setOrganizeError(msg)
-        setTimeout(() => { setOrganizePhase('idle'); setOrganizeError(null) }, 4000)
+        setImportPhase('error')
+        setImportError(msg)
+        setTimeout(() => { setImportPhase('idle'); setImportError(null) }, 4000)
       },
     })
   }
+
+  // ── Organizer helpers ─────────────────────────────────────────────────────
 
   function applyChange(change: OrgChange, changeIdx: number) {
     const d = change.data as Record<string, unknown>
@@ -546,15 +463,6 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     setAcceptedKeys(new Set())
   }
 
-  const importLabel =
-    importPhase === 'parsing'  ? 'PARSING…' :
-    importPhase === 'thinking' ? 'THINKING…' :
-    importPhase === 'error'    ? 'ERROR' : 'IMPORT FILE'
-
-  const organizeLabel =
-    organizePhase === 'thinking' ? 'THINKING…' :
-    organizePhase === 'error'    ? 'ERROR' : 'IMPORT TEXT'
-
   // ── Curate handler ────────────────────────────────────────────────────────
   function handleCurate(overrideText?: string) {
     const text = (overrideText ?? curateText).trim()
@@ -576,6 +484,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
           const parsed = JSON.parse(cleaned) as CurateResult
           setCurateResult(parsed)
+          playAiDing()
 
           // Build isolated curated content — never touches Master CV
           const cExperiences = parsed.experiences
@@ -610,7 +519,6 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
         }
       },
       onError: (msg) => {
-        markLimitIfNeeded(msg)
         setCuratePhase('error')
         setCurateError(msg)
         setTimeout(() => { setCuratePhase('idle'); setCurateError(null) }, 4000)
@@ -886,7 +794,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           setTimeout(() => setQuickWinsPhase('idle'), 3000)
         }
       },
-      onError: (msg) => { markLimitIfNeeded(msg); setQuickWinsPhase('error'); setTimeout(() => setQuickWinsPhase('idle'), 3000) },
+      onError: () => { setQuickWinsPhase('error'); setTimeout(() => setQuickWinsPhase('idle'), 3000) },
     })
   }
 
@@ -948,6 +856,16 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
     setNewMenuOpen(false)
   }
 
+  // Esc closes the curated result panel
+  useEffect(() => {
+    if (!curateResult) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { playCloseBlip(); setCurateResult(null); setCuratedContent(null); setCuratedOrder([]); resetSaveState() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [curateResult])
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -957,110 +875,31 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
       {/* ── Top toolbar ─────────────────────────────────────────────────── */}
       <div style={{ position: 'absolute', top: 16, left: 20, right: 20, zIndex: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
 
-        {/* LEFT — IMPORT FILE + IMPORT TEXT */}
-        <div className="flex items-start gap-2">
-          {/* Import File */}
-          <div className="flex flex-col gap-1">
-            <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={handleImportFile} />
-            <button
-              disabled={importPhase !== 'idle'}
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-                color: importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.greenDim,
-                border: `1px solid ${importPhase === 'error' ? T.warn : importPhase !== 'idle' ? T.green : T.border}`,
-                background: T.bg, padding: '5px 14px',
-                cursor: importPhase !== 'idle' ? 'default' : 'pointer',
-              }}
-              onMouseEnter={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
-              onMouseLeave={(e) => { if (importPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-            >
-              {importLabel}
-            </button>
-            {importError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{importError}</span>}
-          </div>
-
-          {/* Import Text (Organize) */}
-          <div className="flex flex-col gap-1" style={{ maxWidth: 340 }}>
-            <button
-              onClick={() => setOrganizeOpen((v) => !v)}
-              style={{
-                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-                color: organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.greenDim,
-                border: `1px solid ${organizeOpen ? T.green : organizePhase === 'error' ? T.warn : T.border}`,
-                background: T.bg, padding: '5px 14px', cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { if (!organizeOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-            >
-              {organizeLabel}
-            </button>
-
-            {organizeOpen && (
-              <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
-                  PASTE FROM AN OLD RESUME, LINKEDIN, OR ANY CAREER DOC. HAIKU WILL FIND WHAT'S NEW AND ASK BEFORE ADDING ANYTHING.
-                </div>
-                <textarea
-                  value={organizeText}
-                  onChange={(e) => setOrganizeText(e.target.value)}
-                  placeholder="Paste resume text here…"
-                  rows={6}
-                  style={{
-                    fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
-                    border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
-                    outline: 'none', caretColor: T.green, lineHeight: 1.5,
-                  }}
-                />
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => { setOrganizeOpen(false); setOrganizeText('') }}
-                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
-                  >
-                    CANCEL
-                  </button>
-                  <button
-                    disabled={organizePhase === 'thinking' || !organizeText.trim()}
-                    onClick={handleOrganize}
-                    style={{
-                      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
-                      color: organizePhase === 'thinking' ? T.green : T.bg,
-                      background: organizePhase === 'thinking' ? 'transparent' : T.green,
-                      border: `1px solid ${T.green}`,
-                      padding: '4px 10px', cursor: organizePhase === 'thinking' ? 'default' : 'pointer',
-                    }}
-                  >
-                    {organizePhase === 'thinking' ? 'THINKING…' : 'ANALYZE →'}
-                  </button>
-                </div>
-                {organizeError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{organizeError}</span>}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* LEFT — spacer */}
+        <div />
 
         {/* RIGHT — CURATE + PREVIEW */}
         <div className="flex items-start gap-2">
           {/* Curate */}
-          <div className="flex flex-col gap-1" style={{ maxWidth: 260 }}>
+          <div className="flex flex-col gap-1" style={{ maxWidth: 300 }}>
             <button
               onClick={() => setCurateOpen((v) => !v)}
               style={{
-                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-                color: curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.greenDim,
-                border: `1px solid ${curateOpen ? T.green : curatePhase === 'error' ? T.warn : curateResult ? T.green : T.border}`,
-                background: T.bg, padding: '5px 14px', cursor: 'pointer',
+                fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.04em',
+                color: curateOpen ? P.text : curatePhase === 'error' ? '#ef4444' : curateResult ? P.text : P.textMuted,
+                border: `1px solid ${curateOpen ? P.rule : curatePhase === 'error' ? '#ef4444' : curateResult ? P.textMuted : P.border}`,
+                borderRadius: 3, background: P.bg, padding: '5px 16px', cursor: 'pointer',
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { if (!curateOpen) { (e.currentTarget as HTMLElement).style.color = curateResult ? T.green : T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = curateResult ? T.green : T.border } }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted; (e.currentTarget as HTMLElement).style.color = P.text }}
+              onMouseLeave={(e) => { if (!curateOpen) { (e.currentTarget as HTMLElement).style.borderColor = curateResult ? P.textMuted : P.border; (e.currentTarget as HTMLElement).style.color = curateResult ? P.text : P.textMuted } }}
             >
               {curateLabel}
             </button>
 
             {curateOpen && (
-              <div style={{ width: '100%', background: T.bg, border: `1px solid ${T.border}`, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.1em', lineHeight: 1.5 }}>
-                  PASTE A JOB DESCRIPTION. HAIKU WILL REORDER YOUR BULLETS AND SURFACE KEYWORD MATCHES — NO REWRITING.
+              <div style={{ width: '100%', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 3, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+                <div style={{ fontFamily: CV_FONT.family, fontSize: 11, color: P.textMuted, lineHeight: 1.5 }}>
+                  Paste a job description. Haiku will reorder your bullets and surface keyword matches — no rewriting.
                 </div>
                 <textarea
                   value={curateText}
@@ -1068,33 +907,35 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
                   placeholder="Paste job description here…"
                   rows={6}
                   style={{
-                    fontFamily: 'monospace', fontSize: 11, color: T.green, background: '#050505',
-                    border: `1px solid ${T.border}`, padding: '6px 8px', resize: 'vertical',
-                    outline: 'none', caretColor: T.green, lineHeight: 1.5,
+                    fontFamily: CV_FONT.family, fontSize: 13, color: P.text, background: '#f9fafb',
+                    border: `1px solid ${P.border}`, borderRadius: 3, padding: '6px 8px', resize: 'vertical',
+                    outline: 'none', lineHeight: 1.5,
                   }}
                 />
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => { setCurateOpen(false); setCurateText('') }}
-                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '4px 10px', cursor: 'pointer' }}
+                    style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '4px 12px', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.border }}
                   >
-                    CANCEL
+                    Cancel
                   </button>
                   <button
                     disabled={curatePhase === 'thinking' || !curateText.trim()}
                     onClick={() => handleCurate()}
                     style={{
-                      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
-                      color: curatePhase === 'thinking' ? T.green : T.bg,
-                      background: curatePhase === 'thinking' ? 'transparent' : T.green,
-                      border: `1px solid ${T.green}`,
-                      padding: '4px 10px', cursor: curatePhase === 'thinking' ? 'default' : 'pointer',
+                      fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em',
+                      color: curatePhase === 'thinking' ? P.textMuted : P.bg,
+                      background: curatePhase === 'thinking' ? 'transparent' : P.text,
+                      border: `1px solid ${curatePhase === 'thinking' ? P.border : P.text}`,
+                      borderRadius: 3, padding: '4px 12px', cursor: curatePhase === 'thinking' ? 'default' : 'pointer',
                     }}
                   >
-                    {curatePhase === 'thinking' ? 'THINKING…' : 'CURATE →'}
+                    {curatePhase === 'thinking' ? 'Thinking…' : 'Curate →'}
                   </button>
                 </div>
-                {curateError && <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn }}>{curateError}</span>}
+                {curateError && <span style={{ fontFamily: CV_FONT.family, fontSize: 12, color: '#ef4444' }}>{curateError}</span>}
               </div>
             )}
           </div>
@@ -1103,81 +944,44 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
           <button
             onClick={() => setPreviewOpen((v) => !v)}
             style={{
-              fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', width: 160,
-              color: previewOpen ? T.green : T.greenDim,
-              border: `1px solid ${previewOpen ? T.green : T.border}`,
-              background: T.bg, padding: '5px 14px', cursor: 'pointer',
+              fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.04em',
+              color: previewOpen ? P.text : P.textMuted,
+              border: `1px solid ${previewOpen ? P.rule : P.border}`,
+              borderRadius: 3, background: P.bg, padding: '5px 16px', cursor: 'pointer',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-            onMouseLeave={(e) => { if (!previewOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted; (e.currentTarget as HTMLElement).style.color = P.text }}
+            onMouseLeave={(e) => { if (!previewOpen) { (e.currentTarget as HTMLElement).style.borderColor = P.border; (e.currentTarget as HTMLElement).style.color = P.textMuted } }}
           >
-            {previewOpen ? 'EDIT' : 'PREVIEW'}
+            {previewOpen ? 'Edit' : 'Preview'}
           </button>
         </div>
       </div>
 
-      {/* ── AI usage / limit banner ──────────────────────────────────────── */}
-      {getAiProvider() === 'proxy' && (
-        <div style={{ position: 'absolute', top: 60, left: 20, right: 20, zIndex: 19, display: 'flex', alignItems: 'center', gap: 16 }}>
-          {limitHit ? (
-            <>
-              <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn, letterSpacing: '0.1em' }}>
-                // AI LIMIT REACHED — upgrade for unlimited use
-              </span>
-              <button
-                onClick={() => createCheckoutSession().catch(() => {})}
-                style={{
-                  fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em',
-                  color: T.bg, background: T.warn, border: `1px solid ${T.warn}`,
-                  padding: '3px 12px', cursor: 'pointer',
-                }}
-              >
-                {PRO_UPGRADE_CTA}
-              </button>
-            </>
-          ) : !isSubscribed && usage ? (
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em' }}>
-              <span style={{ color: T.greenDim }}>{usage.count}/{usage.limit} AI uses this month — </span>
-              <span
-                onClick={() => createCheckoutSession().catch(() => {})}
-                style={{ color: T.warn, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                upgrade for unlimited
-              </span>
-            </span>
-          ) : isSubscribed ? (
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.greenDim, letterSpacing: '0.1em' }}>
-              Pro — unlimited AI
-            </span>
-          ) : null}
-        </div>
-      )}
 
       {/* ── Staging screen ───────────────────────────────────────────────── */}
       {stagingResult && (
-        <div className="absolute inset-0" style={{ zIndex: 50, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column' }}>
+        <div className="absolute inset-0" style={{ zIndex: 50, background: 'rgba(255,255,255,0.97)', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
-          <div style={{ borderBottom: `1px solid ${T.border}`, padding: '18px 24px 14px', flexShrink: 0 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: '0.18em', color: T.green, marginBottom: 8 }}>
-              CV UPDATE STAGING
+          <div style={{ borderBottom: `1px solid ${P.border}`, padding: '18px 28px 14px', flexShrink: 0 }}>
+            <div style={{ fontFamily: CV_FONT.family, fontSize: '14pt', fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.text, marginBottom: 6 }}>
+              CV Update Staging
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, color: T.greenDim, letterSpacing: '0.06em', lineHeight: 1.6 }}>
+            <div style={{ fontFamily: CV_FONT.family, fontSize: 13, color: P.textMuted, lineHeight: 1.6 }}>
               {stagingResult.summary}
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.border, letterSpacing: '0.08em', marginTop: 6 }}>
-              TOGGLE ITEMS OR INDIVIDUAL BULLETS. ONLY CHECKED ITEMS WILL BE APPLIED.
+            <div style={{ fontFamily: CV_FONT.family, fontSize: 11, color: P.border, marginTop: 4 }}>
+              Toggle items or individual bullets — only checked items will be applied.
             </div>
           </div>
 
           {/* Change list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {stagingResult.changes.length === 0 ? (
-              <div style={{ fontFamily: 'monospace', fontSize: 14, color: T.greenDim, padding: '32px 0' }}>
+              <div style={{ fontFamily: CV_FONT.family, fontSize: 14, color: P.textMuted, padding: '32px 0' }}>
                 Nothing new found — everything is already in your CV.
               </div>
             ) : stagingResult.changes.map((change, i) => {
               const accepted = acceptedKeys.has(String(i))
-              const actionColor = change.action === 'add' ? '#34d399' : '#38bdf8'
               const bullets = ((change.data as Record<string, unknown>).bullets as string[] | undefined) ?? []
               const nonBulletFields = Object.entries(change.data).filter(([k, v]) => {
                 if (k === 'bullets') return false
@@ -1185,104 +989,126 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
                 if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0
                 return v !== '' && v !== null && v !== undefined && !k.startsWith('id')
               })
+              const sectionAccent: Record<string, string> = {
+                experience: '#f97316', education: '#22c55e', project: '#a855f7',
+                skills: '#06b6d4', summary: '#64748b', certification: '#ec4899',
+                award: '#eab308', mainInfo: '#3b82f6',
+              }
+              const accent = sectionAccent[change.section] ?? P.rule
+              const sectionTitle: Record<string, string> = {
+                experience: 'EXPERIENCE', education: 'EDUCATION', project: 'PROJECT',
+                skills: 'SKILLS', summary: 'SUMMARY', certification: 'CERTIFICATION',
+                award: 'AWARD / HONOR', mainInfo: 'MAIN INFO',
+              }
               return (
-                <div key={i} style={{ marginBottom: 12, border: `1px solid ${accepted ? actionColor + '55' : T.border}`, background: accepted ? actionColor + '07' : 'transparent' }}>
-                  {/* Card header — toggle whole change */}
+                <div key={i} style={{ background: P.bg, border: `1px solid ${P.border}`, borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', fontFamily: CV_FONT.family, opacity: accepted ? 1 : 0.5, transition: 'opacity 150ms' }}>
+                  {/* Header — mirrors CVCard header row */}
                   <div
+                    className="flex items-center px-5 pt-4 pb-3 cursor-pointer"
+                    style={{ borderBottom: `2px solid ${accent}` }}
                     onClick={() => toggleChange(i, bullets)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}
                   >
+                    {/* Checkbox */}
                     <div style={{
-                      width: 16, height: 16, flexShrink: 0,
-                      border: `1px solid ${accepted ? actionColor : T.border}`,
-                      background: accepted ? actionColor : 'transparent',
+                      width: 15, height: 15, flexShrink: 0, borderRadius: 2, marginRight: 10,
+                      border: `1.5px solid ${accepted ? accent : P.border}`,
+                      background: accepted ? accent : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 150ms, border-color 150ms',
                     }}>
-                      {accepted && <span style={{ color: '#000', fontSize: 11, fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
+                      {accepted && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                     </div>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', color: actionColor, flexShrink: 0 }}>
-                      {change.action.toUpperCase()}
+                    {/* Section title */}
+                    <span style={{ fontFamily: CV_FONT.family, fontSize: CV_FONT.section, fontVariant: 'small-caps', letterSpacing: '0.03em', fontWeight: 'normal', color: P.text }}>
+                      {sectionTitle[change.section] ?? change.section.toUpperCase()}
                     </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.1em', color: T.greenDim, flexShrink: 0 }}>
-                      {change.section.toUpperCase()}
+                    {/* Label / summary */}
+                    <span className="truncate" style={{ fontSize: CV_FONT.body, color: P.textMuted, marginLeft: 8 }}>
+                      — {change.label}
                     </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 14, color: T.green, letterSpacing: '0.05em', fontWeight: 'bold' }}>
-                      {change.label}
+                    {/* Add/Merge badge */}
+                    <span style={{ marginLeft: 'auto', fontSize: 11, fontVariant: 'small-caps', letterSpacing: '0.06em', color: accent, flexShrink: 0 }}>
+                      {change.action}
                     </span>
+                    <span style={{ color: P.textMuted, fontSize: CV_FONT.body, flexShrink: 0, marginLeft: 8 }}>▾</span>
                   </div>
 
-                  {/* Non-bullet fields */}
-                  {nonBulletFields.length > 0 && (
-                    <div style={{ padding: '0 14px 8px 42px', display: 'flex', flexWrap: 'wrap', gap: '2px 16px' }}>
-                      {nonBulletFields.map(([k, v]) => (
-                        <span key={k} style={{ fontFamily: 'monospace', fontSize: 12, color: T.greenDim, lineHeight: 1.8 }}>
-                          <span style={{ color: T.border }}>{k}: </span>{String(v)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Bullets — each individually toggleable */}
-                  {bullets.length > 0 && (
-                    <div style={{ padding: '0 14px 10px 42px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.border, letterSpacing: '0.1em', marginBottom: 2 }}>BULLETS</div>
-                      {bullets.map((bullet, bi) => {
-                        const bulletAccepted = acceptedKeys.has(`${i}.bullet.${bi}`)
-                        return (
-                          <div
-                            key={bi}
-                            onClick={(e) => { e.stopPropagation(); toggleBullet(i, bi) }}
-                            style={{
-                              display: 'flex', alignItems: 'flex-start', gap: 10,
-                              padding: '6px 10px',
-                              border: `1px solid ${bulletAccepted ? actionColor + '44' : T.border}`,
-                              background: bulletAccepted ? actionColor + '09' : 'transparent',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{
-                              width: 13, height: 13, marginTop: 2, flexShrink: 0,
-                              border: `1px solid ${bulletAccepted ? actionColor : T.border}`,
-                              background: bulletAccepted ? actionColor : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                              {bulletAccepted && <span style={{ color: '#000', fontSize: 9, fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
-                            </div>
-                            <span style={{ fontFamily: 'monospace', fontSize: 13, color: bulletAccepted ? T.green : T.greenDim, lineHeight: 1.5 }}>
-                              {bullet}
-                            </span>
+                  {/* Body — mirrors CVCard body */}
+                  <div className="flex flex-col gap-4 px-5 py-4">
+                    {/* Non-bullet fields as label/value pairs */}
+                    {nonBulletFields.length > 0 && (
+                      <div className="flex flex-wrap" style={{ gap: '4px 24px' }}>
+                        {nonBulletFields.map(([k, v]) => (
+                          <div key={k}>
+                            <div style={{ fontFamily: CV_FONT.family, fontSize: CV_FONT.label, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.textMuted, marginBottom: 2 }}>{k}</div>
+                            <div style={{ fontFamily: CV_FONT.family, fontSize: CV_FONT.body, color: P.text }}>{String(v)}</div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Bullets — individually toggleable, styled like ExperienceCard bullets */}
+                    {bullets.length > 0 && (
+                      <div className="flex flex-col">
+                        <div style={{ fontFamily: CV_FONT.family, fontSize: CV_FONT.label, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.textMuted, marginBottom: 6 }}>Bullets</div>
+                        <div className="flex flex-col" style={{ gap: 6 }}>
+                          {bullets.map((bullet, bi) => {
+                            const bulletAccepted = acceptedKeys.has(`${i}.bullet.${bi}`)
+                            return (
+                              <div
+                                key={bi}
+                                onClick={(e) => { e.stopPropagation(); toggleBullet(i, bi) }}
+                                className="flex items-start"
+                                style={{ gap: 8, cursor: 'pointer', padding: '4px 6px', borderRadius: 3, background: bulletAccepted ? '#f9fafb' : 'transparent', border: `1px solid ${bulletAccepted ? P.border : 'transparent'}`, transition: 'background 150ms' }}
+                              >
+                                {/* Bullet checkbox */}
+                                <div style={{
+                                  width: 13, height: 13, marginTop: 3, flexShrink: 0, borderRadius: 2,
+                                  border: `1.5px solid ${bulletAccepted ? accent : P.border}`,
+                                  background: bulletAccepted ? accent : 'transparent',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'background 150ms, border-color 150ms',
+                                }}>
+                                  {bulletAccepted && <span style={{ color: '#fff', fontSize: 8, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                                </div>
+                                <span style={{ color: P.textMuted, fontSize: CV_FONT.body, lineHeight: 1.5, flexShrink: 0 }}>•</span>
+                                <span style={{ fontFamily: CV_FONT.family, fontSize: CV_FONT.body, color: P.text, lineHeight: 1.5, opacity: bulletAccepted ? 1 : 0.45 }}>
+                                  {bullet}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             })}
           </div>
 
           {/* Footer */}
-          <div style={{ borderTop: `1px solid ${T.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ borderTop: `1px solid ${P.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             <button
               onClick={() => { setStagingResult(null); setAcceptedKeys(new Set()) }}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+              style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border }}
             >
-              DISCARD ALL
+              Discard All
             </button>
             <button
               disabled={acceptedChangesCount() === 0}
               onClick={acceptStaging}
               style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em',
-                color: acceptedChangesCount() === 0 ? T.border : '#000',
-                background: acceptedChangesCount() === 0 ? 'transparent' : T.green,
-                border: `1px solid ${acceptedChangesCount() === 0 ? T.border : T.green}`,
-                padding: '7px 20px', cursor: acceptedChangesCount() === 0 ? 'default' : 'pointer',
+                fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em',
+                color: acceptedChangesCount() === 0 ? P.border : P.bg,
+                background: acceptedChangesCount() === 0 ? 'transparent' : P.text,
+                border: `1px solid ${acceptedChangesCount() === 0 ? P.border : P.text}`,
+                borderRadius: 3, padding: '7px 20px', cursor: acceptedChangesCount() === 0 ? 'default' : 'pointer',
               }}
             >
-              APPLY {acceptedChangesCount() > 0 ? `(${acceptedChangesCount()})` : ''}
+              Apply{acceptedChangesCount() > 0 ? ` (${acceptedChangesCount()})` : ''}
             </button>
           </div>
         </div>
@@ -1306,41 +1132,32 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
 
       {/* ── Curate result panel ─────────────────────────────────────────── */}
       {curateResult && (
-        <div className="absolute inset-0" style={{ zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
-          <div style={{ borderBottom: `1px solid ${T.border}`, padding: '18px 24px 14px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: '0.18em', color: T.green }}>
-                CURATED VIEW
+        <CanvasShell
+          title="CURATED VIEW"
+          headerRight={<>
+            {overflowLines > 0 && (
+              <div style={{ fontFamily: CV_FONT.family, fontSize: 12, textAlign: 'right', color: '#ef4444' }}>
+                <div>⚠ Page overflow</div>
+                <div style={{ fontSize: 11, marginTop: 2, color: '#fca5a5' }}>Shorten by ~{overflowLines} line{overflowLines !== 1 ? 's' : ''}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
-                {overflowLines > 0 && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.1em', textAlign: 'right', color: T.warn }}>
-                    <div>⚠ PAGE OVERFLOW</div>
-                    <div style={{ fontSize: 9, marginTop: 2, color: T.warn + 'aa' }}>SHORTEN BY ~{overflowLines} LINE{overflowLines !== 1 ? 'S' : ''}</div>
-                  </div>
-                )}
-                {(() => {
-                  const total = curateResult.matchedKeywords.length
-                  const score = total > 0 ? Math.round((liveMatchScore / total) * 100) : 0
-                  const color = score >= 70 ? T.green : score >= 40 ? '#facc15' : T.warn
-                  return (
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', textAlign: 'right' }}>
-                      <span style={{ color: T.greenDim }}>KEYWORD MATCH SCORE </span>
-                      <span style={{ fontSize: 22, color, fontWeight: 'bold' }}>{score}</span>
-                      <span style={{ color: T.greenDim, fontSize: 13 }}>%</span>
-                    </div>
-                  )
-                })()}
-              </div>
+            )}
+            {(() => {
+              const total = curateResult.matchedKeywords.length
+              const score = total > 0 ? Math.round((liveMatchScore / total) * 100) : 0
+              const color = score >= 70 ? '#059669' : score >= 40 ? '#d97706' : '#ef4444'
+              return (
+                <div style={{ fontFamily: CV_FONT.family, fontSize: 12, textAlign: 'right', color: P.textMuted }}>
+                  Keyword match{' '}
+                  <span style={{ fontSize: 22, color, fontWeight: 'bold' }}>{score}</span>
+                  <span style={{ fontSize: 13 }}>%</span>
+                </div>
+              )
+            })()}
+          </>}
+          headerExtra={<>
+            <div style={{ fontFamily: CV_FONT.family, fontSize: 12, color: P.textMuted, marginBottom: 10 }}>
+              {liveMatchScore}/{curateResult.matchedKeywords.length} keywords matched
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', marginBottom: 10 }}>
-              <span style={{ color: T.green, flexShrink: 0 }}>
-                {liveMatchScore}/{curateResult.matchedKeywords.length} KEYWORDS
-              </span>
-            </div>
-
-            {/* Keywords — green = found in bullets, orange = missing */}
             {curateResult.matchedKeywords.length > 0 && curatedContent && (() => {
               const c = curatedContent
               const allText = [
@@ -1354,7 +1171,7 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
                   {curateResult.matchedKeywords.map((kw) => {
                     const hit = allText.includes(kw.toLowerCase())
                     return (
-                      <span key={kw} style={{ fontFamily: 'monospace', fontSize: 10, color: hit ? T.green : T.warn, border: `1px solid ${hit ? T.green : T.warn}33`, padding: '1px 7px' }}>
+                      <span key={kw} style={{ fontFamily: CV_FONT.family, fontSize: 11, color: hit ? '#059669' : '#ef4444', background: hit ? '#f0fdf4' : '#fef2f2', border: `1px solid ${hit ? '#bbf7d0' : '#fecaca'}`, borderRadius: 3, padding: '1px 7px' }}>
                         {kw}
                       </span>
                     )
@@ -1362,8 +1179,62 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
                 </div>
               )
             })()}
-          </div>
-
+          </>}
+          footer={<>
+            <button
+              onClick={() => { playCloseBlip(); setCurateResult(null); setCuratedContent(null); setCuratedOrder([]); resetSaveState() }}
+              style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border }}
+            >
+              Close
+            </button>
+            <button
+              onClick={() => setScanOpen((v) => { const next = !v; localStorage.setItem('cv-scan-open', String(next)); return next })}
+              style={{
+                fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px', cursor: 'pointer',
+                color: scanOpen ? P.text : P.textMuted,
+                border: `1px solid ${scanOpen ? P.textMuted : P.border}`,
+                borderRadius: 3, background: 'none',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted }}
+              onMouseLeave={(e) => { if (!scanOpen) { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border } }}
+            >
+              6-Sec Scan
+            </button>
+            <button
+              onClick={handleQuickWins}
+              disabled={quickWinsPhase === 'thinking'}
+              style={{
+                fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px', cursor: quickWinsPhase === 'thinking' ? 'default' : 'pointer',
+                color: quickWinsPhase === 'error' ? '#ef4444' : P.textMuted,
+                border: `1px solid ${quickWinsPhase === 'error' ? '#ef4444' : P.border}`,
+                borderRadius: 3, background: 'none',
+              }}
+              onMouseEnter={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted } }}
+              onMouseLeave={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border } }}
+            >
+              {quickWinsPhase === 'thinking' ? 'Thinking…' : quickWinsPhase === 'error' ? 'Error' : 'Quick Wins ✦'}
+            </button>
+            <button
+              onClick={handlePrintCurated}
+              style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border }}
+            >
+              Download PDF
+            </button>
+            {savePhase === 'saving' && (
+              <span style={{ fontFamily: CV_FONT.family, fontSize: 12, color: P.textMuted }}>Saving…</span>
+            )}
+            {savePhase === 'saved' && (
+              <span style={{ fontFamily: CV_FONT.family, fontSize: 12, color: '#059669' }}>Saved ✓</span>
+            )}
+            {savePhase === 'error' && (
+              <span style={{ fontFamily: CV_FONT.family, fontSize: 12, color: '#ef4444' }}>Save failed</span>
+            )}
+          </>}
+        >
           {/* 6-second scan overlay — fixed to the paper element, never scrolls */}
           {scanOpen && panelRect && (
             <div style={{
@@ -1386,220 +1257,290 @@ export default function CVCanvas({ visible, userName, userId, initialCurateText,
               <div style={{ position: 'absolute', top: '38%', left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)' }} />
             </div>
           )}
-
-          {/* Live editable preview */}
           {curatedContent && (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              <CVRenderer
-                ref={curatedRendererRef}
-                content={curatedContent}
-                sectionOrder={curatedOrder}
-                keywords={curateResult.matchedKeywords}
-                onOverflowChange={setOverflowLines}
-                onOrderChange={setCuratedOrder}
-                onChange={(evt: ContentChangeEvent) => {
-                  setCuratedContent((prev) => {
-                    if (!prev) return prev
-                    if (evt.type === 'mainInfo')      return { ...prev, mainInfo: { ...prev.mainInfo, ...evt.data } }
-                    if (evt.type === 'summary')       return { ...prev, summaries:      prev.summaries.map((s) => s.id === evt.id ? { ...s, ...evt.data } : s) }
-                    if (evt.type === 'experience')    return { ...prev, experiences:    prev.experiences.map((e) => e.id === evt.id ? { ...e, ...evt.data } : e) }
-                    if (evt.type === 'education')     return { ...prev, educations:     prev.educations.map((e) => e.id === evt.id ? { ...e, ...evt.data } : e) }
-                    if (evt.type === 'project')       return { ...prev, projects:       prev.projects.map((p) => p.id === evt.id ? { ...p, ...evt.data } : p) }
-                    if (evt.type === 'certification') return { ...prev, certifications: prev.certifications.map((c) => c.id === evt.id ? { ...c, ...evt.data } : c) }
-                    if (evt.type === 'award')         return { ...prev, awards:         prev.awards.map((a) => a.id === evt.id ? { ...a, ...evt.data } : a) }
-                    if (evt.type === 'skills')        return { ...prev, skills: prev.skills ? { ...prev.skills, ...evt.data } : null }
-                    return prev
-                  })
-                }}
-              />
-            </div>
+            <CVRenderer
+              ref={curatedRendererRef}
+              content={curatedContent}
+              sectionOrder={curatedOrder}
+              keywords={curateResult.matchedKeywords}
+              onOverflowChange={setOverflowLines}
+              onOrderChange={setCuratedOrder}
+              onChange={(evt: ContentChangeEvent) => {
+                setCuratedContent((prev) => {
+                  if (!prev) return prev
+                  if (evt.type === 'mainInfo')      return { ...prev, mainInfo: { ...prev.mainInfo, ...evt.data } }
+                  if (evt.type === 'summary')       return { ...prev, summaries:      prev.summaries.map((s) => s.id === evt.id ? { ...s, ...evt.data } : s) }
+                  if (evt.type === 'experience')    return { ...prev, experiences:    prev.experiences.map((e) => e.id === evt.id ? { ...e, ...evt.data } : e) }
+                  if (evt.type === 'education')     return { ...prev, educations:     prev.educations.map((e) => e.id === evt.id ? { ...e, ...evt.data } : e) }
+                  if (evt.type === 'project')       return { ...prev, projects:       prev.projects.map((p) => p.id === evt.id ? { ...p, ...evt.data } : p) }
+                  if (evt.type === 'certification') return { ...prev, certifications: prev.certifications.map((c) => c.id === evt.id ? { ...c, ...evt.data } : c) }
+                  if (evt.type === 'award')         return { ...prev, awards:         prev.awards.map((a) => a.id === evt.id ? { ...a, ...evt.data } : a) }
+                  if (evt.type === 'skills')        return { ...prev, skills: prev.skills ? { ...prev.skills, ...evt.data } : null }
+                  return prev
+                })
+              }}
+            />
           )}
-
-          {/* Footer */}
-          <div style={{ borderTop: `1px solid ${T.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
-            <button
-              onClick={() => { setCurateResult(null); setCuratedContent(null); setCuratedOrder([]); resetSaveState() }}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              CLOSE
-            </button>
-
-            <button
-              onClick={() => setScanOpen((v) => { const next = !v; localStorage.setItem('cv-scan-open', String(next)); return next })}
-              style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
-                color: scanOpen ? T.green : T.greenDim,
-                border: `1px solid ${scanOpen ? T.green : T.border}`,
-                background: 'none',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { if (!scanOpen) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-            >
-              6-SEC SCAN
-            </button>
-
-            <button
-              onClick={handleQuickWins}
-              disabled={quickWinsPhase === 'thinking'}
-              style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: quickWinsPhase === 'thinking' ? 'default' : 'pointer',
-                color: quickWinsPhase === 'error' ? T.warn : quickWinsPhase === 'thinking' ? T.green : T.greenDim,
-                border: `1px solid ${quickWinsPhase === 'error' ? T.warn : quickWinsPhase === 'thinking' ? T.green : T.border}`,
-                background: 'none',
-              }}
-              onMouseEnter={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
-              onMouseLeave={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-            >
-              {quickWinsPhase === 'thinking' ? 'THINKING…' : quickWinsPhase === 'error' ? 'ERROR' : 'QUICK WINS ✦'}
-            </button>
-
-            <button
-              onClick={handlePrintCurated}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              DOWNLOAD PDF
-            </button>
-
-            {savePhase === 'saving' && (
-              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>
-            )}
-            {savePhase === 'saved' && (
-              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.green }}>SAVED ✓</span>
-            )}
-            {savePhase === 'error' && (
-              <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.warn }}>SAVE FAILED</span>
-            )}
-
-          </div>
-        </div>
+        </CanvasShell>
       )}
 
       {/* ── Editor ──────────────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-y-auto" style={{ display: previewOpen ? 'none' : 'block' }}>
         <div className="mx-auto flex flex-col gap-2 px-4 pb-8" style={{ width: 'min(72vw, 860px)', paddingTop: 100 }}>
 
-          {userName && (
-            <div className="flex justify-center pointer-events-none mb-6">
-              <span
-                className="cv-title-3d select-none"
+          {/* Drop zone */}
+          <input
+            ref={dropZoneInputRef}
+            type="file"
+            accept=".pdf,.docx,.txt"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) handleDropFile(file)
+            }}
+          />
+          <div
+            className="mb-6 w-full"
+            onClick={() => { if (importPhase === 'idle') dropZoneInputRef.current?.click() }}
+            onDragOver={(e) => { e.preventDefault(); if (importPhase === 'idle') setDropActive(true) }}
+            onDragEnter={(e) => { e.preventDefault(); if (importPhase === 'idle') setDropActive(true) }}
+            onDragLeave={() => setDropActive(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDropActive(false)
+              const file = e.dataTransfer.files?.[0]
+              if (file) handleDropFile(file)
+            }}
+            style={{
+              background: dropActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
+              border: `1px dashed ${importPhase === 'error' ? 'rgba(252,165,165,0.4)' : dropActive ? 'rgba(156,163,175,0.5)' : 'rgba(229,231,235,0.35)'}`,
+              borderRadius: 4,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+              cursor: importPhase !== 'idle' ? 'default' : 'pointer',
+              transition: 'border-color 150ms, background 150ms',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '32px 0',
+              userSelect: 'none',
+            }}
+          >
+            {/* + icon */}
+            <span style={{
+              fontFamily: "'Carlito', 'Calibri', sans-serif",
+              fontSize: 28,
+              lineHeight: 1,
+              color: importPhase === 'error' ? 'rgba(252,165,165,0.35)' : importPhase !== 'idle' ? 'rgba(156,163,175,0.35)' : dropActive ? 'rgba(107,114,128,0.35)' : 'rgba(209,213,219,0.35)',
+              transition: 'color 150ms',
+            }}>
+              +
+            </span>
+            <span style={{
+              fontFamily: "'Carlito', 'Calibri', sans-serif",
+              fontSize: 13,
+              fontVariant: 'small-caps',
+              letterSpacing: '0.06em',
+              color: importPhase === 'error' ? 'rgba(252,165,165,0.35)' : importPhase !== 'idle' ? 'rgba(156,163,175,0.35)' : dropActive ? 'rgba(107,114,128,0.35)' : 'rgba(209,213,219,0.35)',
+              transition: 'color 150ms',
+            }}>
+              {importPhase === 'parsing' ? 'Parsing…' : importPhase === 'thinking' ? 'Thinking…' : importPhase === 'error' ? (importError ?? 'Error') : 'Drag Resumes, Project Descriptions, Skills Here'}
+            </span>
+            {importPhase === 'idle' && !importError && (
+              <span style={{
+                fontFamily: "'Carlito', 'Calibri', sans-serif",
+                fontSize: 11,
+                color: 'rgba(229,231,235,0.25)',
+                letterSpacing: '0.04em',
+              }}>
+                PDF · DOCX · TXT
+              </span>
+            )}
+          </div>
+
+      
+
+          {/* Main Info — always locked to top, no drag handle */}
+          <MainInfoCard data={mainInfo} collapsed={collapsed.main ?? false} onChange={setMainInfo} onToggleCollapse={() => toggleCollapse('main')} />
+
+          {/* Draggable sections — rendered in sectionOrder */}
+          {sectionOrder.filter((id) => id !== 'main').map((id) => {
+            const sum  = summaries.find((s) => s.id === id)
+            const edu  = educations.find((e) => e.id === id)
+            const exp  = experiences.find((e) => e.id === id)
+            const proj = projects.find((p) => p.id === id)
+            const cert = certifications.find((c) => c.id === id)
+            const awd  = awards.find((a) => a.id === id)
+            const isSkills = id === 'skills'
+            if (!sum && !edu && !exp && !proj && !cert && !awd && !isSkills) return null
+
+            const isDragging = dragId === id
+            const isOver     = dragOverId === id
+
+            return (
+              <div
+                key={id}
+                draggable
+                onDragStart={(e) => {
+                  if (!dragFromHandle.current) { e.preventDefault(); return }
+                  setDragId(id)
+                  e.dataTransfer.effectAllowed = 'move'
+                }}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); dragFromHandle.current = false }}
+                onDragOver={(e) => { e.preventDefault(); if (dragId && dragId !== id) setDragOverId(id) }}
+                onDragLeave={() => { if (dragOverId === id) setDragOverId(null) }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (!dragId || dragId === id) return
+                  const next = sectionOrder.filter((x) => x !== dragId)
+                  const idx  = next.indexOf(id)
+                  next.splice(idx, 0, dragId)
+                  setSectionOrder(next)
+                  setDragId(null)
+                  setDragOverId(null)
+                }}
                 style={{
-                  fontFamily: 'monospace', fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', fontWeight: 700,
-                  letterSpacing: '0.18em', color: T.green, textTransform: 'uppercase',
-                  textShadow: [
-                    '1px 1px 0 #1a7a06', '2px 2px 0 #166604', '3px 3px 0 #124f03',
-                    '4px 4px 0 #0d3a02', '5px 5px 0 #092601',
-                    '6px 6px 12px rgba(0,0,0,0.8)',
-                    '0 0 20px rgba(57,255,20,0.15)', '0 0 50px rgba(57,255,20,0.06)',
-                  ].join(', '),
+                  position: 'relative',
+                  opacity: isDragging ? 0.4 : 1,
+                  outline: isOver ? `2px solid ${P.textMuted}` : 'none',
+                  outlineOffset: 2,
+                  borderRadius: 4,
+                  transition: 'opacity 150ms',
                 }}
               >
-                {userName}
-              </span>
+                {/* Drag handle — sits outside the card, left-aligned */}
+                <div
+                  onMouseDown={() => { dragFromHandle.current = true }}
+                  onMouseUp={() => { dragFromHandle.current = false }}
+                  title="Drag to reorder"
+                  style={{
+                    position: 'absolute', left: -22, top: 0, bottom: 0,
+                    width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'grab', color: P.border, userSelect: 'none', fontSize: 14,
+                  }}
+                >
+                  ⠿
+                </div>
+                {sum && <SummaryCard data={sum} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Summary) => setSummaries(summaries.map((s) => s.id === u.id ? u : s))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setSummaries(summaries.filter((s) => s.id !== id))} />}
+                {edu && <EducationCard data={edu} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Education) => setEducations(educations.map((e) => e.id === u.id ? u : e))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setEducations(educations.filter((e) => e.id !== id))} />}
+                {exp && <ExperienceCard data={exp} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Experience) => setExperiences(experiences.map((e) => e.id === u.id ? u : e))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setExperiences(experiences.filter((e) => e.id !== id))} />}
+                {proj && <ProjectCard data={proj} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Project) => setProjects(projects.map((p) => p.id === u.id ? u : p))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setProjects(projects.filter((p) => p.id !== id))} />}
+                {isSkills && skills && <SkillsBucketCard data={skills} collapsed={collapsed.skills ?? false}
+                  onChange={(u: SkillsBucket) => setSkills(u)}
+                  onToggleCollapse={() => toggleCollapse('skills')}
+                  onDelete={() => setSkills(null)} />}
+                {cert && <CertificationCard data={cert} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Certification) => setCertifications(certifications.map((c) => c.id === u.id ? u : c))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setCertifications(certifications.filter((c) => c.id !== id))} />}
+                {awd && <AwardCard data={awd} collapsed={collapsed[id] ?? false}
+                  onChange={(u: Award) => setAwards(awards.map((a) => a.id === u.id ? u : a))}
+                  onToggleCollapse={() => toggleCollapse(id)}
+                  onDelete={() => setAwards(awards.filter((a) => a.id !== id))} />}
+              </div>
+            )
+          })}
+
+          {/* Add Section button */}
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={() => setNewMenuOpen(true)}
+              style={{
+                fontFamily: "'Carlito', 'Calibri', sans-serif",
+                fontSize: 14,
+                fontVariant: 'small-caps',
+                letterSpacing: '0.03em',
+                color: '#111827',
+                border: '1px solid #e5e7eb',
+                borderRadius: 3,
+                background: '#ffffff',
+                padding: '5px 14px',
+                cursor: 'pointer',
+              }}
+            >
+              Add Section
+            </button>
+          </div>
+
+          {/* Add Section modal */}
+          {newMenuOpen && (
+            <div
+              className="fixed inset-0 flex items-center justify-center"
+              style={{ zIndex: 50, background: 'rgba(0,0,0,0.25)' }}
+              onClick={() => setNewMenuOpen(false)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 6,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                  minWidth: 280,
+                  fontFamily: "'Carlito', 'Calibri', sans-serif",
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ padding: '16px 20px 12px', borderBottom: '0.5pt solid #111827' }}>
+                  <span style={{ fontSize: '14pt', fontVariant: 'small-caps', letterSpacing: '0.03em', color: '#111827' }}>
+                    Add Section
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {NEW_ITEMS.map((item) => {
+                    const disabled = item === 'Skills' && skills !== null
+                    return (
+                      <button key={item} disabled={disabled}
+                        onClick={() => {
+                          if (item === 'Summary')            spawnSummary()
+                          else if (item === 'Experience')    spawnExperience()
+                          else if (item === 'Education')     spawnEducation()
+                          else if (item === 'Project')       spawnProject()
+                          else if (item === 'Skills')        spawnSkills()
+                          else if (item === 'Certification') spawnCertification()
+                          else if (item === 'Award')         spawnAward()
+                          setNewMenuOpen(false)
+                        }}
+                        style={{
+                          fontFamily: "'Carlito', 'Calibri', sans-serif",
+                          fontSize: 14,
+                          fontVariant: 'small-caps',
+                          letterSpacing: '0.03em',
+                          color: disabled ? '#d1d5db' : '#6b7280',
+                          background: 'transparent',
+                          border: 'none',
+                          borderBottom: '1px solid #f3f4f6',
+                          padding: '12px 20px',
+                          textAlign: 'left',
+                          cursor: disabled ? 'default' : 'pointer',
+                          width: '100%',
+                        }}
+                        onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = '#111827' }}
+                        onMouseLeave={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = '#6b7280' }}
+                      >
+                        {item}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
-          <MainInfoCard data={mainInfo} collapsed={collapsed.main ?? false} onChange={setMainInfo} onToggleCollapse={() => toggleCollapse('main')} />
-
-          {summaries.map((sum) => (
-            <SummaryCard key={sum.id} data={sum} collapsed={collapsed[sum.id] ?? false}
-              onChange={(updated: Summary) => setSummaries(summaries.map((s) => s.id === updated.id ? updated : s))}
-              onToggleCollapse={() => toggleCollapse(sum.id)}
-              onDelete={() => setSummaries(summaries.filter((s) => s.id !== sum.id))} />
-          ))}
-
-          {educations.map((edu) => (
-            <EducationCard key={edu.id} data={edu} collapsed={collapsed[edu.id] ?? false}
-              onChange={(updated: Education) => setEducations(educations.map((e) => e.id === updated.id ? updated : e))}
-              onToggleCollapse={() => toggleCollapse(edu.id)}
-              onDelete={() => setEducations(educations.filter((e) => e.id !== edu.id))} />
-          ))}
-
-          {experiences.map((exp) => (
-            <ExperienceCard key={exp.id} data={exp} collapsed={collapsed[exp.id] ?? false}
-              onChange={(updated: Experience) => setExperiences(experiences.map((e) => e.id === updated.id ? updated : e))}
-              onToggleCollapse={() => toggleCollapse(exp.id)}
-              onDelete={() => setExperiences(experiences.filter((e) => e.id !== exp.id))} />
-          ))}
-
-          {projects.map((proj) => (
-            <ProjectCard key={proj.id} data={proj} collapsed={collapsed[proj.id] ?? false}
-              onChange={(updated: Project) => setProjects(projects.map((p) => p.id === updated.id ? updated : p))}
-              onToggleCollapse={() => toggleCollapse(proj.id)}
-              onDelete={() => setProjects(projects.filter((p) => p.id !== proj.id))} />
-          ))}
-
-          {skills && (
-            <SkillsBucketCard data={skills} collapsed={collapsed.skills ?? false}
-              onChange={(updated: SkillsBucket) => setSkills(updated)}
-              onToggleCollapse={() => toggleCollapse('skills')}
-              onDelete={() => setSkills(null)} />
-          )}
-
-          {certifications.map((cert) => (
-            <CertificationCard key={cert.id} data={cert} collapsed={collapsed[cert.id] ?? false}
-              onChange={(updated: Certification) => setCertifications(certifications.map((c) => c.id === updated.id ? updated : c))}
-              onToggleCollapse={() => toggleCollapse(cert.id)}
-              onDelete={() => setCertifications(certifications.filter((c) => c.id !== cert.id))} />
-          ))}
-
-          {awards.map((awd) => (
-            <AwardCard key={awd.id} data={awd} collapsed={collapsed[awd.id] ?? false}
-              onChange={(updated: Award) => setAwards(awards.map((a) => a.id === updated.id ? updated : a))}
-              onToggleCollapse={() => toggleCollapse(awd.id)}
-              onDelete={() => setAwards(awards.filter((a) => a.id !== awd.id))} />
-          ))}
-
-          {/* NEW… button */}
-          <div className="relative mt-2">
-            <button
-              onClick={() => setNewMenuOpen((v) => !v)}
-              style={{
-                fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em',
-                color: newMenuOpen ? T.green : T.greenDim,
-                border: `1px solid ${newMenuOpen ? T.green : T.border}`,
-                background: T.bg, padding: '5px 16px', cursor: 'pointer',
-              }}
-            >
-              +
-            </button>
-
-            {newMenuOpen && (
-              <div className="absolute left-0 flex flex-col" style={{ top: 'calc(100% + 4px)', background: T.bg, border: `1px solid ${T.border}`, minWidth: 160, boxShadow: '0 0 8px rgba(57,255,20,0.06)', zIndex: 30 }}>
-                {NEW_ITEMS.map((item) => {
-                  const disabled = item === 'Skills' && skills !== null
-                  return (
-                    <button key={item} disabled={disabled}
-                      onClick={() => {
-                        if (item === 'Summary')       spawnSummary()
-                        else if (item === 'Experience')    spawnExperience()
-                        else if (item === 'Education')     spawnEducation()
-                        else if (item === 'Project')       spawnProject()
-                        else if (item === 'Skills')        spawnSkills()
-                        else if (item === 'Certification') spawnCertification()
-                        else if (item === 'Award')         spawnAward()
-                      }}
-                      style={{
-                        fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em',
-                        color: disabled ? T.border : T.greenDim,
-                        background: 'transparent', border: 'none',
-                        borderBottom: `1px solid ${T.border}`,
-                        padding: '7px 14px', textAlign: 'left',
-                        cursor: disabled ? 'default' : 'pointer',
-                      }}
-                      onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = T.green }}
-                      onMouseLeave={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = T.greenDim }}
-                    >
-                      + {item.toUpperCase()}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
