@@ -157,7 +157,7 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
   return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
-export default function CVCanvas({ visible, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose }: Props) {
+export default function CVCanvas({ visible, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose }: Props) {
   const {
     mainInfo, setMainInfo,
     experiences, setExperiences,
@@ -604,7 +604,7 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
       if (jobId) onResumeSaved?.(jobId, savedResume.id)
       pendingJobIdRef.current = null
       setSavePhase('saved')
-      setTimeout(() => { setSavePhase('idle'); onClose?.() }, 1500)
+      setTimeout(() => { setSavePhase('idle') }, 1500)
     }
   }
 

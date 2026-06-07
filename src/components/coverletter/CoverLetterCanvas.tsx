@@ -3,6 +3,8 @@ import { useCVState } from '@/hooks/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
 import { T } from '@/lib/crtTheme'
+import CanvasShell from '@/components/canvas/CanvasShell'
+import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import { insertCoverLetter, fetchCoverLetter, updateCoverLetter } from '@/services/coverLetterService'
 import { useSubscription } from '@/lib/SubscriptionContext'
 import { fetchUsage, getAiProvider } from '@/services/aiService'
@@ -177,6 +179,7 @@ export default function CoverLetterCanvas({
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
         setBody(result.trim())
+        playAiDing()
         freshGeneratedRef.current = true
         setPhase('idle')
         const kws = Array.from(
@@ -294,7 +297,7 @@ export default function CoverLetterCanvas({
       if (jobId) onLetterSaved?.(jobId, saved.id)
       pendingJobIdRef.current = null
       setSavePhase('saved')
-      setTimeout(() => { setSavePhase('idle'); onClose?.() }, 1500)
+      setTimeout(() => { setSavePhase('idle') }, 1500)
     }
   }
 
@@ -356,6 +359,16 @@ export default function CoverLetterCanvas({
     window.addEventListener('afterprint', cleanup)
     window.print()
   }
+
+  // Esc closes the result view
+  useEffect(() => {
+    if (!body) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { playCloseBlip(); setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [body, onClose])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -420,37 +433,29 @@ export default function CoverLetterCanvas({
 
       {/* ── Result view ───────────────────────────────────────────────────── */}
       {body && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' }}>
-
-          {/* Header */}
-          <div style={{ borderBottom: `1px solid ${T.border}`, padding: '18px 24px 14px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: '0.18em', color: T.green }}>
-                COVER LETTER
+        <CanvasShell
+          title="COVER LETTER"
+          headerRight={<>
+            {initialCompany && (
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.greenDim, letterSpacing: '0.1em' }}>
+                {initialCompany.toUpperCase()}
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 24 }}>
-                {initialCompany && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.greenDim, letterSpacing: '0.1em' }}>
-                    {initialCompany.toUpperCase()}
-                  </div>
-                )}
-                {keywords.length > 0 && (() => {
-                  const letterText = (body ?? '').toLowerCase()
-                  const hits = keywords.filter((kw) => letterText.includes(kw.toLowerCase())).length
-                  const score = Math.round((hits / keywords.length) * 100)
-                  const color = score >= 70 ? T.green : score >= 40 ? '#facc15' : T.warn
-                  return (
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', textAlign: 'right' }}>
-                      <span style={{ color: T.greenDim }}>KEYWORD MATCH </span>
-                      <span style={{ fontSize: 20, color, fontWeight: 'bold' }}>{score}</span>
-                      <span style={{ color: T.greenDim, fontSize: 12 }}>%</span>
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
-
-            {/* Keyword chips */}
+            )}
+            {keywords.length > 0 && (() => {
+              const letterText = (body ?? '').toLowerCase()
+              const hits = keywords.filter((kw) => letterText.includes(kw.toLowerCase())).length
+              const score = Math.round((hits / keywords.length) * 100)
+              const color = score >= 70 ? T.green : score >= 40 ? '#facc15' : T.warn
+              return (
+                <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.12em', textAlign: 'right' }}>
+                  <span style={{ color: T.greenDim }}>KEYWORD MATCH </span>
+                  <span style={{ fontSize: 20, color, fontWeight: 'bold' }}>{score}</span>
+                  <span style={{ color: T.greenDim, fontSize: 12 }}>%</span>
+                </div>
+              )
+            })()}
+          </>}
+          headerExtra={<>
             {keywords.length > 0 && (() => {
               const letterText = (body ?? '').toLowerCase()
               return (
@@ -471,8 +476,6 @@ export default function CoverLetterCanvas({
                 </div>
               )
             })()}
-
-            {/* Angle section — inline below keywords */}
             {(anglePhase !== 'idle' || angleResult) && (
               <div style={{ borderTop: `1px solid ${T.border}33`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {anglePhase === 'thinking' && (
@@ -485,16 +488,12 @@ export default function CoverLetterCanvas({
                 )}
                 {anglePhase === 'idle' && angleResult && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-
-                    {/* Recommended angle */}
                     <div style={{ minWidth: 260, flex: '2 1 260px' }}>
                       <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.14em', color: T.greenDim, marginBottom: 4 }}>ANGLE ✦</div>
                       <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.green, lineHeight: 1.6, letterSpacing: '0.04em' }}>
                         {angleResult.angle}
                       </div>
                     </div>
-
-                    {/* Talking points */}
                     <div style={{ minWidth: 200, flex: '2 1 200px' }}>
                       <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.14em', color: T.greenDim, marginBottom: 4 }}>TALKING POINTS</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -506,27 +505,68 @@ export default function CoverLetterCanvas({
                         ))}
                       </div>
                     </div>
-
-                    {/* Watch out */}
                     <div style={{ minWidth: 180, flex: '1 1 180px' }}>
                       <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.14em', color: T.greenDim, marginBottom: 4 }}>WATCH OUT FOR</div>
                       <div style={{ fontFamily: 'monospace', fontSize: 10, color: T.warn, lineHeight: 1.5, letterSpacing: '0.04em' }}>
                         {angleResult.watchOut}
                       </div>
                     </div>
-
                   </div>
                 )}
               </div>
             )}
-
             <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.greenDim, letterSpacing: '0.08em', lineHeight: 1.5, marginTop: 8 }}>
               CLICK THE TEXT TO EDIT. REGENERATE OVERWRITES THE CURRENT DRAFT.
             </div>
-          </div>
-
-          {/* Letter body */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '32px', background: '#1a1a1a' }}>
+          </>}
+          footer={<>
+            <button
+              onClick={() => { playCloseBlip(); setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.() }}
+              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+            >
+              CLOSE
+            </button>
+            <button
+              disabled={phase === 'thinking'}
+              onClick={() => handleGenerate()}
+              style={{
+                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
+                color: T.greenDim, border: `1px solid ${T.border}`, background: 'none',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+            >
+              REGENERATE
+            </button>
+            <button
+              onClick={handleCopy}
+              style={{
+                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
+                color: copied ? T.green : T.greenDim,
+                border: `1px solid ${copied ? T.green : T.border}`,
+                background: 'none',
+              }}
+              onMouseEnter={(e) => { if (!copied) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+              onMouseLeave={(e) => { if (!copied) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              {copied ? 'COPIED ✓' : 'COPY'}
+            </button>
+            <button
+              onClick={handlePrint}
+              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+            >
+              DOWNLOAD PDF
+            </button>
+            {savePhase === 'saving' && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>}
+            {savePhase === 'saved'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.green }}>SAVED ✓</span>}
+            {savePhase === 'error'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.warn }}>SAVE FAILED</span>}
+          </>}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px', background: '#1a1a1a', minHeight: '100%' }}>
             <div style={{
               fontFamily: "'Carlito', sans-serif",
               fontSize: '12pt',
@@ -550,60 +590,7 @@ export default function CoverLetterCanvas({
               {body}
             </div>
           </div>
-
-          {/* Footer */}
-          <div style={{ borderTop: `1px solid ${T.border}`, padding: '14px 28px', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
-
-            <button
-              onClick={() => { setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.() }}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              CLOSE
-            </button>
-
-            <button
-              disabled={phase === 'thinking'}
-              onClick={() => handleGenerate()}
-              style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
-                color: T.greenDim, border: `1px solid ${T.border}`, background: 'none',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              REGENERATE
-            </button>
-
-            <button
-              onClick={handleCopy}
-              style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
-                color: copied ? T.green : T.greenDim,
-                border: `1px solid ${copied ? T.green : T.border}`,
-                background: 'none',
-              }}
-              onMouseEnter={(e) => { if (!copied) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
-              onMouseLeave={(e) => { if (!copied) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-            >
-              {copied ? 'COPIED ✓' : 'COPY'}
-            </button>
-
-            <button
-              onClick={handlePrint}
-              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              DOWNLOAD PDF
-            </button>
-
-            {savePhase === 'saving' && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.greenDim }}>SAVING…</span>}
-            {savePhase === 'saved'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.green }}>SAVED ✓</span>}
-            {savePhase === 'error'  && <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', color: T.warn }}>SAVE FAILED</span>}
-          </div>
-        </div>
+        </CanvasShell>
       )}
     </div>
   )
