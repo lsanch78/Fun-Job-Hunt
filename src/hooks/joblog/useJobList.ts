@@ -34,63 +34,7 @@ function emptyJob(): Job {
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
-export interface JobListState {
-  /** Full list: [draftRow, ...committed]. Draft is always index 0. */
-  jobs: Job[]
-  /** Count of committed (persisted) jobs. */
-  committedCount: number
-
-  /**
-   * Called when the user edits any field on any row (draft or committed).
-   * For committed rows: debounces a DB update and writes the cache.
-   * For draft rows: updates local state only.
-   */
-  onDraftChange: (draft: Job) => void
-
-  /**
-   * Called when a draft row is ready to commit.
-   * Inserts into DB (optimistically), appends a fresh draft, and returns the
-   * new committed count so the page can compute "is this a mega milestone"
-   * and spawn a popup at the right pixel position.
-   *
-   * Returns null if the job cap is already reached (page should show error).
-   */
-  onCommit: (
-    committed: Job,
-    rowEl: HTMLTableRowElement | null,
-  ) => number | null
-
-  /**
-   * Persists detail-card fields (description, notes) for a single committed job.
-   * Does not touch React state — detail fields are lazy-loaded and not part of
-   * the list view.
-   */
-  updateJobDetails: (
-    jobId: string,
-    details: { description: string | null; notes: string | null },
-  ) => void
-  patchJobCuratedResume: (jobId: string, resumeId: string) => void
-  patchJobCoverLetter: (jobId: string, coverLetterId: string) => void
-
-  /**
-   * Deletes the given job IDs from DB and removes them from state + cache.
-   */
-  deleteJobs: (ids: string[]) => Promise<void>
-
-  /**
-   * One-shot add used by the mobile quick-add overlay (no draft row involved).
-   * Inserts immediately, prepends to state, and updates cache.
-   * Returns { error } — null on success, message on failure.
-   */
-  addJob: (company: string, title: string) => Promise<{ error: string | null }>
-
-  /**
-   * Ref that the page reads to auto-focus the first input of a newly spawned
-   * draft row. The hook writes the new draft's ID here on every commit; the
-   * page reads and clears it inside a `useEffect` that runs after `jobs` updates.
-   */
-  pendingFocusIdRef: React.MutableRefObject<string | null>
-}
+import type { JobListState } from '@/types'
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 // Single source of truth for every localStorage key used in the app.
 // Import SK from here — never hard-code key strings anywhere else.
 
-export type AiMode = 'ai-first' | 'human-first' | 'off'
+export type { AiMode } from '@/types'
 
 export const SK = {
   // ── Workday tracking ─────────────────────────────────────────────────────────
@@ -32,8 +32,6 @@ export const SK = {
   aiApiKey:     'fjobhunt:ai:apikey',
   aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,
   aiModalText:  (uid: string) => `fjobhunt:ai-modal-text:${uid}`,
-  aiHistory:    (uid: string) => `fjobhunt:ai-gen-history:${uid}`,
-
   // ── Theme & display ──────────────────────────────────────────────────────────
   theme:        'fjobhunt:theme',
   customColors: 'fjobhunt:custom-colors',

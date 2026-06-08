@@ -1,44 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchCV, upsertCV, type CVContent } from '@/services/cvService'
-import type { MainInfo }      from '@/components/mastercv/MainInfoCard'
-import type { Experience }    from '@/components/mastercv/ExperienceCard'
-import type { Education }     from '@/components/mastercv/EducationCard'
-import type { Project }       from '@/components/mastercv/ProjectCard'
-import type { SkillsBucket }  from '@/components/mastercv/SkillsBucketCard'
-import type { Summary }       from '@/components/mastercv/SummaryCard'
-import type { Certification } from '@/components/mastercv/CertificationCard'
-import type { Award }         from '@/components/mastercv/AwardCard'
+import { fetchCV, upsertCV } from '@/services/cvService'
+import type { CVContent, CVState, MainInfo, Experience, Education, Project, SkillsBucket, Summary, Certification, Award } from '@/types'
 
 const EMPTY_MAIN: MainInfo = {
   fullName: '', jobTitle: '', email: '', phone: '',
   location: '', website: '', linkedin: '', github: '',
-}
-
-export interface CVState {
-  mainInfo:       MainInfo
-  experiences:    Experience[]
-  educations:     Education[]
-  projects:       Project[]
-  skills:         SkillsBucket | null
-  summaries:      Summary[]
-  certifications: Certification[]
-  awards:         Award[]
-  collapsed:      Record<string, boolean>
-
-  setMainInfo:       (v: MainInfo) => void
-  setExperiences:    (v: Experience[]) => void
-  setEducations:     (v: Education[]) => void
-  setProjects:       (v: Project[]) => void
-  setSkills:         (v: SkillsBucket | null) => void
-  setSummaries:      (v: Summary[]) => void
-  setCertifications: (v: Certification[]) => void
-  setAwards:         (v: Award[]) => void
-  toggleCollapse:    (id: string) => void
-
-  cvContent:       CVContent
-  sectionOrder:    string[]
-  setSectionOrder: (v: string[] | ((prev: string[]) => string[])) => void
-  loading:         boolean
 }
 
 export function useCVState(userId: string | null | undefined): CVState {

@@ -1,12 +1,7 @@
 import { supabase } from '@/lib/supabase'
+import type { ScratchPadRecord } from '@/types'
 
-export const SCRATCH_PAD_LIMIT  = 8000
-export const SCRATCH_LIST_LIMIT = 8000
-
-export interface ScratchPadRecord {
-  notes: string
-  list:  string
-}
+export const SCRATCH_PAD_LIMIT = 8000
 
 export async function fetchScratchPad(userId: string): Promise<ScratchPadRecord | null> {
   const { data, error } = await supabase

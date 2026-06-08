@@ -1,17 +1,8 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { labelStyle, inputStyle, textareaStyle, bulletGlyphStyle, removeBtnStyle, removeBtnHoverStyle, addBtnStyle, addBtnHoverStyle } from '@/lib/CVCardTheme'
+import type { Experience } from '@/types'
 import CVCard from './CVCard'
-
-export interface Experience {
-  id: string
-  company: string
-  title: string
-  location: string
-  startDate: string
-  endDate: string       // empty string means "Present"
-  bullets: string[]
-}
 
 interface Props {
   data: Experience

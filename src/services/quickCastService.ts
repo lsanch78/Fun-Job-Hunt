@@ -1,14 +1,5 @@
 import { supabase } from '@/lib/supabase'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface QuickCastLink {
-  id: string
-  label: string
-  url: string
-  icon: string
-  position: number
-}
+import type { QuickCastLink } from '@/types'
 
 interface DbRow {
   id: string

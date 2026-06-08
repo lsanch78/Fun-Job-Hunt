@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
+import { fetchWorkdays, readWorkdayCache } from '@/services/workdayService'
+import type { WorkdayRow } from '@/types'
 import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
 import type { Job, Contact } from '@/types'

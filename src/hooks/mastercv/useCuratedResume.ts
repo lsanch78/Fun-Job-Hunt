@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes, updateCuratedResume } from '@/services/curatedResumeService'
-import type { CVContent } from '@/services/cvService'
+import type { CVContent } from '@/types'
 import type { CuratedResume } from '@/types'
 
 export function useCuratedResume(userId: string | null) {

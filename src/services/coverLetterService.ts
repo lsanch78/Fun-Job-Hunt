@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { CoverLetter } from '@/types'
 
-export const COVER_LETTER_LABEL_LIMIT = 100
+const COVER_LETTER_LABEL_LIMIT = 100
 
 interface DbCoverLetter {
   id: string
@@ -36,18 +36,6 @@ export async function fetchCoverLetter(id: string): Promise<CoverLetter | null> 
   return dbToCoverLetter(data as DbCoverLetter)
 }
 
-export async function fetchCoverLetters(userId: string): Promise<CoverLetter[]> {
-  const { data, error } = await supabase
-    .from('cover_letters')
-    .select('id,user_id,label,body,job_description,created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-  if (error) {
-    console.error('[coverLetterService] fetchCoverLetters:', error.message)
-    return []
-  }
-  return (data as DbCoverLetter[]).map(dbToCoverLetter)
-}
 
 export async function insertCoverLetter(
   userId: string,
@@ -80,8 +68,3 @@ export async function updateCoverLetter(
   return { error: error?.message ?? null }
 }
 
-export async function deleteCoverLetter(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('cover_letters').delete().eq('id', id)
-  if (error) console.error('[coverLetterService] deleteCoverLetter:', error.message)
-  return { error: error?.message ?? null }
-}

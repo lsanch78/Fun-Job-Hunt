@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-
-export interface CheckItem { id: string; text: string; done: boolean }
+import type { CheckItem } from '@/types'
 
 export function useScratchPad(userId: string | null) {
   const [tab,        setTabState]  = useState<'pad' | 'list'>(() => lsGet<string>(SK.scratchTab, 'pad') as 'pad' | 'list')

@@ -1,4 +1,4 @@
-import { XP, RANK_THRESHOLDS, RANK_TITLES, WORKDAY, STREAK, THEMES, derivedBreakMinutes } from '@/config/game'
+import { XP, RANK_THRESHOLDS, RANK_TITLES, WORKDAY, STREAK, THEMES } from '@/config/game'
 
 describe('XP constants', () => {
   it('PUNCH_IN is 10', () => expect(XP.PUNCH_IN).toBe(10))
@@ -38,32 +38,6 @@ describe('RANK_TITLES', () => {
       expect(typeof RANK_TITLES[i]).toBe('string')
       expect(RANK_TITLES[i].length).toBeGreaterThan(0)
     }
-  })
-})
-
-describe('derivedBreakMinutes', () => {
-  it('returns 0 for shifts under 4 hours', () => {
-    expect(derivedBreakMinutes(0)).toBe(0)
-    expect(derivedBreakMinutes(1)).toBe(0)
-    expect(derivedBreakMinutes(3.9)).toBe(0)
-  })
-
-  it('returns 15 for shifts 4–5.9 hours', () => {
-    expect(derivedBreakMinutes(4)).toBe(15)
-    expect(derivedBreakMinutes(5)).toBe(15)
-    expect(derivedBreakMinutes(5.9)).toBe(15)
-  })
-
-  it('returns 45 for shifts 6–7.9 hours', () => {
-    expect(derivedBreakMinutes(6)).toBe(45)
-    expect(derivedBreakMinutes(7)).toBe(45)
-    expect(derivedBreakMinutes(7.9)).toBe(45)
-  })
-
-  it('returns 90 for shifts 8+ hours', () => {
-    expect(derivedBreakMinutes(8)).toBe(90)
-    expect(derivedBreakMinutes(10)).toBe(90)
-    expect(derivedBreakMinutes(12)).toBe(90)
   })
 })
 

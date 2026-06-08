@@ -5,9 +5,8 @@ import {
   MESSAGE_LIMIT,
   CONTACT_LIMIT,
   submitFeedback,
-  type FeedbackTopic,
-  type SubmitFeedbackResult,
 } from '@/services/feedbackService'
+import type { FeedbackTopic, SubmitFeedbackResult } from '@/types'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 
 ensureCrtStyles()

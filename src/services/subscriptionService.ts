@@ -1,18 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import { getSession } from '@/services/authService'
+import type { Subscription } from '@/types'
 
 const CHECKOUT_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-checkout-session`
 const PORTAL_URL   = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-portal-session`
-
-export interface Subscription {
-  user_id: string
-  stripe_customer_id: string | null
-  stripe_subscription_id: string | null
-  status: 'free' | 'active' | 'canceled'
-  current_period_end: string | null
-  cancel_at_period_end: boolean
-  updated_at: string
-}
 
 export function isSubscribed(sub: Subscription | null): boolean {
   if (!sub) return false

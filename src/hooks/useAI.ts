@@ -1,17 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { streamCompletion, fetchModels } from '@/services/aiService'
 import { playAiConsume, playAiDing } from '@/lib/sfx'
-
-export type AiPhase = 'idle' | 'generating' | 'ready'
-
-interface RunParams {
-  system: string
-  prompt: string
-  onComplete: (result: string) => void
-  onError?: (message: string) => void
-  /** Override the default model (e.g. haiku for lightweight tasks). */
-  model?: string
-}
+import type { AiPhase, RunParams } from '@/types'
 
 export function useAI() {
   const [phase, setPhase] = useState<AiPhase>('idle')

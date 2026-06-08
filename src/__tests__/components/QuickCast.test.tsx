@@ -38,10 +38,6 @@ jest.mock('@/services/aiService', () => ({
   AI_MONTHLY_LIMIT: 20,
 }))
 
-jest.mock('@/services/aiSettingsService', () => ({
-  fetchAiSettings: jest.fn().mockResolvedValue(null),
-  DEFAULT_PROMPTS: { cover_letter: '', why_good_fit: '', custom: '' },
-}))
 
 jest.mock('@/lib/sfx', () => ({
   isSfxMuted: jest.fn(() => true),
@@ -49,6 +45,10 @@ jest.mock('@/lib/sfx', () => ({
   playSpellCast: jest.fn(),
   playAiConsume: jest.fn(),
   playAiDing: jest.fn(),
+}))
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => ({ userId: 'user-1', session: null, username: '', email: null, signOut: jest.fn() })),
 }))
 
 jest.mock('@/contexts/SubscriptionContext', () => ({
@@ -135,9 +135,9 @@ describe('QuickCast — existing links', () => {
 
   beforeEach(() => {
     ;(fetchLinks as jest.Mock).mockResolvedValue(mockLinks)
-    // Seed localStorage so the link shows immediately
+    // Seed localStorage so the link shows immediately (key mirrors SK.quickcastLinks)
     localStorage.setItem(
-      'fjobhunt:quick-cast',
+      'fjobhunt:quickcast:links:user-1',
       JSON.stringify(mockLinks.map((l) => ({ id: l.id, label: l.label, url: l.url, icon: l.icon }))),
     )
   })

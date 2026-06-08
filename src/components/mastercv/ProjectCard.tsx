@@ -1,18 +1,8 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { labelStyle, inputStyle, textareaStyle, bulletGlyphStyle, removeBtnStyle, removeBtnHoverStyle, addBtnStyle, addBtnHoverStyle } from '@/lib/CVCardTheme'
+import type { Project } from '@/types'
 import CVCard from './CVCard'
-
-export interface Project {
-  id: string
-  name: string
-  role: string
-  url: string
-  startDate: string
-  endDate: string
-  technologies: string
-  bullets: string[]
-}
 
 interface Props {
   data: Project

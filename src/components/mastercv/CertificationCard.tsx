@@ -1,15 +1,6 @@
 import { labelStyle, inputStyle } from '@/lib/CVCardTheme'
+import type { Certification } from '@/types'
 import CVCard from './CVCard'
-
-export interface Certification {
-  id: string
-  name: string
-  issuer: string
-  issueDate: string
-  expiryDate: string
-  credentialId: string
-  url: string
-}
 
 interface Props {
   data: Certification

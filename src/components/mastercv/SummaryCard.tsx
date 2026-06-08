@@ -1,11 +1,6 @@
 import { labelStyle, inputStyle, textareaStyle } from '@/lib/CVCardTheme'
+import type { Summary } from '@/types'
 import CVCard from './CVCard'
-
-export interface Summary {
-  id: string
-  label: string
-  text: string
-}
 
 interface Props {
   data: Summary

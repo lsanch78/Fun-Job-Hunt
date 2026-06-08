@@ -3,7 +3,7 @@ import { playBootBlip, playExitBlip, playTutorialPage as playPage } from '@/lib/
 import { T, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 import { lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-import type { TutorialStep } from '@/lib/tutorialSteps'
+import type { TutorialStep } from '@/types'
 
 ensureCrtStyles()
 

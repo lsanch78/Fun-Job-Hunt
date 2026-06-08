@@ -1,23 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { MainInfo }      from '@/components/mastercv/MainInfoCard'
-import type { Experience }    from '@/components/mastercv/ExperienceCard'
-import type { Education }     from '@/components/mastercv/EducationCard'
-import type { Project }       from '@/components/mastercv/ProjectCard'
-import type { SkillsBucket }  from '@/components/mastercv/SkillsBucketCard'
-import type { Summary }       from '@/components/mastercv/SummaryCard'
-import type { Certification } from '@/components/mastercv/CertificationCard'
-import type { Award }         from '@/components/mastercv/AwardCard'
-
-export interface CVContent {
-  mainInfo:       MainInfo
-  experiences:    Experience[]
-  educations:     Education[]
-  projects:       Project[]
-  skills:         SkillsBucket | null
-  summaries:      Summary[]
-  certifications: Certification[]
-  awards:         Award[]
-}
+import type { CVContent } from '@/types'
 
 export async function fetchCV(
   userId: string,

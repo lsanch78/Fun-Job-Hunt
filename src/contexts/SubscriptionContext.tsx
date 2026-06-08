@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchSubscription, isSubscribed as checkSubscribed, type Subscription } from '@/services/subscriptionService'
+import { fetchSubscription, isSubscribed as checkSubscribed } from '@/services/subscriptionService'
+import type { Subscription } from '@/types'
 
 interface SubscriptionContextValue {
   subscription: Subscription | null

@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type { CuratedResume } from '@/types'
-import type { CVContent } from '@/services/cvService'
+import type { CVContent } from '@/types'
 
-export const CURATED_RESUME_LIMITS = {
+const CURATED_RESUME_LIMITS = {
   label: 100,
 } as const
 
@@ -104,11 +104,6 @@ export async function updateCuratedResumeLabel(id: string, label: string): Promi
   return { error: error?.message ?? null }
 }
 
-export async function deleteCuratedResume(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('curated_resumes').delete().eq('id', id)
-  if (error) console.error('[curatedResumeService] deleteCuratedResume:', error.message)
-  return { error: error?.message ?? null }
-}
 
 export async function deleteAllCuratedResumes(userId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.from('curated_resumes').delete().eq('user_id', userId)

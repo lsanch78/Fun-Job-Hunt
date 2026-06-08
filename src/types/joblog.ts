@@ -33,8 +33,7 @@ export interface UseColumns {
 }
 
 export type SortField = 'company' | 'date' | 'status'
-export type SortDir   = 'asc' | 'desc'
-export interface SortState { field: SortField; dir: SortDir }
+export interface SortState { field: SortField; dir: 'asc' | 'desc' }
 
 export type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
 

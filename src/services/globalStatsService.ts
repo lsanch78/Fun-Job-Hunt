@@ -1,16 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-export interface GlobalStats {
-  hunters:           number   // users actively job-hunting
-  employed:          number   // users who landed an offer
-  interviews:        number   // total interview-stage events
-  avg_interview_rate: number | null  // platform avg interview conversion %
-  avg_days_to_offer: number | null   // platform avg days to first offer
-  total_apps:        number   // total applications across all users
-}
+import type { GlobalStats } from '@/types'
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 const CACHE_TTL = 5 * 60 * 1000  // 5 minutes in ms
@@ -45,7 +36,7 @@ async function fetchFromDb(): Promise<GlobalStats | null> {
  * Returns global stats, serving from a 5-minute localStorage cache.
  * Falls back to stale cache on DB error so the marquee never goes blank.
  */
-export async function getGlobalStats(): Promise<GlobalStats | null> {
+async function getGlobalStats(): Promise<GlobalStats | null> {
   const cached = readStatsCache()
   if (cached) return cached
 
@@ -88,7 +79,7 @@ export function startStatsPoll(onUpdate: (stats: GlobalStats) => void): () => vo
   return stopStatsPoll
 }
 
-export function stopStatsPoll(): void {
+function stopStatsPoll(): void {
   if (_pollTimer !== null) {
     clearInterval(_pollTimer)
     _pollTimer = null

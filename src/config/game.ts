@@ -48,14 +48,6 @@ export const WORKDAY = {
   AUTO_PUNCH_OUT_IDLE_MS: 15 * 60 * 1000, // 15 minutes
 } as const
 
-// Derived break time in minutes based on shift length
-export function derivedBreakMinutes(shiftHours: number): number {
-  if (shiftHours < 4) return 0
-  if (shiftHours < 6) return 15
-  if (shiftHours < 8) return 30 + 15 // 2x15 + 30 lunch
-  return 30 + 60 // 2x15 + 60 lunch
-}
-
 // --- STREAKS ---
 export const STREAK = {
   GRACE_DAYS_PER_WEEK: 1,

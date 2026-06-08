@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { fetchCostData, type CostData, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import { fetchCostData, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import type { CostData } from '@/types'
 
 const DEFAULT_FREE_CALLS_PER_USER = 8
 const DEFAULT_PAID_CALLS_PER_USER = 20

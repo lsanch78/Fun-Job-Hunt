@@ -1,25 +1,5 @@
 import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
-import type { CVContent } from '@/services/cvService'
-import type { MainInfo }      from './MainInfoCard'
-import type { Summary }       from './SummaryCard'
-import type { Experience }    from './ExperienceCard'
-import type { Education }     from './EducationCard'
-import type { Project }       from './ProjectCard'
-import type { SkillsBucket }  from './SkillsBucketCard'
-import type { Certification } from './CertificationCard'
-import type { Award }         from './AwardCard'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type ContentChangeEvent =
-  | { type: 'mainInfo';       data: Partial<MainInfo> }
-  | { type: 'summary';        id: string; data: Partial<Summary> }
-  | { type: 'experience';     id: string; data: Partial<Experience> }
-  | { type: 'education';      id: string; data: Partial<Education> }
-  | { type: 'project';        id: string; data: Partial<Project> }
-  | { type: 'skills';         data: Partial<SkillsBucket> }
-  | { type: 'certification';  id: string; data: Partial<Certification> }
-  | { type: 'award';          id: string; data: Partial<Award> }
+import type { CVContent, ContentChangeEvent, CVRendererHandle, MainInfo, Summary, Experience, Education, Project, SkillsBucket, Certification, Award } from '@/types'
 
 interface Props {
   content: CVContent
@@ -526,10 +506,6 @@ function RenderedAward({ data, showHeading, onChange, keywords }: {
 }
 
 const PAGE_HEIGHT_PX = 1056
-
-export interface CVRendererHandle {
-  getPaperElement: () => HTMLDivElement | null
-}
 
 const LINE_HEIGHT_PX = 20
 

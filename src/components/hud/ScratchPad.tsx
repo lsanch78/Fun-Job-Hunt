@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { playSelectClick, playScratchOpen, playScratchClose } from '@/lib/sfx'
-import { useScratchPad, type CheckItem } from '@/hooks/hud/useScratchPad'
+import { useScratchPad } from '@/hooks/hud/useScratchPad'
+import type { CheckItem } from '@/types'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
