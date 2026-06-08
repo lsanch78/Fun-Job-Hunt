@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { playThud, playDeleteBump, playSelectClick, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
+import { playThud, playDeleteBump, playSelectClick, playTrash, playNetworkMapClose } from '@/lib/sfx'
 import { Trash } from 'pixelarticons/react'
 import { useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/hud/XpTracker'
-import MasterCV from '@/components/hud/MasterCV'
+import CV from '@/components/hud/CV'
 import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
-import CVCanvas from '@/components/mastercv/CVCanvas'
+import CVCanvas from '@/components/cv/CVCanvas'
 import CoverLetterCanvas from '@/components/coverletter/CoverLetterCanvas'
 import { useXp } from '@/hooks/hud/useXp'
 import type { Job, JobStatus, XpPopup, SortField, SortState, TimeRange } from '@/types'
@@ -219,7 +219,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
       setCvInitialCuratedResumeId(null)
       setCvInitialOpenCuratePanel(false)
     } else {
-      // No JD — open Master CV with the curate panel already open so user can paste
+      // No JD — open CV with the curate panel already open so user can paste
       setCvInitialCurateText(null)
       setCvInitialCuratedResumeId(null)
       setCvInitialOpenCuratePanel(true)
@@ -409,7 +409,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           </p>
         </div>
         <div className="flex items-stretch gap-3">
-          <MasterCV expanded={cvOpen} onToggle={() => { cvOpen ? playNetworkMapClose() : playNetworkMapOpen(); setCvOpen((v) => !v) }} />
+          <CV />
           <XpTracker xp={xp} />
         </div>
       </div>

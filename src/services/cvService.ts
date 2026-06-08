@@ -5,7 +5,7 @@ export async function fetchCV(
   userId: string,
 ): Promise<{ content: CVContent; sectionOrder: string[] } | null> {
   const { data, error } = await supabase
-    .from('master_cv')
+    .from('cv')
     .select('content, section_order')
     .eq('user_id', userId)
     .single()
@@ -22,7 +22,7 @@ export async function upsertCV(
   sectionOrder: string[],
 ): Promise<void> {
   const { error } = await supabase
-    .from('master_cv')
+    .from('cv')
     .upsert(
       { user_id: userId, content, section_order: sectionOrder, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },

@@ -11,6 +11,7 @@ import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfile
 const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 
 const NAV_LINKS = [
+  { label: 'CV',          to: '/cv' },
   { label: 'JOBS',        to: '/jobs' },
   { label: 'NETWORK', to: '/network' },
   { label: 'STATS',       to: '/stats' },

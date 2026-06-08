@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
-import { useCVState } from '@/hooks/mastercv/useCVState'
+import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
 import type { CVContent, ContentChangeEvent, CVRendererHandle, Experience, Education, Project, SkillsBucket, Summary, Certification, Award } from '@/types'
@@ -19,7 +19,7 @@ import { T } from '@/lib/crtTheme'
 import { P, CV_FONT } from '@/lib/CVCardTheme'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import { fetchCuratedResume } from '@/services/curatedResumeService'
-import { useCuratedResume } from '@/hooks/mastercv/useCuratedResume'
+import { useCuratedResume } from '@/hooks/cv/useCuratedResume'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -102,7 +102,7 @@ interface CurateResult {
 }
 
 interface Props {
-  visible: boolean
+  visible?: boolean
   userName?: string | null
   userId?: string | null
   initialCurateText?: string | null
@@ -158,7 +158,7 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
   return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
-export default function CVCanvas({ visible, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose }: Props) {
+export default function CVCanvas({ visible = true, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose }: Props) {
   const {
     resumes: savedResumes,
     handleCreate: createCuratedResume,
@@ -203,7 +203,7 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
   const [curateError, setCurateError]           = useState<string | null>(null)
   const [curateResult, setCurateResult]         = useState<CurateResult | null>(null)
 
-  // Isolated curated content — never touches cvContent / Master CV
+  // Isolated curated content — never touches cvContent / CV
   const [curatedContent, setCuratedContent]         = useState<CVContent | null>(null)
   const [curatedOrder, setCuratedOrder]             = useState<string[]>([])
 
@@ -480,7 +480,7 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
 
     const prompt =
       'JOB DESCRIPTION:\n' + text +
-      '\n\nMASTER CV:\n' + JSON.stringify(cvContent, null, 2)
+      '\n\nCV:\n' + JSON.stringify(cvContent, null, 2)
 
     runAI({
       system: PROMPT_CURATE_RESUME,
@@ -493,7 +493,7 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
           setCurateResult(parsed)
           playAiDing()
 
-          // Build isolated curated content — never touches Master CV
+          // Build isolated curated content — never touches CV
           const cExperiences = parsed.experiences
             .map((entry) => { const exp = experiences.find((e) => e.id === entry.id); return exp ? { ...exp, bullets: entry.bullets } : null })
             .filter((e): e is Experience => e !== null)

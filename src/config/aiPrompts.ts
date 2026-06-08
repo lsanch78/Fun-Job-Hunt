@@ -23,7 +23,7 @@ export const PROMPT_COVER_LETTER_CANVAS =
   '• The candidate name is at cvContent.mainInfo.fullName. The company name is in the job description.\n\n' +
   'You will receive:\n' +
   '  1. JOB DESCRIPTION — plain text of the posting\n' +
-  '  2. MASTER CV — the candidate\'s full resume as a JSON object with fields: mainInfo, summaries, experiences, projects, skills, educations, certifications, awards\n\n' +
+  '  2. CV — the candidate\'s full resume as a JSON object with fields: mainInfo, summaries, experiences, projects, skills, educations, certifications, awards\n\n' +
   'Write a cover letter in first person. Tone: direct, confident, human — not corporate.\n' +
   'Paragraph 1: Name one specific, concrete connection between the candidate\'s actual experience (from the CV) and a requirement that appears explicitly in the job description. Name the project, role, or outcome. Do not be vague.\n' +
   'Paragraph 2: Add one more proof point from the CV that addresses a second need in the JD. End with one short sentence inviting a conversation.\n\n' +
@@ -43,7 +43,7 @@ export const PROMPT_COVER_LETTER_ANGLE =
   'You are a cover letter strategist. Do NOT write a cover letter.\n\n' +
   'You will receive:\n' +
   '  1. JOB DESCRIPTION — plain text of the posting\n' +
-  '  2. MASTER CV — the candidate\'s full resume as a JSON object\n\n' +
+  '  2. CV — the candidate\'s full resume as a JSON object\n\n' +
   'Analyze the fit and return ONLY a valid JSON object — no markdown fences, no explanation.\n\n' +
   'Shape:\n' +
   '{\n' +
@@ -78,10 +78,10 @@ export const PROMPT_OUTREACH =
 
 export const PROMPT_CV_ORGANIZE =
   'You are a resume consolidation assistant. The user is pasting content from an old resume, a LinkedIn export, a bio, or any other career document they already have. ' +
-  'Your job is to extract every piece of career content from the pasted text and recommend how to add it to their Master CV — without losing anything and without duplicating what already exists.\n\n' +
+  'Your job is to extract every piece of career content from the pasted text and recommend how to add it to their CV — without losing anything and without duplicating what already exists.\n\n' +
   'You will receive:\n' +
   '  1. PASTED TEXT — raw content from the user\'s existing document\n' +
-  '  2. CURRENT CV — their existing Master CV as JSON\n\n' +
+  '  2. CURRENT CV — their existing CV as JSON\n\n' +
   'For each piece of content in the pasted text:\n' +
   '  • If it is genuinely new (not already in the CV), recommend adding it.\n' +
   '  • If it overlaps with an existing entry but has additional detail (more bullets, missing fields), recommend merging the new detail in.\n' +
@@ -116,7 +116,7 @@ export const PROMPT_CV_ORGANIZE =
   '• Preserve dates verbatim as they appear in the pasted text.\n' +
   '• If nothing new is found, return { "summary": "Everything in this document is already in your CV.", "changes": [] }.\n\n'
 
-// ── Resume curation (used in Master CV / resume builder) ──────────────────
+// ── Resume curation (used in CV / resume builder) ──────────────────
 // Haiku-targeted. Goal: keyword-match and reorder existing content against a JD.
 // NO rewriting. Every output word must come from the user's CV verbatim.
 
@@ -124,7 +124,7 @@ export const PROMPT_CURATE_RESUME =
   'You are a resume curation assistant. Your job is to reorder and surface existing resume content to best match a job description. You are NOT a writer — do not rephrase, rewrite, or generate new bullet points under any circumstances.\n\n' +
   'You will receive:\n' +
   '  1. JOB DESCRIPTION — the target role\n' +
-  '  2. MASTER CV — the candidate\'s full resume content as JSON\n\n' +
+  '  2. CV — the candidate\'s full resume content as JSON\n\n' +
   'Your task:\n' +
   '  1. Extract the top keywords from the job description as short terms (1–3 words): specific skills, tools, technologies, and qualifications. No full sentences.\n' +
   '  2. Score each experience bullet, project, and skill against those keywords. A match means the bullet contains the same concept, tool, or verb — exact or near-exact. Do NOT match by inference.\n' +

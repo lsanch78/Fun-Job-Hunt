@@ -4,7 +4,7 @@ import type { Job, Contact, CuratedResume } from '@/types'
 import { JOB_LIMITS } from '@/config/jobLimits'
 import { linkCuratedResumeToJob } from '@/services/jobService'
 import { fetchCuratedResume, fetchCuratedResumes, updateCuratedResumeLabel } from '@/services/curatedResumeService'
-import CVRenderer from '@/components/mastercv/CVRenderer'
+import CVRenderer from '@/components/cv/CVRenderer'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import { useAI } from '@/hooks/useAI'
 import {
