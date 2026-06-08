@@ -75,7 +75,7 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     title: 'NAVIGATION',
     subtitle: 'pages · settings',
     body: [
-      'JOBS = The page you\'re on now, track all of your job applications\nNETWORK = Where all of your contacts live\nSTORY = Fun narratives and unlocks\nSTATS = Well... stats!\nCREDITS = Developer information and note',
+      'JOBS = The page you\'re on now, track all of your job applications\nNETWORK = Where all of your contacts live\nSTATS = Well... stats!\nCREDITS = Developer information and note',
       'Theme switcher and account settings are in the avatar menu (top right). Press ? anytime to replay this tutorial.',
     ],
   },
@@ -136,16 +136,6 @@ export const NETWORK_STEPS: TutorialStep[] = [
   },
 ]
 
-export const STORY_STEPS: TutorialStep[] = [
-  {
-    id: 'navbar',
-    title: 'STORY',
-    subtitle: 'dramatic spice for your hunt',
-    body: [
-      'The Story page adds some flair to your job hunt. As you log applications and earn XP, rank nodes unlock. Some of which are hiding cutscenes and secret surprises!',
-    ],
-  },
-]
 
 export const MOBILE_JOB_LOG_STEPS: TutorialStep[] = [
   {

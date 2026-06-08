@@ -56,18 +56,9 @@ as $$
     ),
 
     -- Average days to first OFFER per user who received one
+    -- (applied_at column added in 20260603000000; function replaced there)
     'avg_days_to_offer',
-    (
-      select round(avg(days_diff)::numeric, 0)
-      from (
-        select
-          j.user_id,
-          min(now()::date - j.applied_at::date) as days_diff
-        from public.jobs j
-        where j.status = 'OFFER'
-        group by j.user_id
-      ) offer_days
-    ),
+    null,
 
     -- Total applications submitted across the platform
     'total_apps',

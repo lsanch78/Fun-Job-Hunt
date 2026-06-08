@@ -222,7 +222,6 @@ export default function SettingsPage() {
       SK.tutorialSeen(userId, 'job-log'),
       SK.tutorialSeen(userId, 'mobile-job-log'),
       SK.tutorialSeen(userId, 'network'),
-      SK.tutorialSeen(userId, 'story'),
     ]
     keys.forEach((k) => lsRemove(k))
     window.location.reload()

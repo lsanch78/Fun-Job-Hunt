@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase'
 import JobLogDemo from '@/components/landing/JobLogDemo'
 import NetworkDemo from '@/components/landing/NetworkDemo'
 import QuickCastDemo from '@/components/landing/QuickCastDemo'
-import StoryDemo from '@/components/landing/StoryDemo'
 
 // ── Scanline animation keyframes injected once ─────────────────────────────
 const KEYFRAMES = `
@@ -168,25 +167,6 @@ export default function LandingPage() {
             'Gain EXP on relationships and watch your network grow',
             'Quickly draft personalized outreach messages using your resume, job descriptions, and their notes',
             'Pressure free engagement — there\'s a difficulty setting for every social battery',
-          ].map(b => (
-            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
-              <span className="text-secondary shrink-0">▸</span>
-              {b}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* ── Story Demo ───────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
-        <SectionHeader title="JOB HUNT?" sub="Hey! You spilled an entire STORY MODE all over my" />
-        <StoryDemo mouse={mouse} index={2} />
-        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
-          {[
-            'Fulfill your destiny with all original music and dialogue based on your hunt',
-            'Gain powerful allies on the quest to finding your next job',
-            'View your job hunt stats in an entirely new way',
-            'Your choices shape the story — every application, ping, and offer writes the next chapter',
           ].map(b => (
             <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
               <span className="text-secondary shrink-0">▸</span>

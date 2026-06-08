@@ -522,25 +522,6 @@ export function playStatsBlip(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-// ── StoryPage ─────────────────────────────────────────────────────────────────
-
-/** Two-note story page entry chime: A4 → E4. */
-export function playStoryChime(): void {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const notes = [440.00, 329.63]
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator(); const gain = ctx.createGain()
-      osc.type = 'sine'; osc.connect(gain); gain.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.22
-      osc.frequency.setValueAtTime(freq, t)
-      gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.07, t + 0.04)
-      gain.gain.setValueAtTime(0.07, t + 0.18); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65)
-      osc.start(t); osc.stop(t + 0.65)
-    })
-  } catch { /* AudioContext blocked */ }
-}
 
 /** Ascending trumpet fanfare: C5 E5 G5 C6. */
 export function playFanfare(): void {

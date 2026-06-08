@@ -14,8 +14,8 @@ INSERT INTO ai_cost_log (
   cache_creation_input_tokens,
   created_at
 )
-VALUES (
-  (SELECT id FROM auth.users ORDER BY created_at LIMIT 1),  -- owner account (you)
+SELECT
+  id,
   'claude-sonnet-4-5',
   '2026-06',
   321974,
@@ -23,4 +23,6 @@ VALUES (
   0,
   0,
   '2026-06-01T00:00:00Z'
-);
+FROM auth.users
+ORDER BY created_at
+LIMIT 1;

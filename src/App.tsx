@@ -8,7 +8,6 @@ import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import JobLogPage from '@/pages/JobLogPage'
 import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
-import StoryPage from '@/pages/StoryPage'
 import CreditsPage from '@/pages/CreditsPage'
 import DevPortalPage from '@/pages/DevPortalPage'
 import NavBar from '@/components/shell/NavBar'
@@ -146,16 +145,6 @@ export default function App() {
               <ProtectedRoute session={session}>
                 <MobileGatedRoute>
                   <StatsPage userId={session?.user?.id ?? null} />
-                </MobileGatedRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/story"
-            element={
-              <ProtectedRoute session={session}>
-                <MobileGatedRoute>
-                  <StoryPage userId={session?.user?.id ?? null} />
                 </MobileGatedRoute>
               </ProtectedRoute>
             }

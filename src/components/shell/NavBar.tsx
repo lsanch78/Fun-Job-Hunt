@@ -13,7 +13,6 @@ const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 const NAV_LINKS = [
   { label: 'JOBS',        to: '/jobs' },
   { label: 'NETWORK', to: '/network' },
-  { label: 'STORY',       to: '/story' },
   { label: 'STATS',       to: '/stats' },
   { label: 'CREDITS',     to: '/credits' },
 ]
@@ -67,7 +66,7 @@ export default function NavBar() {
   }, [drawerOpen])
 
   // Pages that support ?tutorial=1 deep-link; others fall back to /jobs
-  const TUTORIAL_PAGES = ['/jobs', '/network', '/story']
+  const TUTORIAL_PAGES = ['/jobs', '/network']
   function handleTutorial() {
     playProfileBlip()
     if (hasTutorialTrigger()) { fireTutorial(); return }

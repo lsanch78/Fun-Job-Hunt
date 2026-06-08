@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { playThud, playDeleteBump, playSelectClick, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
 import { Trash } from 'pixelarticons/react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/hud/XpTracker'
 import MasterCV from '@/components/hud/MasterCV'
@@ -141,7 +141,6 @@ function getDailyMessage(name: string): string {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function JobLogPage({ userId, userName }: { userId: string | null; userName: string | null }) {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const { xp, bumpXp } = useXp(userId)
@@ -421,13 +420,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
         </div>
         <div className="flex items-stretch gap-3">
           <MasterCV expanded={cvOpen} onToggle={() => { cvOpen ? playNetworkMapClose() : playNetworkMapOpen(); setCvOpen((v) => !v) }} />
-          <button
-            onClick={() => navigate('/story')}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            title="View Story Map"
-          >
-            <XpTracker xp={xp} />
-          </button>
+          <XpTracker xp={xp} />
         </div>
       </div>
 

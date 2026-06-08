@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
 import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
@@ -198,7 +197,6 @@ function StatCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage({ userId }: { userId: string | null }) {
-  const navigate = useNavigate()
   const [workdays, setWorkdays] = useState<WorkdayRow[]>(() =>
     userId ? readWorkdayCache(userId) : []
   )
@@ -378,9 +376,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
           </p>
         </div>
 
-        <button onClick={() => navigate('/story')} className="cursor-pointer hover:opacity-80 transition-opacity">
-          <XpTracker xp={xp} />
-        </button>
+        <XpTracker xp={xp} />
       </div>
 
       {/* ── Row 1: Hunt overview ─────────────────────────────────────────────── */}
