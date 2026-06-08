@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { playSelectClick, playScratchOpen, playScratchClose } from '@/lib/sfx'
-import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
+import { useScratchPad, type CheckItem } from '@/hooks/hud/useScratchPad'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
@@ -22,50 +22,33 @@ const SCRATCH_MIN_H = 120
 const SCRATCH_MAX_H = 600
 const SCRATCH_DEF_H = 220
 
-interface CheckItem { id: string; text: string; done: boolean }
-
 // ── ScratchPad ────────────────────────────────────────────────────────────────
 
 export default function ScratchPad({ userId }: { userId: string | null }) {
-  const [open, setOpen] = useState<boolean>(() => lsGet<boolean>(SK.scratchOpen, false))
-  const [tab, setTab] = useState<'pad' | 'list'>(() => lsGet<string>(SK.scratchTab, 'pad') as 'pad' | 'list')
+  const [open,   setOpen]   = useState<boolean>(() => lsGet<boolean>(SK.scratchOpen, false))
   const [height, setHeight] = useState<number>(() => lsGet<number>(SK.scratchHeight, SCRATCH_DEF_H))
-  const [text, setText] = useState('')
-  const [items, setItems] = useState<CheckItem[]>([])
-  const [newItem, setNewItem] = useState('')
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced')
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
-  const textareaRef   = useRef<HTMLTextAreaElement>(null)
-  const newItemRef    = useRef<HTMLInputElement>(null)
-  const isDragging    = useRef(false)
-  const saveTextTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveListTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const newItemRef  = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!userId) return
-    const cachedText = lsGet<string | null>(SK.scratchPad(userId), null)
-    if (cachedText) setText(cachedText)
-    const cachedList = lsGet<CheckItem[] | null>(SK.scratchList(userId), null)
-    if (cachedList) setItems(cachedList)
-    setSyncStatus('syncing')
-    fetchScratchPad(userId).then((rec) => {
-      if (rec) {
-        if (rec.notes) {
-          setText(rec.notes)
-          lsSet(SK.scratchPad(userId), rec.notes)
-        }
-        if (rec.list) {
-          try {
-            const parsed = JSON.parse(rec.list) as CheckItem[]
-            setItems(parsed)
-            lsSet(SK.scratchList(userId), parsed)
-          } catch { /* noop */ }
-        }
-      }
-      setSyncStatus('synced')
-    })
-  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const {
+    tab, setTab,
+    text,
+    items,
+    newItem, setNewItem,
+    syncStatus,
+    doneCount,
+    hasActivity,
+    handleTextChange,
+    clearText,
+    addItem,
+    toggleItem,
+    deleteItem,
+    clearDone,
+    clearAll,
+    reorderItems,
+  } = useScratchPad(userId)
 
   useEffect(() => {
     if (!open) return
@@ -84,64 +67,9 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     })
   }
 
-  function switchTab(t: 'pad' | 'list') {
-    setTab(t)
-    lsSet(SK.scratchTab, t)
-  }
-
-  function persistText(val: string) {
-    if (userId) lsSet(SK.scratchPad(userId), val)
-    if (!userId) return
-    setSyncStatus('syncing')
-    if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
-    saveTextTimer.current = setTimeout(async () => {
-      await upsertScratchPad(userId, { notes: val })
-      setSyncStatus('synced')
-    }, 800)
-  }
-
-  function persistItems(next: CheckItem[]) {
-    if (userId) lsSet(SK.scratchList(userId), next)
-    if (!userId) return
-    setSyncStatus('syncing')
-    if (saveListTimer.current) clearTimeout(saveListTimer.current)
-    saveListTimer.current = setTimeout(async () => {
-      await upsertScratchPad(userId, { list: JSON.stringify(next) })
-      setSyncStatus('synced')
-    }, 800)
-  }
-
-  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value.slice(0, SCRATCH_PAD_LIMIT)
-    setText(val)
-    persistText(val)
-  }
-
-  function addItem() {
-    const trimmed = newItem.trim()
-    if (!trimmed) return
-    const next = [...items, { id: crypto.randomUUID(), text: trimmed, done: false }]
-    setItems(next); persistItems(next); setNewItem('')
-  }
-
-  function toggleItem(id: string) {
+  function handleToggleItem(id: string) {
     playSelectClick()
-    const next = items.map((it) => it.id === id ? { ...it, done: !it.done } : it)
-    setItems(next); persistItems(next)
-  }
-
-  function deleteItem(id: string) {
-    const next = items.filter((it) => it.id !== id)
-    setItems(next); persistItems(next)
-  }
-
-  function clearDone() {
-    const next = items.filter((it) => !it.done)
-    setItems(next); persistItems(next)
-  }
-
-  function clearAll() {
-    setItems([]); persistItems([])
+    toggleItem(id)
   }
 
   function onItemDragHandlePointerDown(e: React.PointerEvent<HTMLSpanElement>, dragId: string) {
@@ -165,15 +93,16 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     function onUp(ev: PointerEvent) {
       const targetId = getIdAtY(ev.clientY)
       setDragOverId(null)
-      setItems((prev) => {
-        if (dragId === targetId) return prev
-        const next = prev.filter((it) => it.id !== dragId)
-        const dragged = prev.find((it) => it.id === dragId)!
-        const insertIdx = targetId === null ? next.length : next.findIndex((it) => it.id === targetId)
-        next.splice(insertIdx, 0, dragged)
-        persistItems(next)
-        return next
-      })
+      reorderItems(
+        (() => {
+          if (dragId === targetId) return items
+          const next = items.filter((it: CheckItem) => it.id !== dragId)
+          const dragged = items.find((it: CheckItem) => it.id === dragId)!
+          const insertIdx = targetId === null ? next.length : next.findIndex((it: CheckItem) => it.id === targetId)
+          next.splice(insertIdx, 0, dragged)
+          return next
+        })()
+      )
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
@@ -183,7 +112,6 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
 
   function onHandlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault()
-    isDragging.current = true
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     const startY = e.clientY
     const startH = height
@@ -193,7 +121,6 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
       setHeight(next)
     }
     function onUp(ev: PointerEvent) {
-      isDragging.current = false
       const final = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
       lsSet(SK.scratchHeight, final)
       window.removeEventListener('pointermove', onMove)
@@ -202,9 +129,6 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }
-
-  const doneCount   = items.filter((it) => it.done).length
-  const hasActivity = (!!text) || items.length > 0
 
   return (
     <div data-tutorial="journal" className="border-t border-border bg-bg shrink-0">
@@ -245,7 +169,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
             {(['pad', 'list'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => switchTab(t)}
+                onClick={() => setTab(t)}
                 className={`font-pixel text-[10px] px-3 py-1 border-b-2 -mb-px transition-none ${
                   tab === t ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-secondary'
                 }`}
@@ -260,7 +184,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
               <textarea
                 ref={textareaRef}
                 value={text}
-                onChange={handleTextChange}
+                onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="jot something down…"
                 className="w-full flex-1 bg-surface border border-border text-primary font-terminal text-sm placeholder-muted outline-none focus:border-primary resize-none px-3 py-2 leading-relaxed min-h-0"
               />
@@ -268,7 +192,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
                 <SyncBadge status={userId ? syncStatus : null} />
                 {text && (
                   <button
-                    onClick={() => { setText(''); persistText('') }}
+                    onClick={clearText}
                     className="font-pixel text-[9px] text-muted hover:text-warning transition-none"
                   >
                     CLEAR
@@ -300,7 +224,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
 
               {items.length > 0 && (
                 <ul className="flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0">
-                  {items.map((it) => (
+                  {items.map((it: CheckItem) => (
                     <li
                       key={it.id}
                       data-id={it.id}
@@ -316,7 +240,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
                       <input
                         type="checkbox"
                         checked={it.done}
-                        onChange={() => toggleItem(it.id)}
+                        onChange={() => handleToggleItem(it.id)}
                         className="accent-secondary cursor-pointer shrink-0"
                       />
                       <span className={`font-terminal text-sm flex-1 leading-snug ${it.done ? 'line-through text-muted' : 'text-primary'}`}>

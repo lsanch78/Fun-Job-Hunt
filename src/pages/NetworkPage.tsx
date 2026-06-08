@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { lsGet, lsSet } from '@/lib/storage'
+import { lsGet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import TutorialModal from '@/components/modals/TutorialModal'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
@@ -10,17 +10,10 @@ import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import SearchBar from '@/components/shell/SearchBar'
 import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
-import type { Contact, Job, TimeRange } from '@/types'
-import {
-  fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
-} from '@/services/contactService'
+import type { Contact, TimeRange } from '@/types'
+import { useNetworkData } from '@/hooks/network/useNetworkData'
 import { playDeleteBump, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
-import { useSubscription } from '@/contexts/SubscriptionContext'
-import { FREE_CONTACT_CAP } from '@/services/contactService'
-import { createCheckoutSession } from '@/services/subscriptionService'
-import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
-import { fetchJobs } from '@/services/jobService'
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'today', label: 'TODAY'    },
@@ -45,25 +38,38 @@ function getTimeRangeCutoff(range: TimeRange): string | null {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NetworkPage({ userId }: { userId: string | null }) {
-  const { isSubscribed } = useSubscription()
+  const {
+    contacts, setContacts,
+    jobsByContact,
+    jobs, setJobs,
+    loading,
+    capError, setCapError,
+    timeRange,
+    expOverrides,
+    cooldownHours,
+    atCap,
+    FREE_CONTACT_CAP,
+    handleAddContact,
+    handleDetailClose,
+    handleSave,
+    handlePing,
+    handleDelete,
+    refreshJobsByContact,
+    handleExpChange,
+    handleTimeRange,
+    handleUpgrade,
+  } = useNetworkData(userId)
+
   const [searchParams, setSearchParams] = useSearchParams()
-  const [capError, setCapError] = useState<string | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [jobsByContact, setJobsByContact] = useState<Record<string, { id: string; title: string; company: string }[]>>({})
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('recent')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [search, setSearch] = useState('')
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => lsGet<string>(SK.networkTimeRange, 'all') as TimeRange)
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [networkMapView, setNetworkMapView] = useState(false)
-  const [expOverrides, setExpOverrides] = useState<Record<string, number>>({})
-  const [cooldownHours, setCooldownHours] = useState(168)
   const [page, setPage] = useState(1)
   const [totalFiltered, setTotalFiltered] = useState(0)
   const PAGE_SIZE = 30
@@ -99,90 +105,19 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     return () => { unregisterTutorialTrigger() }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!userId) { setLoading(false); return }
-    setCooldownHours(getCommCooldownHours(userId))
-    Promise.all([
-      fetchContactsWithJobs(userId),
-      fetchJobs(userId),
-    ]).then(([{ contacts, jobsByContact }, jobs]) => {
-      setContacts(contacts)
-      setJobsByContact(jobsByContact)
-      setJobs(jobs)
-      const initial: Record<string, number> = {}
-      for (const c of contacts) { if (c.commExp > 0) initial[c.id] = c.commExp }
-      setExpOverrides(initial)
-      setLoading(false)
-    })
-  }, [userId])
-
-  async function handlePing(id: string) {
-    setContacts((prev) =>
-      prev.map((c) => c.id === id ? { ...c, lastInteractionAt: new Date().toISOString() } : c)
-    )
-    await pingContact(id)
+  function addAndOpen() {
+    const blank = handleAddContact()
+    if (blank) setDetailContactId(blank.id)
   }
 
-  const atCap = !isSubscribed && contacts.filter((c) => !c.id.startsWith('new-')).length >= FREE_CONTACT_CAP
-
-  function handleAddContact() {
-    if (!userId || atCap) return
-    const blank: Contact = {
-      id: `new-${Date.now()}`,
-      userId,
-      name: '',
-      lastInteractionAt: null,
-      commExp: 0,
-      lastCommAt: null,
-      createdAt: new Date().toISOString(),
-    }
-    setContacts((prev) => [blank, ...prev])
-    setDetailContactId(blank.id)
-  }
-
-  function handleDetailClose() {
-    setContacts((prev) => prev.filter((c) => c.name.trim() !== '' || c.id !== detailContactId))
+  function closeDetail() {
+    handleDetailClose(detailContactId)
     setDetailContactId(null)
   }
 
-  async function handleSave(contact: Contact, pendingJobIds: string[] = []) {
-    if (!userId) return
-    if (contact.id.startsWith('new-')) {
-      const { data, error } = await insertContact({
-        userId,
-        name: contact.name,
-        company: contact.company,
-        linkedin: contact.linkedin,
-        github: contact.github,
-        twitter: contact.twitter,
-        discord: contact.discord,
-        email: contact.email,
-        notes: contact.notes,
-        lastInteractionAt: contact.lastInteractionAt,
-        commExp: 0,
-        lastCommAt: null,
-      }, userId, isSubscribed)
-      if (error === 'contact_cap_reached') {
-        setContacts((prev) => prev.filter((c) => c.id !== contact.id))
-        setDetailContactId(null)
-        setCapError(`Free accounts are limited to ${FREE_CONTACT_CAP} contacts. Upgrade to Pro for unlimited.`)
-        return
-      }
-      if (error) { console.error('[NetworkPage] insertContact:', error); return }
-      if (data) {
-        await Promise.all(pendingJobIds.map((jobId) => linkContactToJob(data.id, jobId)))
-        setContacts((prev) => prev.map((c) => c.id === contact.id ? data : c))
-        setDetailContactId(data.id)
-      }
-    } else {
-      await updateContact(contact)
-    }
-  }
-
-  async function refreshJobsByContact() {
-    if (!userId) return
-    const { jobsByContact: updated } = await fetchContactsWithJobs(userId)
-    setJobsByContact(updated)
+  async function saveAndUpdateDetail(contact: Contact, pendingJobIds: string[] = []) {
+    const newId = await handleSave(contact, pendingJobIds)
+    if (newId && contact.id.startsWith('new-')) setDetailContactId(newId)
   }
 
   function toggleDeleteMode() {
@@ -198,21 +133,15 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     })
   }
 
-  async function handleDelete() {
+  async function handleDeleteSelected() {
     const ids = [...selected]
     playTrash(ids.length)
-    await Promise.all(ids.map((id) => deleteContact(id)))
-    setContacts((prev) => prev.filter((c) => !ids.includes(c.id)))
+    await handleDelete(ids)
     setSelected(new Set())
     setDeleteMode(false)
   }
 
   useEffect(() => { setPage(1) }, [search, sortBy, sortDir, timeRange])
-
-  function handleTimeRange(r: TimeRange) {
-    setTimeRange(r)
-    lsSet(SK.networkTimeRange, r)
-  }
 
   const cutoff = getTimeRangeCutoff(timeRange)
   const rangeContacts = contacts.filter((c) => {
@@ -228,7 +157,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
   const SORT_OPTIONS: { key: SortBy; label: string }[] = [
     { key: 'name',    label: 'NAME' },
     { key: 'company', label: 'COMPANY' },
-    { key: 'exp',  label: 'EXP' },
+    { key: 'exp',     label: 'EXP' },
     { key: 'date',    label: 'DATE' },
   ]
 
@@ -246,7 +175,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             <div className="flex items-center gap-3 mt-2 border border-warning px-3 py-2">
               <p className="text-warning text-[10px] flex-1">Contact limit reached ({FREE_CONTACT_CAP} max on free).</p>
               <button
-                onClick={() => createCheckoutSession().catch(() => {})}
+                onClick={handleUpgrade}
                 className="text-[10px] px-3 py-1 border border-secondary text-secondary hover:opacity-80 transition-none shrink-0"
               >
                 UPGRADE TO PRO
@@ -269,7 +198,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             </button>
           )}
           <button
-            onClick={handleAddContact}
+            onClick={addAndOpen}
             disabled={atCap}
             className="text-[10px] px-3 py-1.5 border border-primary text-primary hover:bg-primary hover:text-bg transition-none disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -280,7 +209,6 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
 
       {/* Filter / sort toolbar */}
       <div data-tutorial="network-toolbar" className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
-        {/* Row 1: search + sort + delete */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-1.5 min-w-[160px]">
             <SearchBar value={search} onChange={setSearch} placeholder="search contacts…" />
@@ -312,7 +240,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
           <div className="flex items-center gap-1 ml-auto">
             {deleteMode && selected.size > 0 && (
               <button
-                onClick={handleDelete}
+                onClick={handleDeleteSelected}
                 className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:border-secondary hover:text-secondary transition-none"
               >
                 DELETE {selected.size} CONTACT{selected.size !== 1 ? 'S' : ''}
@@ -331,7 +259,6 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             </button>
           </div>
         </div>
-        {/* Row 2: time range */}
         <div className="flex items-center gap-1">
           <span className="text-muted text-[10px] mr-1 select-none">RANGE</span>
           {TIME_RANGE_OPTIONS.map(({ value, label }) => (
@@ -353,16 +280,14 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
       {/* Scrollable content */}
       <div data-tutorial="network-list" className="overflow-hidden flex-1 relative">
 
-        {/* Animated network backdrop */}
         {!loading && contacts.length > 0 && (
           <NetworkBackdrop contacts={contacts} jobsByContact={jobsByContact} expanded={networkMapView} expOverrides={expOverrides} />
         )}
 
-        {/* Empty state */}
         {!loading && contacts.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-6 py-24 px-6 text-center">
             <button
-              onClick={handleAddContact}
+              onClick={addAndOpen}
               className="text-[10px] px-4 py-2 border border-primary text-primary hover:bg-primary hover:text-bg transition-none"
             >
               + ADD YOUR FIRST CONTACT
@@ -370,7 +295,6 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
           </div>
         )}
 
-        {/* Contact table — fades out in network map view */}
         {contacts.length > 0 && (
           <div
             style={{
@@ -398,15 +322,9 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             onTotalFiltered={setTotalFiltered}
             cooldownHours={cooldownHours}
             userId={userId}
-            onExpChange={(id, exp) => {
-              const now = new Date().toISOString()
-              setContacts((prev) => prev.map((c) => c.id === id ? { ...c, commExp: exp, lastCommAt: now } : c))
-              setExpOverrides((prev) => ({ ...prev, [id]: exp }))
-              updateContactExp(id, exp)
-            }}
+            onExpChange={handleExpChange}
           />
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-4 py-3 flex items-center justify-center gap-3">
               <button
@@ -436,21 +354,19 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
 
       </div>
 
-      {/* Contact detail card */}
       {detailContactId && (
         <ContactDetailModal
           contacts={contacts}
           contactId={detailContactId}
-          onClose={() => { handleDetailClose(); refreshJobsByContact() }}
+          onClose={() => { closeDetail(); refreshJobsByContact() }}
           onChange={(updated) =>
             setContacts((prev) => prev.map((c) => c.id === updated.id ? updated : c))
           }
-          onSave={handleSave}
+          onSave={saveAndUpdateDetail}
           userId={userId}
         />
       )}
 
-      {/* App detail card — opened from an Apps chip */}
       {detailJobId && (
         <JobDetailModal
           jobs={jobs}

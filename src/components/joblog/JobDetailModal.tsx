@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import type { Job, Contact, CuratedResume } from '@/types'
-import { fetchJobDetails, updateJobDetails, JOB_LIMITS, linkCuratedResumeToJob } from '@/services/jobService'
+import { JOB_LIMITS } from '@/config/jobLimits'
+import { linkCuratedResumeToJob } from '@/services/jobService'
 import { fetchCuratedResume, fetchCuratedResumes, updateCuratedResumeLabel } from '@/services/curatedResumeService'
 import CVRenderer from '@/components/mastercv/CVRenderer'
 import { parseSalaryK } from '@/lib/salaryUtils'
@@ -19,6 +20,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext'
 import { lsGet } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { PROMPT_CLEAN_JD } from '@/config/aiPrompts'
+import { useJobDetail } from '@/hooks/joblog/useJobDetail'
 
 ensureCrtStyles()
 
@@ -436,21 +438,24 @@ export function CuratedResumePreviewModal({ resumeId, onClose }: { resumeId: str
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
   const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
-  const currentIdx = jobs.findIndex((j) => j.id === jobId)
-  const [localIdx, setLocalIdx] = useState(currentIdx === -1 ? 0 : currentIdx)
   const [page, setPage] = useState<1 | 2>(initialPage)
-  const [detailsLoading, setDetailsLoading] = useState(false)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [salaryRaw, setSalaryRaw] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiLimitHit, setAiLimitHit] = useState(false)
   const [jdToast, setJdToast] = useState(false)
-  const loadedIds = useRef<Set<string>>(new Set())
   const cardRef = useRef<HTMLDivElement>(null)
   const ai = useAI()
 
-  const job = jobs[localIdx] ?? jobs[0]
+  const {
+    job,
+    localIdx,
+    detailsLoading,
+    saveState,
+    saveError,
+    goJob: hookGoJob,
+    update,
+    handleSave: hookHandleSave,
+  } = useJobDetail(jobs, jobId, onChange)
 
   function handleClose() {
     playExitBlip()
@@ -468,7 +473,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       if (e.key === 'Escape') { handleClose(); return }
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'TEXTAREA' || tag === 'INPUT') return
-      if (e.key === 'Enter') { handleSave(true); return }
+      if (e.key === 'Enter') { void handleSave(true); return }
       if (e.key === 'ArrowRight') { e.preventDefault(); goPage(1) }
       if (e.key === 'ArrowLeft')  { e.preventDefault(); goPage(-1) }
       if (e.key === 'ArrowUp')    { e.preventDefault(); goJob(-1) }
@@ -480,29 +485,12 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
 
   const prevLocalIdx = useRef(localIdx)
   useEffect(() => {
-    if (prevLocalIdx.current !== localIdx) { prevLocalIdx.current = localIdx; setPage(1) }
+    if (prevLocalIdx.current !== localIdx) { prevLocalIdx.current = localIdx; setPage(1); setSalaryRaw(null) }
   }, [localIdx])
-
-  useEffect(() => {
-    if (!job || loadedIds.current.has(job.id)) return
-    if (job.description !== undefined && job.notes !== undefined) {
-      loadedIds.current.add(job.id)
-      return
-    }
-    setDetailsLoading(true)
-    fetchJobDetails(job.id).then((details) => {
-      setDetailsLoading(false)
-      if (!details) return
-      loadedIds.current.add(job.id)
-      onChange({ ...job, description: details.description ?? '', notes: details.notes ?? '', curatedResumeId: details.curated_resume_id ?? undefined, coverLetterId: details.cover_letter_id ?? undefined })
-    })
-  }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { setSaveState('idle'); setSalaryRaw(null) }, [localIdx])
 
   function goJob(dir: -1 | 1) {
     playConsoleBlip(dir === 1 ? 'forward' : 'back')
-    setLocalIdx((prev) => Math.max(0, Math.min(jobs.length - 1, prev + dir)))
+    hookGoJob(dir)
   }
 
   function goPage(dir: -1 | 1) {
@@ -513,31 +501,11 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
     }
   }
 
-  function update<K extends keyof Job>(key: K, val: Job[K]) {
-    if (!job) return
-    onChange({ ...job, [key]: val })
-  }
-
   async function handleSave(closeAfter = false) {
-    if (!job || saveState === 'saving') return
-    setSaveState('saving')
-    setSaveError(null)
-    const { error } = await updateJobDetails(job.id, {
-      description: job.description ?? null,
-      notes:       job.notes       ?? null,
-    })
-    if (error) {
-      setSaveError(error)
-      setSaveState('error')
-      setTimeout(() => setSaveState('idle'), 2000)
-    } else {
-      if (closeAfter) {
-        handleClose()
-      } else {
-        playSaveBlip()
-        setSaveState('saved')
-        setTimeout(() => setSaveState('idle'), 1500)
-      }
+    const { error } = await hookHandleSave()
+    if (!error) {
+      if (closeAfter) handleClose()
+      else playSaveBlip()
     }
   }
 

@@ -1,15 +1,7 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { onAuthStateChange } from '@/services/authService'
+import { useAuthCallback } from '@/hooks/auth/useAuthCallback'
 
 export default function AuthCallbackPage() {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    return onAuthStateChange((session) => {
-      if (session) navigate('/', { replace: true })
-    })
-  }, [navigate])
+  useAuthCallback()
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center font-pixel scanlines">

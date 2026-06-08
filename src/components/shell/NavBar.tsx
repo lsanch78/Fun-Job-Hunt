@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { MessageText } from 'pixelarticons/react'
 import { useAuth } from '@/contexts/AuthContext'
-import { signOut } from '@/services/authService'
 import MusicPlayer from '@/components/shell/MusicPlayer'
 import FeedbackModal from '@/components/modals/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
@@ -23,7 +22,7 @@ export default function NavBar() {
   const { pathname } = useLocation()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const { email: userEmail, userId, username } = useAuth()
+  const { email: userEmail, userId, username, signOut } = useAuth()
   const [tutorialActive, setTutorialActive] = useState(false)
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
   const [feedbackOpen, setFeedbackOpen] = useState(false)

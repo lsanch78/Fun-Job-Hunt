@@ -52,7 +52,9 @@ export function useCosts() {
   return {
     data, loading, error,
     simTotalUsers, simConversionPct, simSubPrice, simFreeCallsPerUser, simPaidCallsPerUser, simDirty,
-    setSimSubPrice: (v: number) => { setSimSubPrice(Math.max(1, v)); setSimDirty(true) },
+    setSimTotalUsers:       (v: number) => { setSimTotalUsers(v);             setSimDirty(true) },
+    setSimConversionPct:    (v: number) => { setSimConversionPct(v);          setSimDirty(true) },
+    setSimSubPrice:         (v: number) => { setSimSubPrice(Math.max(1, v));  setSimDirty(true) },
     setSimFreeCallsPerUser: (v: number) => { setSimFreeCallsPerUser(Math.max(0, v)); setSimDirty(true) },
     setSimPaidCallsPerUser: (v: number) => { setSimPaidCallsPerUser(Math.max(0, v)); setSimDirty(true) },
     simPaidUsers, simFreeUsers, simTotalCalls, simIncome, simClaudeCost, simProfit,

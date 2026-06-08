@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { fetchAllFeedback, FEEDBACK_TOPICS, type FeedbackEntry, type FeedbackTopic } from '@/services/feedbackService'
+import { useState } from 'react'
+import { useFeedback } from '@/hooks/dev/useFeedback'
+import { FEEDBACK_TOPICS, type FeedbackTopic } from '@/services/feedbackService'
 import CostsTab from '@/pages/dev/CostsTab'
+import type { Tab } from '@/types'
 
 const TOPIC_COLORS: Record<FeedbackTopic | 'Other', string> = {
   'User Interface': 'text-blue-400',
@@ -17,28 +19,10 @@ function formatDate(iso: string) {
   })
 }
 
-import type { Tab } from '@/types'
-
 export default function DevPortalPage() {
   const [tab, setTab] = useState<Tab>('FEEDBACK')
 
-  // ── Feedback state ────────────────────────────────────────────────────────
-  const [entries, setEntries] = useState<FeedbackEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<FeedbackTopic | 'All'>('All')
-
-  useEffect(() => {
-    fetchAllFeedback().then((data) => {
-      setEntries(data)
-      setLoading(false)
-    })
-  }, [])
-
-  const displayed = filter === 'All' ? entries : entries.filter((e) => e.topic === filter)
-  const counts = FEEDBACK_TOPICS.reduce<Record<string, number>>((acc, t) => {
-    acc[t] = entries.filter((e) => e.topic === t).length
-    return acc
-  }, {})
+  const { entries, loading, filter, setFilter, displayed, counts } = useFeedback()
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

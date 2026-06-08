@@ -3,7 +3,7 @@ import { playProgressChime, playCelebrationFanfare, playPageFlip } from '@/lib/s
 import { Terminal } from 'pixelarticons/react'
 import { FileText } from 'pixelarticons/react'
 import type { Job, JobStatus } from '@/types'
-import { JOB_LIMITS } from '@/services/jobService'
+import { JOB_LIMITS } from '@/config/jobLimits'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import type { ColConfig } from '@/types'
 import { CuratedResumePreviewModal } from './JobDetailModal'

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { getSession, onAuthStateChange } from '@/services/authService'
+import { getSession, onAuthStateChange, signOut } from '@/services/authService'
 import type { Session } from '@supabase/supabase-js'
 
 interface AuthContextValue {
@@ -7,6 +7,7 @@ interface AuthContextValue {
   userId: string | null
   username: string
   email: string | null
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextValue>({
   userId: null,
   username: '',
   email: null,
+  signOut: async () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -29,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const email    = session?.user?.email ?? null
 
   return (
-    <AuthContext.Provider value={{ session, userId, username, email }}>
+    <AuthContext.Provider value={{ session, userId, username, email, signOut }}>
       {children}
     </AuthContext.Provider>
   )
