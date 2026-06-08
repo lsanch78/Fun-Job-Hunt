@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
-import { useScratchPad, type CheckItem } from '@/hooks/hud/useScratchPad'
+import { useScratchPad } from '@/hooks/hud/useScratchPad'
+import type { CheckItem } from '@/types'
 
 type SyncStatus = 'synced' | 'syncing'
 

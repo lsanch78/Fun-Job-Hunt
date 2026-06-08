@@ -2,8 +2,6 @@ import { useEffect, useRef } from 'react'
 import { playLevelUp } from '@/lib/sfx'
 import { getRankInfo } from '@/services/xpService'
 
-export { getRankInfo }
-
 const avatarChars = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
 
 export default function XpTracker({ xp }: { xp: number | null }) {

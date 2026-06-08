@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { fetchAllFeedback, FEEDBACK_TOPICS, type FeedbackEntry, type FeedbackTopic } from '@/services/feedbackService'
+import { fetchAllFeedback, FEEDBACK_TOPICS } from '@/services/feedbackService'
+import type { FeedbackEntry, FeedbackTopic } from '@/types'
 
 export function useFeedback() {
   const [entries, setEntries] = useState<FeedbackEntry[]>([])

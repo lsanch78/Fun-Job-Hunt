@@ -1,17 +1,6 @@
 import { labelStyle, inputStyle, textareaStyle } from '@/lib/CVCardTheme'
+import type { Education } from '@/types'
 import CVCard from './CVCard'
-
-export interface Education {
-  id: string
-  institution: string
-  degree: string
-  field: string
-  location: string
-  startDate: string
-  endDate: string
-  gpa: string
-  notes: string
-}
 
 interface Props {
   data: Education

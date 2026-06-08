@@ -1,14 +1,9 @@
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
+import { COMM_COOLDOWN_OPTIONS } from '@/types'
+import type { CommCooldownHours } from '@/types'
 
-export const COMM_COOLDOWN_OPTIONS = [
-  { label: 'Daily',        hours: 24  },
-  { label: 'Every 3 days', hours: 72  },
-  { label: 'Weekly',       hours: 168 },
-  { label: 'Bi-weekly',    hours: 336 },
-] as const
-
-export type CommCooldownHours = typeof COMM_COOLDOWN_OPTIONS[number]['hours']
+export { COMM_COOLDOWN_OPTIONS }
 
 export function getCommCooldownHours(userId: string): CommCooldownHours {
   // Fall back to legacy key where uid was in the middle of the string

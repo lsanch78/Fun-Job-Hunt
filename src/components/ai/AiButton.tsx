@@ -1,6 +1,6 @@
 import type React from 'react'
 import { CRT_FONT } from '@/lib/crtTheme'
-import type { AiPhase } from '@/hooks/useAI'
+import type { AiPhase } from '@/types'
 
 if (typeof document !== 'undefined' && !document.getElementById('ai-btn-style')) {
   const el = document.createElement('style')

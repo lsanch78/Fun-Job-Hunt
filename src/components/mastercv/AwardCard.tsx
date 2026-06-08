@@ -1,13 +1,6 @@
 import { labelStyle, inputStyle, textareaStyle } from '@/lib/CVCardTheme'
+import type { Award } from '@/types'
 import CVCard from './CVCard'
-
-export interface Award {
-  id: string
-  title: string
-  issuer: string
-  date: string
-  description: string
-}
 
 interface Props {
   data: Award

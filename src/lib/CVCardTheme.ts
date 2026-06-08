@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react'
-
 // Paper palette — matches CVRenderer's document aesthetic
 export const P = {
   bg:        '#ffffff',
@@ -19,32 +17,18 @@ export const CV_FONT = {
   section: '14pt',
 }
 
-// Section header — replicates CVRenderer section divider exactly
-export const sectionHeaderStyle: CSSProperties = {
-  fontFamily:   CV_FONT.family,
-  fontSize:     CV_FONT.section,
-  fontVariant:  'small-caps',
-  letterSpacing: '0.03em',
-  fontWeight:   'normal',
-  color:        P.text,
-  paddingBottom: 2,
-  marginBottom:  4,
-  borderBottom:  `0.5pt solid ${P.rule}`,
-  userSelect:   'none',
-}
-
 // Field label
-export const labelStyle: CSSProperties = {
+export const labelStyle = {
   fontFamily:    CV_FONT.family,
   fontSize:      CV_FONT.label,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   color:         P.textMuted,
   marginBottom:  2,
-}
+} as const
 
 // Input element
-export const inputStyle: CSSProperties = {
+export const inputStyle = {
   fontFamily:   CV_FONT.family,
   fontSize:     CV_FONT.body,
   color:        P.text,
@@ -54,21 +38,21 @@ export const inputStyle: CSSProperties = {
   outline:      'none',
   width:        '100%',
   padding:      '2px 6px 3px',
-}
+} as const
 
 // Textarea element
-export const textareaStyle: CSSProperties = { ...inputStyle, resize: 'none' }
+export const textareaStyle = { ...inputStyle, resize: 'none' } as const
 
 // Bullet glyph (•)
-export const bulletGlyphStyle: CSSProperties = {
+export const bulletGlyphStyle = {
   color:      P.textMuted,
   fontSize:   CV_FONT.body,
   lineHeight: 1.5,
   flexShrink: 0,
-}
+} as const
 
 // Remove-bullet (✕) button
-export const removeBtnStyle: CSSProperties = {
+export const removeBtnStyle = {
   background: 'none',
   border:     'none',
   cursor:     'pointer',
@@ -76,11 +60,11 @@ export const removeBtnStyle: CSSProperties = {
   color:      P.textMuted,
   flexShrink: 0,
   lineHeight: 1.5,
-}
-export const removeBtnHoverStyle: CSSProperties = { color: P.danger }
+} as const
+export const removeBtnHoverStyle = { color: P.danger } as const
 
 // Add bullet / add group button
-export const addBtnStyle: CSSProperties = {
+export const addBtnStyle = {
   background:    P.bg,
   border:        `1px solid ${P.border}`,
   borderRadius:  3,
@@ -93,9 +77,6 @@ export const addBtnStyle: CSSProperties = {
   letterSpacing: '0.03em',
   fontVariant:   'small-caps',
   alignSelf:     'flex-end',
-}
-export const addBtnHoverStyle: CSSProperties = { color: P.text, borderColor: P.textMuted }
+} as const
+export const addBtnHoverStyle = { color: P.text, borderColor: P.textMuted } as const
 
-// Legacy aliases — kept so existing card imports don't break during transition
-export const addBulletBtnStyle     = addBtnStyle
-export const addBulletBtnHoverStyle = addBtnHoverStyle

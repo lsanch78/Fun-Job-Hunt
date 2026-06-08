@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { lsGet, lsRemove, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { RankInfo } from '@/types'
 
 export function readXpCache(userId: string): number | null {
   const fromNew = lsGet<number | null>(SK.xp(userId), null)
@@ -67,15 +68,6 @@ export async function resetProfileXp(userId: string): Promise<{ error: string | 
 }
 
 // ── Rank info ─────────────────────────────────────────────────────────────────
-
-export interface RankInfo {
-  rank: number
-  title: string
-  progress: number
-  xp: number
-  nextFloor: number
-  isMax: boolean
-}
 
 export function getRankInfo(xp: number): RankInfo {
   let rank = 1

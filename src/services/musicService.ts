@@ -1,14 +1,5 @@
 import { supabase } from '@/lib/supabase'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface MusicTrack {
-  id: string
-  url: string
-  videoId: string
-  title: string
-  position: number
-}
+import type { MusicTrack } from '@/types'
 
 interface DbRow {
   id: string

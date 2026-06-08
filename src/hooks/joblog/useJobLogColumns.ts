@@ -20,7 +20,7 @@ export const COL_DEFS: Record<string, { label: string; defaultWidth: number }> =
   notes:    { label: 'NOTES',    defaultWidth: 160 },
 }
 
-export const DEFAULT_COLS: ColConfig[] = [
+const DEFAULT_COLS: ColConfig[] = [
   { key: 'company',  visible: true,  width: COL_DEFS.company.defaultWidth  },
   { key: 'title',    visible: true,  width: COL_DEFS.title.defaultWidth    },
   { key: 'url',      visible: true,  width: COL_DEFS.url.defaultWidth      },

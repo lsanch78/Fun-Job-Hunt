@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { JobStatus, SortState, TimeRange } from '@/types'
+import type { JobStatus, SortField, SortState, TimeRange } from '@/types'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import MobileJobList from '@/components/joblog/MobileJobList'
 import MobileScratchPad from '@/components/hud/MobileScratchPad'
@@ -12,8 +12,6 @@ import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
 // ── Shared filter helpers ─────────────────────────────────────────────────────
-type SortField = 'company' | 'date' | 'status'
-
 const STATUS_ORDER: Record<JobStatus, number> = {
   OFFER: 0, INTERVIEW: 1, PHONE_SCREEN: 2, APPLIED: 3, WITHDRAWN: 4, REJECTED: 5, GHOSTED: 6,
 }

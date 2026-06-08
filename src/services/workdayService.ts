@@ -1,14 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-
-export interface WorkdayRow {
-  id: string
-  user_id: string
-  punch_in: string       // ISO 8601 timestamptz
-  punch_out: string | null
-  date: string           // YYYY-MM-DD
-}
+import type { WorkdayRow } from '@/types'
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 export function readWorkdayCache(userId: string): WorkdayRow[] {
@@ -16,7 +9,7 @@ export function readWorkdayCache(userId: string): WorkdayRow[] {
   return Array.isArray(parsed) ? (parsed as WorkdayRow[]) : []
 }
 
-export function writeWorkdayCache(userId: string, rows: WorkdayRow[]): void {
+function writeWorkdayCache(userId: string, rows: WorkdayRow[]): void {
   lsSet(SK.workdays(userId), rows)
 }
 

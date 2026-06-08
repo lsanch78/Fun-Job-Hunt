@@ -1,16 +1,6 @@
 import { labelStyle, inputStyle } from '@/lib/CVCardTheme'
+import type { MainInfo } from '@/types'
 import CVCard from './CVCard'
-
-export interface MainInfo {
-  fullName: string
-  jobTitle: string
-  email: string
-  phone: string
-  location: string
-  website: string
-  linkedin: string
-  github: string
-}
 
 interface Props {
   data: MainInfo

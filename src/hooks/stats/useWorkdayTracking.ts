@@ -26,13 +26,7 @@ function clearPunchIn() {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export interface WorkdayTrackingState {
-  punchIn: Date | null
-  isPunchedIn: boolean
-  lastActivityRef: React.RefObject<number>
-  resetActivity: () => void
-  doPunchOut: (at?: Date) => void
-}
+import type { WorkdayTrackingState } from '@/types'
 
 /**
  * Owns all workday tracking logic: punch-in/out, auto punch-out on idle,

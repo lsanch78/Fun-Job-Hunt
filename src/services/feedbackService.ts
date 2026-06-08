@@ -1,28 +1,11 @@
 import { supabase } from '@/lib/supabase'
+import type { FeedbackTopic, FeedbackEntry, SubmitFeedbackResult } from '@/types'
+import { FEEDBACK_TOPICS } from '@/types'
 
-export const FEEDBACK_TOPICS = [
-  'User Interface',
-  'User Experience',
-  'Bug',
-  'Feature Idea',
-  'Other',
-] as const
-
-export type FeedbackTopic = typeof FEEDBACK_TOPICS[number]
+export { FEEDBACK_TOPICS }
 
 export const MESSAGE_LIMIT = 2000
 export const CONTACT_LIMIT = 100
-
-export interface FeedbackEntry {
-  id: string
-  user_id: string | null
-  topic: FeedbackTopic
-  contact: string | null
-  message: string
-  created_at: string
-}
-
-export type SubmitFeedbackResult = 'ok' | 'rate_limited' | 'error'
 
 export async function submitFeedback(payload: {
   userId: string

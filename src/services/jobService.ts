@@ -1,7 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-import type { Job, DbJob } from '@/types'
+import type { Job, DbJob, AutoGhostSetting } from '@/types'
+export { JOB_LIMITS } from '@/config/jobLimits'
+import { JOB_LIMITS } from '@/config/jobLimits'
 
 // ── Job cap (see docs/SCALABILITY.md) ────────────────────────────────────────
 export const JOB_CAP = 1000
@@ -18,13 +20,10 @@ export async function countJobs(userId: string): Promise<number> {
   return count ?? 0
 }
 
-export { JOB_LIMITS } from '@/config/jobLimits'
-import { JOB_LIMITS } from '@/config/jobLimits'
-
-// ── Cache key ────────────────────────────────────────────────────────────────
 export function cacheKey(userId: string): string {
   return SK.jobs(userId)
 }
+
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
 function dbJobToJob(row: DbJob): Job {
@@ -104,11 +103,6 @@ export async function fetchJobs(userId: string): Promise<Job[]> {
 
 // ── Auto-ghost setting ────────────────────────────────────────────────────────
 const DEFAULT_GHOST: AutoGhostSetting = { enabled: false, days: 60 }
-
-export interface AutoGhostSetting {
-  enabled: boolean
-  days: number  // default 60 (2 months)
-}
 
 export function readAutoGhostSetting(): AutoGhostSetting {
   return { ...DEFAULT_GHOST, ...lsGet<Partial<AutoGhostSetting>>(SK.autoGhost, {}) }

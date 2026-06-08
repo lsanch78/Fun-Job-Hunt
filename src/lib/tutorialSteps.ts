@@ -1,11 +1,5 @@
 import { PRO_PRICE_LABEL } from '@/config/pricing'
-
-export interface TutorialStep {
-  id: string
-  title: string
-  subtitle: string
-  body: string[]
-}
+import type { TutorialStep } from '@/types'
 
 export const JOB_LOG_STEPS: TutorialStep[] = [
   {

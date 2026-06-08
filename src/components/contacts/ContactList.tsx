@@ -8,7 +8,7 @@ import { SK, type AiMode } from '@/lib/storageKeys'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
 import type { Contact } from '@/types'
 import { useAI } from '@/hooks/useAI'
-import type { AiPhase } from '@/hooks/useAI'
+import type { AiPhase } from '@/types'
 import AiButton from '@/components/ai/AiButton'
 import { PROMPT_OUTREACH } from '@/config/aiPrompts'
 

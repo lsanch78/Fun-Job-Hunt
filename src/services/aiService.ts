@@ -1,19 +1,18 @@
 import { supabase } from '@/lib/supabase'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-
-export type AiProvider = 'proxy' | 'openai' | 'anthropic'
+import type { AiProvider } from '@/types'
 
 export const AI_MONTHLY_LIMIT = 30
 
-export const OPENAI_MODELS = [
+const OPENAI_MODELS = [
   'gpt-4o',
   'gpt-4o-mini',
   'gpt-4-turbo',
   'gpt-3.5-turbo',
 ]
 
-export const ANTHROPIC_MODELS = [
+const ANTHROPIC_MODELS = [
   'claude-opus-4-5',
   'claude-sonnet-4-5',
   'claude-haiku-4-5',

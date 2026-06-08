@@ -4,8 +4,8 @@ import {
   updateLink,
   deleteLink,
   reorderLinks,
-  type QuickCastLink,
 } from '@/services/quickCastService'
+import type { QuickCastLink } from '@/types'
 
 // ---------- Supabase mock factory ----------
 

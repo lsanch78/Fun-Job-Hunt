@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
 import AiButton from '@/components/ai/AiButton'
-import type { AiPhase } from '@/hooks/useAI'
+import type { AiPhase } from '@/types'
 import { playPingBlip, playAiConsume, playAiDing } from '@/lib/sfx'
 import type { Contact } from '@/types'
 

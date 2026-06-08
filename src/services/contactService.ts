@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Contact } from '@/types'
+import type { Contact, ContactJobLink } from '@/types'
 
 export const FREE_CONTACT_CAP = 8
 
@@ -14,17 +14,6 @@ export async function countContacts(userId: string): Promise<number> {
   }
   return count ?? 0
 }
-
-export const CONTACT_LIMITS = {
-  name:     100,
-  company:  100,
-  linkedin: 200,
-  github:   100,
-  twitter:  100,
-  discord:  100,
-  email:    200,
-  notes:    1000,
-} as const
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -82,8 +71,6 @@ function contactToDbInsert(contact: Omit<Contact, 'id' | 'createdAt'>, userId: s
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
-
-export interface ContactJobLink { id: string; title: string; company: string }
 
 /** Returns all contacts for a user plus a map of contactId → linked job info. */
 export async function fetchContactsWithJobs(userId: string): Promise<{

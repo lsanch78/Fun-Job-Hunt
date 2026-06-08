@@ -1,19 +1,7 @@
 import { useRef, useState } from 'react'
 import { P, CV_FONT, labelStyle, inputStyle, addBtnStyle, addBtnHoverStyle, removeBtnStyle, removeBtnHoverStyle } from '@/lib/CVCardTheme'
+import type { SkillGroup, SkillsBucket } from '@/types'
 import CVCard from './CVCard'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface SkillGroup {
-  id: string
-  label: string
-  skills: string[]
-}
-
-export interface SkillsBucket {
-  evergreen: string[]
-  modular: SkillGroup[]
-}
 
 interface Props {
   data: SkillsBucket

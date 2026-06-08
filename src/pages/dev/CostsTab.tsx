@@ -1,5 +1,6 @@
 import { useCosts } from '@/hooks/dev/useCosts'
-import { SUBSCRIPTION_PRICE_USD, type MonthlySnapshot } from '@/services/dev/costService'
+import { SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import type { MonthlySnapshot } from '@/types'
 import type { StatCardProps, SliderRowProps } from '@/types'
 
 function fmt(n: number, decimals = 2) {

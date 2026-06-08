@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useFeedback } from '@/hooks/dev/useFeedback'
-import { FEEDBACK_TOPICS, type FeedbackTopic } from '@/services/feedbackService'
+import { FEEDBACK_TOPICS } from '@/services/feedbackService'
+import type { FeedbackTopic } from '@/types'
 import CostsTab from '@/pages/dev/CostsTab'
 import type { Tab } from '@/types'
 

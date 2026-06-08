@@ -1,4 +1,4 @@
-import type { CVContent } from '@/services/cvService'
+import type { CVContent } from './mastercv'
 
 export interface CuratedResume {
   id: string

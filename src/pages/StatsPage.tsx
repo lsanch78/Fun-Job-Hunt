@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useStats } from '@/hooks/stats/useStats'
-import type { WorkdayRow } from '@/services/workdayService'
+import type { WorkdayRow } from '@/types'
 import type { Job } from '@/types'
 import XpTracker from '@/components/hud/XpTracker'
 import { useXp } from '@/hooks/hud/useXp'
