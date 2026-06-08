@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { fetchXp, subscribeToXp } from '@/services/xpService'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
@@ -19,35 +19,19 @@ export function useXp(userId: string | null): { xp: number | null; bumpXp: (delt
   useEffect(() => {
     if (!userId) return
 
-    supabase
-      .from('game_progress')
-      .select('xp')
-      .eq('user_id', userId)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setXp(data.xp)
-          writeXpCache(userId, data.xp)
-        }
-      })
+    fetchXp(userId).then((value) => {
+      if (value !== null) {
+        setXp(value)
+        writeXpCache(userId, value)
+      }
+    })
 
-    const channel = supabase
-      .channel(`game_progress:${userId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'game_progress',
-        filter: `user_id=eq.${userId}`,
-      }, (payload) => {
-        const row = payload.new as { xp?: number }
-        if (typeof row.xp === 'number') {
-          setXp(row.xp)
-          writeXpCache(userId, row.xp)
-        }
-      })
-      .subscribe()
+    const channel = subscribeToXp(userId, (value) => {
+      setXp(value)
+      writeXpCache(userId, value)
+    })
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { channel.unsubscribe() }
   }, [userId])
 
   const bumpXp = useCallback((delta: number) => setXp(x => {

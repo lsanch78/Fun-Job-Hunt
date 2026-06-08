@@ -2,6 +2,31 @@ import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { supabase } from '@/lib/supabase'
 import { lsRemove } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+
+export async function fetchXp(userId: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('game_progress')
+    .select('xp')
+    .eq('user_id', userId)
+    .single()
+  return data ? (data.xp as number) : null
+}
+
+export function subscribeToXp(userId: string, onUpdate: (xp: number) => void): RealtimeChannel {
+  return supabase
+    .channel(`game_progress:${userId}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'game_progress',
+      filter: `user_id=eq.${userId}`,
+    }, (payload) => {
+      const row = payload.new as { xp?: number }
+      if (typeof row.xp === 'number') onUpdate(row.xp)
+    })
+    .subscribe()
+}
 
 // Returns the XP delta for committing the nth job (1-indexed).
 // Every 10th job earns a double award.
