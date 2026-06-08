@@ -69,6 +69,7 @@ function makeCommittedJob(overrides = {}) {
 // ── useJobList ────────────────────────────────────────────────────────────────
 
 describe('useJobList — add flow', () => {
+  // Cache is read synchronously so the UI renders immediately without waiting for the DB round-trip.
   it('initialises with one empty draft and cached jobs', () => {
     ;(readCache as jest.Mock).mockReturnValueOnce([makeCommittedJob()])
 
@@ -80,6 +81,7 @@ describe('useJobList — add flow', () => {
     expect(committed[0].company).toBe('Acme')
   })
 
+  // DB is the source of truth — stale cache gets overwritten after the async fetch resolves.
   it('hydrates from DB after mount, replacing cache', async () => {
     const dbJob = makeCommittedJob({ id: 'db-job', company: 'DB Corp' })
     ;(fetchJobs as jest.Mock).mockResolvedValueOnce([dbJob])
@@ -92,6 +94,7 @@ describe('useJobList — add flow', () => {
     expect(writeCache).toHaveBeenCalled()
   })
 
+  // Happy path: the full commit chain — DB insert, XP award, and a fresh draft row — fires in one action.
   it('onCommit inserts the job, awards XP, and prepends a new draft', async () => {
     const { result } = renderHook(() => useJobList(USER_ID))
 
@@ -115,6 +118,7 @@ describe('useJobList — add flow', () => {
     expect(savedJob.company).toBe('NewCo')
   })
 
+  // Logged-out guard: committing before auth resolves must never write to the DB.
   it('does not insert when userId is null', () => {
     const { result } = renderHook(() => useJobList(null))
 
@@ -125,6 +129,7 @@ describe('useJobList — add flow', () => {
     expect(awardXp).not.toHaveBeenCalled()
   })
 
+  // Rapid keystrokes must not flood the DB — only the final value after 500 ms of silence is persisted.
   it('onDraftChange debounces updateJob for committed jobs', async () => {
     jest.useFakeTimers()
     const { result } = renderHook(() => useJobList(USER_ID))
@@ -139,6 +144,7 @@ describe('useJobList — add flow', () => {
     jest.useRealTimers()
   })
 
+  // Mobile one-shot path: addJob skips the draft row and inserts directly, then reflects the new job in state.
   it('addJob inserts directly and updates state', async () => {
     const { result } = renderHook(() => useJobList(USER_ID))
 
@@ -155,6 +161,7 @@ describe('useJobList — add flow', () => {
     expect(result.current.jobs.some((j) => j.company === 'Startup')).toBe(true)
   })
 
+  // DB failure must bubble up as an error string and leave state unchanged — no phantom job in the list.
   it('addJob returns error when insertJob fails', async () => {
     ;(insertJob as jest.Mock).mockResolvedValueOnce({ error: 'DB down' })
 
@@ -169,6 +176,7 @@ describe('useJobList — add flow', () => {
     expect(result.current.jobs.some((j) => j.company === 'Failing Co')).toBe(false)
   })
 
+  // The raw sentinel string must never reach the UI — addJob is responsible for the translation.
   it('addJob translates job_cap_reached sentinel to a human-readable message', async () => {
     ;(insertJob as jest.Mock).mockResolvedValueOnce({ error: 'job_cap_reached' })
 
@@ -183,6 +191,7 @@ describe('useJobList — add flow', () => {
     expect(res!.error).not.toBe('job_cap_reached')
   })
 
+  // onCommit checks the in-memory count ref synchronously — no DB round-trip before the cap is enforced.
   it('onCommit returns null and skips insert when at job cap', () => {
     // Override JOB_CAP to 0 so the ref limit is hit immediately
     const jobServiceMock = jest.requireMock('@/services/jobService')
@@ -202,6 +211,7 @@ describe('useJobList — add flow', () => {
     jobServiceMock.JOB_CAP = originalCap
   })
 
+  // A new user with no jobs should see only the blank draft row, not an error or empty array.
   it('keeps draft-only state when fetchJobs returns empty', async () => {
     ;(fetchJobs as jest.Mock).mockResolvedValueOnce([])
 
@@ -220,6 +230,7 @@ describe('useJobList — add flow', () => {
 describe('useJobDetail — edit flow', () => {
   const baseJob = makeCommittedJob()
 
+  // Description and notes are excluded from the list fetch to keep it fast — they load on first modal open.
   it('lazy-loads description and notes on open', async () => {
     const onChange = jest.fn()
     renderHook(() => useJobDetail([baseJob], baseJob.id, onChange))
@@ -232,6 +243,7 @@ describe('useJobDetail — edit flow', () => {
     })
   })
 
+  // Re-opening a job that was already loaded must not fire a redundant network call.
   it('skips fetch if description and notes are already loaded', async () => {
     const loadedJob = { ...baseJob, description: 'cached', notes: 'cached notes' }
     const onChange = jest.fn()
@@ -241,6 +253,7 @@ describe('useJobDetail — edit flow', () => {
     expect(fetchJobDetails).not.toHaveBeenCalled()
   })
 
+  // update() merges a single field into the job without mutating other fields.
   it('update() calls onChange with the patched field', () => {
     const onChange = jest.fn()
     const loadedJob = { ...baseJob, description: '', notes: '' }
@@ -253,6 +266,7 @@ describe('useJobDetail — edit flow', () => {
     )
   })
 
+  // Successful save shows 'saved' feedback for 1200 ms then returns to idle.
   it('handleSave transitions saveState to saved on success', async () => {
     jest.useFakeTimers()
     const loadedJob = { ...baseJob, description: 'text', notes: '' }
@@ -270,6 +284,7 @@ describe('useJobDetail — edit flow', () => {
     jest.useRealTimers()
   })
 
+  // Failed save exposes the error message for 2000 ms so the user has time to read it before reset.
   it('handleSave transitions saveState to error on failure', async () => {
     jest.useFakeTimers()
     ;(svcUpdateJobDetails as jest.Mock).mockResolvedValueOnce({ error: 'save failed' })
@@ -286,6 +301,7 @@ describe('useJobDetail — edit flow', () => {
     jest.useRealTimers()
   })
 
+  // Arrow key navigation moves through the job list one entry at a time.
   it('goJob navigates between jobs', () => {
     const jobs = [
       makeCommittedJob({ id: 'j1', company: 'A' }),
@@ -300,6 +316,7 @@ describe('useJobDetail — edit flow', () => {
     expect(result.current.job.id).toBe('j1')
   })
 
+  // Navigation must not wrap around — going before the first or past the last job is a no-op.
   it('goJob clamps at boundaries — no wrapping', () => {
     const jobs = [
       makeCommittedJob({ id: 'j1', company: 'A' }),
@@ -315,6 +332,7 @@ describe('useJobDetail — edit flow', () => {
     expect(result.current.job.id).toBe('j2')
   })
 
+  // Network failure during lazy load must be swallowed silently — the modal stays open with whatever data it has.
   it('fetchJobDetails failure does not call onChange or crash', async () => {
     ;(fetchJobDetails as jest.Mock).mockResolvedValueOnce(null)
 
@@ -325,6 +343,7 @@ describe('useJobDetail — edit flow', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  // Double-submit guard: a second save while one is in-flight must not fire a second DB call.
   it('handleSave is a no-op when already saving', async () => {
     const loadedJob = { ...baseJob, description: 'text', notes: '' }
 
