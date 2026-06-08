@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/lib/ThemeContext'
+import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/contexts/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
@@ -16,7 +16,7 @@ import { resetProfileXp } from '@/services/xpService'
 import { upsertScratchPad } from '@/services/scratchPadService'
 import { deleteAllTracks } from '@/services/musicService'
 import { deleteAllLinks } from '@/services/quickCastService'
-import { useSubscription } from '@/lib/SubscriptionContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { createCheckoutSession, openPortalSession } from '@/services/subscriptionService'
 
 const THEME_LABELS: Record<Theme, string> = {

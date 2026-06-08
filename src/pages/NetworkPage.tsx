@@ -15,7 +15,7 @@ import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
 } from '@/services/contactService'
 import { playDeleteBump, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
-import { useSubscription } from '@/lib/SubscriptionContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { FREE_CONTACT_CAP } from '@/services/contactService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { getCommCooldownHours } from '@/lib/commSettings'

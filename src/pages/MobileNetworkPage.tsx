@@ -9,7 +9,7 @@ import {
   FREE_CONTACT_CAP,
 } from '@/services/contactService'
 import { fetchJobs } from '@/services/jobService'
-import { useSubscription } from '@/lib/SubscriptionContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { createCheckoutSession } from '@/services/subscriptionService'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
