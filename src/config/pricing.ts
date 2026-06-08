@@ -14,7 +14,7 @@ export interface ProFeatureRow {
 export const PRO_FEATURE_TABLE: ProFeatureRow[] = [
   { feature: 'Job Tracking',  free: '∞ applications',   pro: '∞ applications' },
   { feature: 'Network',       free: 'Up to 8 contacts',  pro: '∞ contacts' },
-  { feature: 'AI Assistant',  free: 'Unlock up to 30 requests/month',           pro: 'Unlimited' },
+  { feature: 'AI Assistant',  free: '30 requests/month',           pro: 'Unlimited' },
   { feature: 'Cover Letter Exports',       free: '✗',                 pro: 'PDF + Docx Downloads' },
   { feature: 'Story Mode',    free: '✓',                 pro: '✓' },
   { feature: 'Time Tracking', free: '✓',                 pro: '✓' },
