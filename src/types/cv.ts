@@ -102,6 +102,12 @@ export interface CVRendererHandle {
   getPaperElement: () => HTMLDivElement | null
 }
 
+export interface CVCanvasHandle {
+  openCurate: () => void
+  openPreview: () => void
+  openAddSection: () => void
+}
+
 export interface CVState {
   mainInfo:       MainInfo
   experiences:    Experience[]

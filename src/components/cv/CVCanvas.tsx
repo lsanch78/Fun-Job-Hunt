@@ -1,10 +1,10 @@
-import { useRef, useState, useMemo, useEffect } from 'react'
+import { useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
-import type { CVContent, ContentChangeEvent, CVRendererHandle, Experience, Education, Project, SkillsBucket, Summary, Certification, Award } from '@/types'
+import type { CVContent, ContentChangeEvent, CVRendererHandle, CVCanvasHandle, Experience, Education, Project, SkillsBucket, Summary, Certification, Award } from '@/types'
 import MainInfoCard from './MainInfoCard'
 import ExperienceCard from './ExperienceCard'
 import EducationCard from './EducationCard'
@@ -113,6 +113,8 @@ interface Props {
   onInitialCurateConsumed?: () => void
   onResumeSaved?: (jobId: string, resumeId: string) => void
   onClose?: () => void
+  onCurateOpenChange?: (open: boolean) => void
+  onPreviewOpenChange?: (open: boolean) => void
 }
 
 function GlitchOverlay({ width, height, words }: { width: number; height: number; words: string[] }) {
@@ -158,7 +160,7 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
   return <canvas ref={canvasRef} width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
-export default function CVCanvas({ visible = true, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose }: Props) {
+const CVCanvas = forwardRef<CVCanvasHandle, Props>(function CVCanvas({ visible = true, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose, onCurateOpenChange, onPreviewOpenChange }: Props, ref) {
   const {
     resumes: savedResumes,
     handleCreate: createCuratedResume,
@@ -200,8 +202,17 @@ export default function CVCanvas({ visible = true, userName: _userName, userId, 
   const [curateText, setCurateText]             = useState('')
   const [curateOpen, setCurateOpen]             = useState(false)
   const [curatePhase, setCuratePhase]           = useState<'idle' | 'thinking' | 'error'>('idle')
-  const [curateError, setCurateError]           = useState<string | null>(null)
+  const [, setCurateError]                      = useState<string | null>(null)
   const [curateResult, setCurateResult]         = useState<CurateResult | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    openCurate:     () => setCurateOpen(true),
+    openPreview:    () => setPreviewOpen(true),
+    openAddSection: () => setNewMenuOpen(true),
+  }))
+
+  useEffect(() => { onCurateOpenChange?.(curateOpen) }, [curateOpen])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onPreviewOpenChange?.(previewOpen) }, [previewOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Isolated curated content — never touches cvContent / CV
   const [curatedContent, setCuratedContent]         = useState<CVContent | null>(null)
@@ -533,9 +544,6 @@ export default function CVCanvas({ visible = true, userName: _userName, userId, 
     })
   }
 
-  const curateLabel =
-    curatePhase === 'thinking' ? 'THINKING…' :
-    curatePhase === 'error'    ? 'ERROR' : 'CURATE'
 
   // ── Auto-save when curation completes from a job context ─────────────────
   // Only fires for newly-curated resumes (not when loading an existing one).
@@ -878,90 +886,6 @@ export default function CVCanvas({ visible = true, userName: _userName, userId, 
       className="absolute inset-0"
       style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity 400ms ease' }}
     >
-      {/* ── Top toolbar ─────────────────────────────────────────────────── */}
-      <div style={{ position: 'absolute', top: 16, left: 20, right: 20, zIndex: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-
-        {/* LEFT — spacer */}
-        <div />
-
-        {/* RIGHT — CURATE + PREVIEW */}
-        <div className="flex items-start gap-2">
-          {/* Curate */}
-          <div className="flex flex-col gap-1" style={{ maxWidth: 300 }}>
-            <button
-              onClick={() => setCurateOpen((v) => !v)}
-              style={{
-                fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.04em',
-                color: curateOpen ? P.text : curatePhase === 'error' ? '#ef4444' : curateResult ? P.text : P.textMuted,
-                border: `1px solid ${curateOpen ? P.rule : curatePhase === 'error' ? '#ef4444' : curateResult ? P.textMuted : P.border}`,
-                borderRadius: 3, background: P.bg, padding: '5px 16px', cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted; (e.currentTarget as HTMLElement).style.color = P.text }}
-              onMouseLeave={(e) => { if (!curateOpen) { (e.currentTarget as HTMLElement).style.borderColor = curateResult ? P.textMuted : P.border; (e.currentTarget as HTMLElement).style.color = curateResult ? P.text : P.textMuted } }}
-            >
-              {curateLabel}
-            </button>
-
-            {curateOpen && (
-              <div style={{ width: '100%', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 3, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-                <div style={{ fontFamily: CV_FONT.family, fontSize: 11, color: P.textMuted, lineHeight: 1.5 }}>
-                  Paste a job description. Haiku will reorder your bullets and surface keyword matches — no rewriting.
-                </div>
-                <textarea
-                  value={curateText}
-                  onChange={(e) => setCurateText(e.target.value)}
-                  placeholder="Paste job description here…"
-                  rows={6}
-                  style={{
-                    fontFamily: CV_FONT.family, fontSize: 13, color: P.text, background: '#f9fafb',
-                    border: `1px solid ${P.border}`, borderRadius: 3, padding: '6px 8px', resize: 'vertical',
-                    outline: 'none', lineHeight: 1.5,
-                  }}
-                />
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => { setCurateOpen(false); setCurateText('') }}
-                    style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '4px 12px', cursor: 'pointer' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.border }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={curatePhase === 'thinking' || !curateText.trim()}
-                    onClick={() => handleCurate()}
-                    style={{
-                      fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em',
-                      color: curatePhase === 'thinking' ? P.textMuted : P.bg,
-                      background: curatePhase === 'thinking' ? 'transparent' : P.text,
-                      border: `1px solid ${curatePhase === 'thinking' ? P.border : P.text}`,
-                      borderRadius: 3, padding: '4px 12px', cursor: curatePhase === 'thinking' ? 'default' : 'pointer',
-                    }}
-                  >
-                    {curatePhase === 'thinking' ? 'Thinking…' : 'Curate →'}
-                  </button>
-                </div>
-                {curateError && <span style={{ fontFamily: CV_FONT.family, fontSize: 12, color: '#ef4444' }}>{curateError}</span>}
-              </div>
-            )}
-          </div>
-
-          {/* Preview */}
-          <button
-            onClick={() => setPreviewOpen((v) => !v)}
-            style={{
-              fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.04em',
-              color: previewOpen ? P.text : P.textMuted,
-              border: `1px solid ${previewOpen ? P.rule : P.border}`,
-              borderRadius: 3, background: P.bg, padding: '5px 16px', cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = P.textMuted; (e.currentTarget as HTMLElement).style.color = P.text }}
-            onMouseLeave={(e) => { if (!previewOpen) { (e.currentTarget as HTMLElement).style.borderColor = P.border; (e.currentTarget as HTMLElement).style.color = P.textMuted } }}
-          >
-            {previewOpen ? 'Edit' : 'Preview'}
-          </button>
-        </div>
-      </div>
 
 
       {/* ── Staging screen ───────────────────────────────────────────────── */}
@@ -1461,26 +1385,6 @@ export default function CVCanvas({ visible = true, userName: _userName, userId, 
             )
           })}
 
-          {/* Add Section button */}
-          <div className="mt-2 flex justify-end">
-            <button
-              onClick={() => setNewMenuOpen(true)}
-              style={{
-                fontFamily: "'Carlito', 'Calibri', sans-serif",
-                fontSize: 14,
-                fontVariant: 'small-caps',
-                letterSpacing: '0.03em',
-                color: '#111827',
-                border: '1px solid #e5e7eb',
-                borderRadius: 3,
-                background: '#ffffff',
-                padding: '5px 14px',
-                cursor: 'pointer',
-              }}
-            >
-              Add Section
-            </button>
-          </div>
 
           {/* Add Section modal */}
           {newMenuOpen && (
@@ -1558,4 +1462,6 @@ export default function CVCanvas({ visible = true, userName: _userName, userId, 
       )}
     </div>
   )
-}
+})
+
+export default CVCanvas
