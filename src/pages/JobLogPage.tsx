@@ -19,7 +19,7 @@ import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialAc
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import { JobRow, type JobRowHandle } from '@/components/joblog/JobRow'
-import { useColumns } from '@/components/joblog/useColumns'
+import { useJobLogColumns } from '@/hooks/useJobLogColumns'
 import { ColumnHeader } from '@/components/joblog/ColumnHeader'
 import { ColumnContextMenu } from '@/components/joblog/ColumnContextMenu'
 
@@ -181,7 +181,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [clInitialCoverLetterId, setClInitialCoverLetterId] = useState<string | null>(null)
   const [clInitialCompany, setClInitialCompany] = useState<string | null>(null)
   const [clInitialJobId, setClInitialJobId] = useState<string | null>(null)
-  const columns = useColumns()
+  const columns = useJobLogColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)

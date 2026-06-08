@@ -1,4 +1,4 @@
-import { COL_DEFS, REQUIRED_COLS, type UseColumns } from './useColumns'
+import { COL_DEFS, REQUIRED_COLS, type UseColumns } from '@/hooks/useJobLogColumns'
 
 /**
  * Renders draggable, resizable, right-clickable <th> cells for the user-configurable

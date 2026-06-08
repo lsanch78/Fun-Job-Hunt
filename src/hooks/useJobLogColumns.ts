@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-import type { ColConfig } from './types'
+import type { ColConfig } from '@/components/joblog/types'
 
 // ── Static config ─────────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ export interface UseColumns {
   isResizingRef: React.MutableRefObject<boolean>
 }
 
-export function useColumns(): UseColumns {
+export function useJobLogColumns(): UseColumns {
   const [cols, setCols] = useState<ColConfig[]>(readColConfig)
   const [menu, setMenu] = useState<ColumnMenuState | null>(null)
   const [dragColKey, setDragColKey] = useState<string | null>(null)
