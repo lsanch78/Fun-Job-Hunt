@@ -246,8 +246,8 @@ export function playSelectClick(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-/** Scratch pad drawer opening — rising noise slide. */
-export function playScratchOpen(): void {
+/** Journal drawer opening — rising noise slide. */
+export function playJournalOpen(): void {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()
@@ -267,8 +267,8 @@ export function playScratchOpen(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-/** Scratch pad drawer closing — falling noise slide. */
-export function playScratchClose(): void {
+/** Journal drawer closing — falling noise slide. */
+export function playJournalClose(): void {
   if (isSfxMuted()) return
   try {
     const ctx = new AudioContext()

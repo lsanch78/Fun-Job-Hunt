@@ -14,12 +14,12 @@ export const SK = {
   xp:        (uid: string) => `fjobhunt:xp:${uid}`,
   autoGhost: 'fjobhunt:autoghost',
 
-  // ── Scratch pad ──────────────────────────────────────────────────────────────
-  scratchPad:    (uid: string) => `fjobhunt:scratchpad:${uid}`,
-  scratchList:   (uid: string) => `fjobhunt:scratchlist:${uid}`,
-  scratchTab:    'fjobhunt:scratchtab',
-  scratchHeight: 'fjobhunt:scratchheight',
-  scratchOpen:   'fjobhunt:scratchopen',
+  // ── Journal ───────────────────────────────────────────────────────────────────
+  journal:       (uid: string) => `fjobhunt:journal:${uid}`,
+  journalList:   (uid: string) => `fjobhunt:journallist:${uid}`,
+  journalTab:    'fjobhunt:journaltab',
+  journalHeight: 'fjobhunt:journalheight',
+  journalOpen:   'fjobhunt:journalopen',
 
   // ── Contacts & comms ─────────────────────────────────────────────────────────
   quickcastLinks: (uid: string) => `fjobhunt:quickcast:links:${uid}`,

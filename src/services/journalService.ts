@@ -1,9 +1,9 @@
 import { supabase } from '@/lib/supabase'
-import type { ScratchPadRecord } from '@/types'
+import type { JournalRecord } from '@/types'
 
-export const SCRATCH_PAD_LIMIT = 8000
+export const JOURNAL_LIMIT = 8000
 
-export async function fetchScratchPad(userId: string): Promise<ScratchPadRecord | null> {
+export async function fetchJournal(userId: string): Promise<JournalRecord | null> {
   const { data, error } = await supabase
     .from('scratch_pad')
     .select('notes, list')
@@ -13,9 +13,9 @@ export async function fetchScratchPad(userId: string): Promise<ScratchPadRecord 
   return { notes: data.notes ?? '', list: data.list ?? '' }
 }
 
-export async function upsertScratchPad(
+export async function upsertJournal(
   userId: string,
-  record: Partial<ScratchPadRecord>,
+  record: Partial<JournalRecord>,
 ): Promise<void> {
   const { error } = await supabase
     .from('scratch_pad')
@@ -23,5 +23,5 @@ export async function upsertScratchPad(
       { user_id: userId, ...record, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },
     )
-  if (error) console.error('[scratchPadService] upsert:', error.message)
+  if (error) console.error('[journalService] upsert:', error.message)
 }

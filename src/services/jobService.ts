@@ -2,13 +2,12 @@ import { supabase } from '@/lib/supabase'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import type { Job, DbJob, AutoGhostSetting } from '@/types'
-export { JOB_LIMITS } from '@/config/jobLimits'
 import { JOB_LIMITS } from '@/config/jobLimits'
 
 // ── Job cap (see docs/SCALABILITY.md) ────────────────────────────────────────
 export const JOB_CAP = 1000
 
-export async function countJobs(userId: string): Promise<number> {
+async function countJobs(userId: string): Promise<number> {
   const { count, error } = await supabase
     .from('jobs')
     .select('id', { count: 'exact', head: true })
@@ -20,7 +19,7 @@ export async function countJobs(userId: string): Promise<number> {
   return count ?? 0
 }
 
-export function cacheKey(userId: string): string {
+function cacheKey(userId: string): string {
   return SK.jobs(userId)
 }
 

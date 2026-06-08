@@ -430,7 +430,7 @@ export default function SettingsPage() {
           <div className="bg-bg border-2 border-red-500 p-8 flex flex-col gap-5 w-full max-w-md font-pixel">
             <h2 className="text-sm text-red-500">FULL RESET</h2>
             <p className="text-xs text-red-400 leading-relaxed">
-              This permanently deletes ALL jobs, contacts, activity logs, resumes, music playlists, and scratch pad, and resets your XP to 0. This cannot be undone.
+              This permanently deletes ALL jobs, contacts, activity logs, resumes, music playlists, and journal, and resets your XP to 0. This cannot be undone.
             </p>
             <div className="flex flex-col gap-2">
               <label className="text-[10px] text-muted tracking-widest">TYPE TO CONFIRM</label>
