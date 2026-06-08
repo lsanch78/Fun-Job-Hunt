@@ -20,6 +20,9 @@ const config: Config = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: { lines: 6 }, // ratchet up as coverage grows — target is 30%
+  },
 }
 
 export default config

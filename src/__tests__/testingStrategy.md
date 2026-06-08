@@ -40,11 +40,4 @@ Pure display components get no tests.
 
 ## Coverage Threshold
 
-Start at **30% overall**, enforced in `jest.config.ts`. Ratchet up as coverage grows — purpose is regression prevention, not a blocker.
-
-```ts
-// jest.config.ts addition when ready to enforce:
-coverageThreshold: {
-  global: { lines: 30 },
-},
-```
+Enforced in `jest.config.ts` via `coverageThreshold`. Current floor is **6% lines** (the baseline when enforcement was introduced). Ratchet the number up each time a new layer is tested — purpose is regression prevention, not a blocker. Target is **30%**.
