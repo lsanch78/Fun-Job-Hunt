@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import { fetchScratchPad, upsertScratchPad, SCRATCH_PAD_LIMIT } from '@/services/scratchPadService'
+import { fetchJournal, upsertJournal, JOURNAL_LIMIT } from '@/services/journalService'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import type { CheckItem } from '@/types'
 
-export function useScratchPad(userId: string | null) {
-  const [tab,        setTabState]  = useState<'pad' | 'list'>(() => lsGet<string>(SK.scratchTab, 'pad') as 'pad' | 'list')
-  const [text,       setText]      = useState(() => userId ? lsGet<string>(SK.scratchPad(userId), '') : '')
-  const [items,      setItems]     = useState<CheckItem[]>(() => userId ? lsGet<CheckItem[]>(SK.scratchList(userId), []) : [])
+export function useJournal(userId: string | null) {
+  const [tab,        setTabState]  = useState<'pad' | 'list'>(() => lsGet<string>(SK.journalTab, 'pad') as 'pad' | 'list')
+  const [text,       setText]      = useState(() => userId ? lsGet<string>(SK.journal(userId), '') : '')
+  const [items,      setItems]     = useState<CheckItem[]>(() => userId ? lsGet<CheckItem[]>(SK.journalList(userId), []) : [])
   const [newItem,    setNewItem]   = useState('')
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced')
 
@@ -16,22 +16,22 @@ export function useScratchPad(userId: string | null) {
 
   useEffect(() => {
     if (!userId) return
-    const cachedText = lsGet<string | null>(SK.scratchPad(userId), null)
+    const cachedText = lsGet<string | null>(SK.journal(userId), null)
     if (cachedText) setText(cachedText)
-    const cachedList = lsGet<CheckItem[] | null>(SK.scratchList(userId), null)
+    const cachedList = lsGet<CheckItem[] | null>(SK.journalList(userId), null)
     if (cachedList) setItems(cachedList)
     setSyncStatus('syncing')
-    fetchScratchPad(userId).then((rec) => {
+    fetchJournal(userId).then((rec) => {
       if (rec) {
         if (rec.notes) {
           setText(rec.notes)
-          lsSet(SK.scratchPad(userId), rec.notes)
+          lsSet(SK.journal(userId), rec.notes)
         }
         if (rec.list) {
           try {
             const parsed = JSON.parse(rec.list) as CheckItem[]
             setItems(parsed)
-            lsSet(SK.scratchList(userId), parsed)
+            lsSet(SK.journalList(userId), parsed)
           } catch { /* noop */ }
         }
       }
@@ -41,33 +41,33 @@ export function useScratchPad(userId: string | null) {
 
   function setTab(t: 'pad' | 'list') {
     setTabState(t)
-    lsSet(SK.scratchTab, t)
+    lsSet(SK.journalTab, t)
   }
 
   function persistText(val: string) {
-    if (userId) lsSet(SK.scratchPad(userId), val)
+    if (userId) lsSet(SK.journal(userId), val)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveTextTimer.current) clearTimeout(saveTextTimer.current)
     saveTextTimer.current = setTimeout(async () => {
-      await upsertScratchPad(userId, { notes: val })
+      await upsertJournal(userId, { notes: val })
       setSyncStatus('synced')
     }, 800)
   }
 
   function persistItems(next: CheckItem[]) {
-    if (userId) lsSet(SK.scratchList(userId), next)
+    if (userId) lsSet(SK.journalList(userId), next)
     if (!userId) return
     setSyncStatus('syncing')
     if (saveListTimer.current) clearTimeout(saveListTimer.current)
     saveListTimer.current = setTimeout(async () => {
-      await upsertScratchPad(userId, { list: JSON.stringify(next) })
+      await upsertJournal(userId, { list: JSON.stringify(next) })
       setSyncStatus('synced')
     }, 800)
   }
 
   function handleTextChange(val: string) {
-    const trimmed = val.slice(0, SCRATCH_PAD_LIMIT)
+    const trimmed = val.slice(0, JOURNAL_LIMIT)
     setText(trimmed)
     persistText(trimmed)
   }

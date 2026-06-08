@@ -27,9 +27,9 @@ export interface QuickCastLink {
   position: number
 }
 
-// ── Scratch Pad ───────────────────────────────────────────────────────────────
+// ── Journal ───────────────────────────────────────────────────────────────────
 
-export interface ScratchPadRecord {
+export interface JournalRecord {
   notes: string
   list:  string
 }

@@ -13,7 +13,7 @@ import DevPortalPage from '@/pages/DevPortalPage'
 import NavBar from '@/components/shell/NavBar'
 import QuickCast from '@/components/hud/QuickCast'
 import WorkdayBar from '@/components/hud/WorkdayBar'
-import ScratchPad from '@/components/hud/ScratchPad'
+import Journal from '@/components/hud/Journal'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
 import NetworkPage from '@/pages/NetworkPage'
@@ -33,7 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
-      <ScratchPad userId={userId} />
+      <Journal userId={userId} />
       <QuickCast />
       <WorkdayBar userId={userId} inline />
     </div>
@@ -44,7 +44,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-screen">
       <NavBar />
       <div className="flex-1 flex flex-col min-h-0">{children}</div>
-      <ScratchPad userId={userId} />
+      <Journal userId={userId} />
       <QuickCast />
       <WorkdayBar userId={userId} inline />
     </div>

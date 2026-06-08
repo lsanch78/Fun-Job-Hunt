@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { playSelectClick, playScratchOpen, playScratchClose } from '@/lib/sfx'
-import { useScratchPad } from '@/hooks/hud/useScratchPad'
+import { playSelectClick, playJournalOpen, playJournalClose } from '@/lib/sfx'
+import { useJournal } from '@/hooks/hud/useJournal'
 import type { CheckItem } from '@/types'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
@@ -19,15 +19,15 @@ function SyncBadge({ status }: { status: 'synced' | 'syncing' | null }) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SCRATCH_MIN_H = 120
-const SCRATCH_MAX_H = 600
-const SCRATCH_DEF_H = 220
+const JOURNAL_MIN_H = 120
+const JOURNAL_MAX_H = 600
+const JOURNAL_DEF_H = 220
 
-// ── ScratchPad ────────────────────────────────────────────────────────────────
+// ── Journal ───────────────────────────────────────────────────────────────────
 
-export default function ScratchPad({ userId }: { userId: string | null }) {
-  const [open,   setOpen]   = useState<boolean>(() => lsGet<boolean>(SK.scratchOpen, false))
-  const [height, setHeight] = useState<number>(() => lsGet<number>(SK.scratchHeight, SCRATCH_DEF_H))
+export default function Journal({ userId }: { userId: string | null }) {
+  const [open,   setOpen]   = useState<boolean>(() => lsGet<boolean>(SK.journalOpen, false))
+  const [height, setHeight] = useState<number>(() => lsGet<number>(SK.journalHeight, JOURNAL_DEF_H))
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -49,7 +49,7 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     clearDone,
     clearAll,
     reorderItems,
-  } = useScratchPad(userId)
+  } = useJournal(userId)
 
   useEffect(() => {
     if (!open) return
@@ -62,8 +62,8 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
   function toggleOpen() {
     setOpen((o) => {
       const next = !o
-      next ? playScratchOpen() : playScratchClose()
-      lsSet(SK.scratchOpen, next)
+      next ? playJournalOpen() : playJournalClose()
+      lsSet(SK.journalOpen, next)
       return next
     })
   }
@@ -118,12 +118,12 @@ export default function ScratchPad({ userId }: { userId: string | null }) {
     const startH = height
 
     function onMove(ev: PointerEvent) {
-      const next = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
+      const next = Math.min(JOURNAL_MAX_H, Math.max(JOURNAL_MIN_H, startH - (ev.clientY - startY)))
       setHeight(next)
     }
     function onUp(ev: PointerEvent) {
-      const final = Math.min(SCRATCH_MAX_H, Math.max(SCRATCH_MIN_H, startH - (ev.clientY - startY)))
-      lsSet(SK.scratchHeight, final)
+      const final = Math.min(JOURNAL_MAX_H, Math.max(JOURNAL_MIN_H, startH - (ev.clientY - startY)))
+      lsSet(SK.journalHeight, final)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }

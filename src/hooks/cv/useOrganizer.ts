@@ -7,7 +7,7 @@ import type { CVContent, Experience, Education, Project, Summary, Certification,
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type OrgSection =
+type OrgSection =
   | 'experience' | 'education' | 'project' | 'skills'
   | 'summary' | 'certification' | 'award' | 'mainInfo'
 

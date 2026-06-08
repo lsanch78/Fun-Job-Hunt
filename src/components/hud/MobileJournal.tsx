@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { useScratchPad } from '@/hooks/hud/useScratchPad'
+import { useJournal } from '@/hooks/hud/useJournal'
 import type { CheckItem } from '@/types'
 
 type SyncStatus = 'synced' | 'syncing'
@@ -13,7 +13,7 @@ function SyncBadge({ status }: { status: SyncStatus | null }) {
   )
 }
 
-export default function MobileScratchPad({
+export default function MobileJournal({
   userId,
   onClose,
 }: {
@@ -36,7 +36,7 @@ export default function MobileScratchPad({
     toggleItem,
     deleteItem,
     clearDone,
-  } = useScratchPad(userId)
+  } = useJournal(userId)
 
   useEffect(() => {
     const id = setTimeout(() => {

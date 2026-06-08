@@ -12,7 +12,7 @@ import { updateUsername } from '@/services/authService'
 import { resetEmployed, resetProfileXp } from '@/services/xpService'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage } from '@/services/aiService'
 import type { AiProvider, AiMode, CommCooldownHours } from '@/types'
-import { upsertScratchPad } from '@/services/scratchPadService'
+import { upsertJournal } from '@/services/journalService'
 import { deleteAllTracks } from '@/services/musicService'
 import { deleteAllLinks } from '@/services/quickCastService'
 import { useSubscription } from '@/contexts/SubscriptionContext'
@@ -152,7 +152,7 @@ export function useSettings() {
       deleteAllTracks(userId),
       deleteAllLinks(userId),
       resetProfileXp(userId),
-      upsertScratchPad(userId, { notes: '', list: '' }),
+      upsertJournal(userId, { notes: '', list: '' }),
       resetEmployed(userId),
     ])
     const keys = [
@@ -162,8 +162,8 @@ export function useSettings() {
       'workday_punch_in',
       SK.workdayId,
       'workday_id',
-      SK.scratchPad(userId),
-      SK.scratchList(userId),
+      SK.journal(userId),
+      SK.journalList(userId),
       SK.xp(userId),
       `xp:${userId}`,
       SK.musicTracks,

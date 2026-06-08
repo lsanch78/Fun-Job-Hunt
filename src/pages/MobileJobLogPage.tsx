@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import type { JobStatus, SortField, SortState, TimeRange } from '@/types'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import MobileJobList from '@/components/joblog/MobileJobList'
-import MobileScratchPad from '@/components/hud/MobileScratchPad'
+import MobileJournal from '@/components/hud/MobileJournal'
 import TutorialModal from '@/components/modals/TutorialModal'
 import { MOBILE_JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
@@ -69,7 +69,7 @@ export default function MobileJobLogPage({
   const [page, setPage] = useState(1)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
-  const [showScratchPad, setShowScratchPad] = useState(false)
+  const [showJournal, setShowJournal] = useState(false)
 
   // Quick-add overlay state
   const [addOpen, setAddOpen] = useState(false)
@@ -193,12 +193,12 @@ export default function MobileJobLogPage({
         totalCount={filteredJobs.length}
       />
 
-      {/* FAB — scratchpad */}
+      {/* FAB — journal */}
       <button
-        onClick={() => setShowScratchPad(true)}
+        onClick={() => setShowJournal(true)}
         className="fixed bottom-[124px] right-4 z-[180] w-12 h-12 bg-surface text-primary flex items-center justify-center border-2 border-primary"
-        title="Open scratchpad"
-        aria-label="Open scratchpad"
+        title="Open journal"
+        aria-label="Open journal"
       >
         <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="1.5" y="1.5" width="9" height="9" rx="0.5" />
@@ -275,9 +275,9 @@ export default function MobileJobLogPage({
         />
       )}
 
-      {/* Scratchpad overlay */}
-      {showScratchPad && (
-        <MobileScratchPad userId={userId} onClose={() => setShowScratchPad(false)} />
+      {/* Journal overlay */}
+      {showJournal && (
+        <MobileJournal userId={userId} onClose={() => setShowJournal(false)} />
       )}
 
       {/* Tutorial overlay */}
