@@ -1,13 +1,8 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react'
-import mammoth from 'mammoth'
-import DOMPurify from 'dompurify'
-import { playBookThud } from '@/lib/sfx'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { playPageFlip, playSpellCast, playAiConsume, playAiDing } from '@/lib/sfx'
-import CanvasShell from '@/components/canvas/CanvasShell'
-import { T } from '@/lib/crtTheme'
+import { playSpellCast } from '@/lib/sfx'
 import { lsGet, lsSet } from '@/lib/storage'
-import { SK, type AiMode } from '@/lib/storageKeys'
+import { SK } from '@/lib/storageKeys'
 import type { ComponentType, SVGProps } from 'react'
 import { Globe } from 'pixelarticons/react'
 import { ExternalLink } from 'pixelarticons/react'
@@ -26,64 +21,16 @@ import { AtSign } from 'pixelarticons/react'
 import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
-import { useSubscription } from '@/lib/SubscriptionContext'
-import AiModal from '@/components/ai/AiModal'
-import { invalidateSlot, getResumeText, warmResumeCache } from '@/services/resumeTextService'
-import { fetchModels, streamCompletion } from '@/services/aiService'
-
-import { fetchAiSettings, DEFAULT_PROMPTS, type AiSettings } from '@/services/aiSettingsService'
 import {
   fetchLinks as dbFetchLinks,
   createLink as dbCreateLink,
   updateLink as dbUpdateLink,
   deleteLink as dbDeleteLink,
 } from '@/services/quickCastService'
-import {
-  fetchResumeSlots,
-  upsertResumeSlot,
-  deleteResumeSlot,
-  getResumeSignedUrl,
-  uploadResumePdf,
-  deleteResumePdf,
-  type ResumeSlot,
-  type ResumeSlotRecord,
-} from '@/services/resumeService'
-
-// ── AI ready animation — injected once ────────────────────────────────────────
-
-if (typeof document !== 'undefined' && !document.getElementById('qc-ai-ready-style')) {
-  const el = document.createElement('style')
-  el.id = 'qc-ai-ready-style'
-  el.textContent = `
-@keyframes qc-ai-ready-shine {
-  0%   { box-shadow: none; border-color: rgba(88,28,135,0.4); }
-  50%  { box-shadow: 0 0 6px 1px rgba(107,33,168,0.22),
-                     inset 0 0 8px 1px rgba(88,28,135,0.06);
-          border-color: rgba(126,34,206,0.65); }
-  100% { box-shadow: none; border-color: rgba(88,28,135,0.4); }
-}
-.qc-ai-ready {
-  animation: qc-ai-ready-shine 2.5s ease-in-out infinite;
-}
-`
-  document.head.appendChild(el)
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_SLOTS  = 8
-
-// Resume slot color palette — works across all themes
-// slot a = theme secondary (primary accent)
-// slot b = success green
-// slot c = caution amber
-const SLOT_COLORS: Record<ResumeSlot, { border: string; text: string; label: string }> = {
-  a: { border: 'var(--color-secondary)', text: 'var(--color-secondary)', label: 'A' },
-  b: { border: '#22c55e',               text: '#22c55e',               label: 'B' },
-  c: { border: '#f59e0b',               text: '#f59e0b',               label: 'C' },
-}
-
-const RESUME_SLOTS: ResumeSlot[] = ['a', 'b', 'c']
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -183,96 +130,14 @@ function IconPicker({ value, onChange }: { value: string; onChange: (key: string
   )
 }
 
-// ── Resume name edit popover ──────────────────────────────────────────────────
-
-interface ResumeNamePopoverProps {
-  slot: ResumeSlot
-  currentName: string
-  onSave: (name: string) => void
-  onDelete: () => void
-  onClose: () => void
-}
-
-function ResumeNamePopover({ slot, currentName, onSave, onDelete, onClose }: ResumeNamePopoverProps) {
-  const [draft, setDraft] = useState(currentName)
-  const colors = SLOT_COLORS[slot]
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 0)
-  }, [])
-
-  return (
-    <div
-      className="absolute bottom-full mb-2 right-0 z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-56"
-      style={{ borderColor: colors.border }}
-    >
-      <div
-        className="flex items-center justify-between px-3 py-2 border-b border-border"
-        style={{ borderColor: colors.border }}
-      >
-        <span className="text-[9px] tracking-widest" style={{ color: colors.text }}>
-          RESUME {slot.toUpperCase()}
-        </span>
-        <button
-          onClick={onClose}
-          className="text-muted hover:text-primary text-[9px] transition-none"
-        >
-          ✕
-        </button>
-      </div>
-      <div className="px-3 py-2 flex flex-col gap-2">
-        <input
-          ref={inputRef}
-          className="bg-bg border border-border text-primary text-[9px] px-2 py-1 outline-none focus:border-primary font-pixel placeholder-muted w-full"
-          style={{ '--tw-ring-color': colors.border } as React.CSSProperties}
-          placeholder="Resume name…"
-          value={draft}
-          maxLength={10}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onSave(draft.trim() || 'Resume')
-            if (e.key === 'Escape') onClose()
-          }}
-        />
-        <div className="flex gap-1">
-          <button
-            onClick={() => onSave(draft.trim() || 'Resume')}
-            className="text-bg text-[9px] px-3 py-1 font-pixel hover:opacity-80 transition-none"
-            style={{ background: colors.border }}
-          >
-            SAVE
-          </button>
-          <button
-            onClick={onClose}
-            className="text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-secondary hover:text-secondary transition-none"
-          >
-            CANCEL
-          </button>
-          <button
-            onClick={onDelete}
-            className="text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-warning hover:text-warning transition-none ml-auto"
-            title="Delete this resume"
-          >
-            DEL
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── QuickCast ─────────────────────────────────────────────────────────────────
 
-const PREMIUM_SLOTS: ResumeSlot[] = ['b', 'c']
 
 export default function QuickCast() {
-  const { isSubscribed } = useSubscription()
-
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>([])
   const [userId,       setUserId]       = useState<string | null>(null)
-  const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [draftLabel,   setDraftLabel]   = useState('')
@@ -280,32 +145,9 @@ export default function QuickCast() {
   const [draftIcon,    setDraftIcon]    = useState(ICON_OPTIONS[0].key)
   const [copiedId,     setCopiedId]     = useState<string | null>(null)
 
-  // Resume slots — keyed by slot letter
-  const [resumeSlots,    setResumeSlots]    = useState<Partial<Record<ResumeSlot, ResumeSlotRecord>>>({})
-  const [uploadingSlot,  setUploadingSlot]  = useState<ResumeSlot | null>(null)
-  const [loadingSlot,    setLoadingSlot]    = useState<ResumeSlot | null>(null)
-  const [editingSlot,    setEditingSlot]    = useState<ResumeSlot | null>(null)
-  const [showResume,     setShowResume]     = useState(false)
-  const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
-  const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
-  const [resumeDocxHtml, setResumeDocxHtml] = useState<string | null>(null)
-  const [resumeDocxError, setResumeDocxError] = useState(false)
-  const resumeFileInputRef = useRef<HTMLInputElement>(null)
-  const [aiModalOpen,    setAiModalOpen]    = useState(false)
-
-  // AI quick-generate (right-click submenu)
-  const [aiMenuOpen,     setAiMenuOpen]     = useState(false)
-  const [aiSettings,     setAiSettings]     = useState<AiSettings | null>(null)
-  const aiMenuRef    = useRef<HTMLDivElement>(null)
-  const aiAbortRef   = useRef<AbortController | null>(null)
-  const [aiGenerating,   setAiGenerating]   = useState(false)
-  const [aiGenDots,      setAiGenDots]      = useState(0)
-  const [aiResult,       setAiResult]       = useState<string | null>(null)
-  const [aiInitialView,  setAiInitialView]  = useState<'form' | 'output' | 'history' | undefined>(undefined)
 
   const containerRef  = useRef<HTMLDivElement>(null)
   const labelInputRef = useRef<HTMLInputElement>(null)
-  const fileInputRefs = useRef<Partial<Record<ResumeSlot, HTMLInputElement | null>>>({})
   const linkButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const editPopupRef  = useRef<HTMLDivElement>(null)
   const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null)
@@ -321,37 +163,12 @@ export default function QuickCast() {
           setLinks(rows.map((r) => ({ id: r.id, label: r.label, url: r.url, icon: r.icon })))
         }
       })
-      fetchResumeSlots(user.id).then((rows) => {
-        const map: Partial<Record<ResumeSlot, ResumeSlotRecord>> = {}
-        rows.forEach((r) => { map[r.slot as ResumeSlot] = r })
-        setResumeSlots(map)
-        warmResumeCache(user.id, rows.map((r) => r.slot as ResumeSlot))
-      })
-      fetchAiSettings(user.id).then(setAiSettings)
     })
   }, [])
 
   // Persist links to localStorage whenever they change
   useEffect(() => { if (userId) saveLinks(userId, links) }, [userId, links])
 
-  // Generating dots animation
-  useEffect(() => {
-    if (!aiGenerating) return
-    const id = setInterval(() => setAiGenDots((d) => (d + 1) % 3), 500)
-    return () => clearInterval(id)
-  }, [aiGenerating])
-
-  // Close AI context menu when clicking outside
-  useEffect(() => {
-    if (!aiMenuOpen) return
-    function onPointerDown(e: PointerEvent) {
-      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
-        setAiMenuOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [aiMenuOpen])
 
   // Focus label input when add form opens
   useEffect(() => {
@@ -360,42 +177,6 @@ export default function QuickCast() {
     }
   }, [addFormOpen, editingId])
 
-  // Close resume name popover when clicking outside
-  useEffect(() => {
-    if (!editingSlot) return
-    function onPointerDown(e: PointerEvent) {
-      const target = e.target as Node
-      if (!containerRef.current?.contains(target)) setEditingSlot(null)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [editingSlot])
-
-  // DOCX preview loading for resume modal
-  useEffect(() => {
-    if (!showResume || !resumeSignedUrl) return
-    const isDocx = resumeSignedUrl.toLowerCase().includes('.docx')
-    if (!isDocx) { setResumeDocxHtml(null); return }
-    setResumeDocxHtml(null)
-    setResumeDocxError(false)
-    let cancelled = false
-    fetch(resumeSignedUrl)
-      .then((r) => r.arrayBuffer())
-      .then((buf) => mammoth.convertToHtml({ arrayBuffer: buf }))
-      .then((result) => { if (!cancelled) setResumeDocxHtml(DOMPurify.sanitize(result.value)) })
-      .catch(() => { if (!cancelled) setResumeDocxError(true) })
-    return () => { cancelled = true }
-  }, [resumeSignedUrl, showResume])
-
-  // Esc key to close resume preview
-  useEffect(() => {
-    if (!showResume) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { playBookThud(); setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [showResume])
 
   // Close link edit popup when clicking outside
   useEffect(() => {
@@ -493,152 +274,6 @@ export default function QuickCast() {
     if (editingId === id) { setAddFormOpen(false); setEditingId(null) }
   }
 
-  // ── Resume handlers ───────────────────────────────────────────────────────
-
-  async function handleResumeFileInput(slot: ResumeSlot, e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    if (!file || !allowed.includes(file.type)) return
-    if (!userId) return
-    setUploadingSlot(slot)
-    const { error } = await uploadResumePdf(userId, slot, file)
-    if (!error) {
-      const name = resumeSlots[slot]?.name ?? 'Resume'
-      await upsertResumeSlot(userId, slot, name)
-      setResumeSlots((prev) => ({
-        ...prev,
-        [slot]: {
-          id: prev[slot]?.id ?? crypto.randomUUID(),
-          user_id: userId,
-          slot,
-          name,
-          uploaded_at: new Date().toISOString(),
-        },
-      }))
-    }
-    if (!error) invalidateSlot(userId, slot)
-    setUploadingSlot(null)
-  }
-
-  async function handleOpenResume(slot: ResumeSlot) {
-    if (loadingSlot || !userId) return
-    setLoadingSlot(slot)
-    const signedUrl = await getResumeSignedUrl(userId, slot)
-    setLoadingSlot(null)
-    if (!signedUrl) return
-    setActiveSlot(slot)
-    setResumeSignedUrl(signedUrl)
-    setShowResume(true)
-  }
-
-  async function handleReplace(slot: ResumeSlot, file: File) {
-    if (!userId) return
-    setUploadingSlot(slot)
-    const { error } = await uploadResumePdf(userId, slot, file)
-    if (!error) {
-      const name = resumeSlots[slot]?.name ?? 'Resume'
-      await upsertResumeSlot(userId, slot, name)
-    }
-    setUploadingSlot(null)
-  }
-
-  async function handleSaveName(slot: ResumeSlot, name: string) {
-    setEditingSlot(null)
-    if (!userId) return
-    await upsertResumeSlot(userId, slot, name)
-    setResumeSlots((prev) => ({
-      ...prev,
-      [slot]: {
-        ...prev[slot]!,
-        name,
-      },
-    }))
-  }
-
-  async function handleDeleteResume(slot: ResumeSlot) {
-    setEditingSlot(null)
-    if (!userId) return
-    await deleteResumePdf(userId, slot)
-    await deleteResumeSlot(userId, slot)
-    setResumeSlots((prev) => {
-      const next = { ...prev }
-      delete next[slot]
-      return next
-    })
-  }
-
-  function triggerUpload(slot: ResumeSlot) {
-    fileInputRefs.current[slot]?.click()
-  }
-
-  // ── AI quick-generate ─────────────────────────────────────────────────────
-  // @deprecated — superseded by CoverLetterCanvas (cover letter) and the job row
-  // context menu AI flow. Kept for the WHY I WANT THIS JOB and CUSTOM shortcuts
-  // until those are migrated. Do not extend.
-
-  async function handleAiQuickGenerate(mode: 'cover_letter' | 'why_work_here' | 'custom') {
-    if (!userId || aiGenerating) return
-    setAiMenuOpen(false)
-
-    // Read clipboard for job description
-    let jd = ''
-    try { jd = await navigator.clipboard.readText() } catch { /* permission denied */ }
-
-    // Resolve prompt from saved settings or defaults
-    const systemPrompt =
-      mode === 'cover_letter'
-        ? (aiSettings?.cover_letter_prompt || DEFAULT_PROMPTS.cover_letter)
-        : mode === 'why_work_here'
-        ? (aiSettings?.why_good_fit_prompt  || DEFAULT_PROMPTS.why_good_fit)
-        : (aiSettings?.custom_prompt        || DEFAULT_PROMPTS.custom)
-
-    // Pick first available model
-    const { models } = fetchModels()
-    if (models.length === 0) return
-
-    // Assemble resume context from any occupied slots
-    const occupiedSlots = (Object.keys(resumeSlots) as ResumeSlot[]).filter((s) => resumeSlots[s])
-    const parts: string[] = []
-    for (const slot of occupiedSlots) {
-      let signedUrl = await getResumeSignedUrl(userId, slot)
-      if (signedUrl) {
-        const text = await getResumeText(userId, slot, signedUrl)
-        if (text) parts.push(`--- RESUME ${slot.toUpperCase()} ---\n${text}`)
-      }
-    }
-    let userPrompt = ''
-    if (parts.length > 0) userPrompt += `RESUME:\n${parts.join('\n\n')}\n\n`
-    if (jd.trim()) userPrompt += `JOB DESCRIPTION:\n${jd.trim()}`
-
-    setAiResult(null)
-    setAiGenerating(true)
-    setAiGenDots(0)
-    playAiConsume()
-
-    let accumulated = ''
-    const controller = new AbortController()
-    aiAbortRef.current = controller
-
-    streamCompletion({
-      model: models[0],
-      system: systemPrompt,
-      prompt: userPrompt,
-      signal: controller.signal,
-      onToken: (token) => { accumulated += token },
-      onDone: () => {
-        setAiGenerating(false)
-        setAiResult(accumulated)
-        playAiDing()
-      },
-      onError: (msg) => {
-        setAiGenerating(false)
-        setAiResult(`ERROR: ${msg}`)
-        setAiModalOpen(true)
-      },
-    })
-  }
-
   // ── Shared classnames ─────────────────────────────────────────────────────
 
   const inputCls =
@@ -671,7 +306,7 @@ export default function QuickCast() {
           QUICK CAST
         </span>
 
-        {/* Main hotbar row — three zones: links | resumes | + */}
+        {/* Main hotbar row */}
         <div className="flex items-end gap-6 w-full justify-center">
 
           {/* ── Left zone: link slots ── */}
@@ -806,290 +441,8 @@ export default function QuickCast() {
             )}
           </div>
 
-          {/* ── Center zone: resume slots (A, B, C) ── */}
-          <div data-tutorial="quickcast-resumes" className="flex items-end gap-1.5">
-            {RESUME_SLOTS.map((slot) => {
-              const record      = resumeSlots[slot]
-              const colors      = SLOT_COLORS[slot]
-              const hasFile     = Boolean(record)
-              const isUploading = uploadingSlot === slot
-              const isLoading   = loadingSlot === slot
-              const isEditOpen  = editingSlot === slot
-              const locked      = PREMIUM_SLOTS.includes(slot) && !isSubscribed
-              return (
-                <div key={slot} className="relative flex flex-col items-center gap-0.5">
-                  {/* Name popover */}
-                  {isEditOpen && hasFile && !locked && (
-                    <ResumeNamePopover
-                      slot={slot}
-                      currentName={record!.name}
-                      onSave={(name) => handleSaveName(slot, name)}
-                      onDelete={() => handleDeleteResume(slot)}
-                      onClose={() => setEditingSlot(null)}
-                    />
-                  )}
-
-                  {/* Slot button */}
-                  <div className="relative group">
-                    <button
-                      onClick={() => {
-                        if (locked || isUploading || isLoading) return
-                        if (hasFile) {
-                          playPageFlip()
-                          handleOpenResume(slot)
-                        } else {
-                          playPageFlip()
-                          triggerUpload(slot)
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        if (!locked && hasFile) setEditingSlot(isEditOpen ? null : slot)
-                      }}
-                      disabled={isUploading || isLoading}
-                      className={[
-                        'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
-                        'border transition-none select-none',
-                        locked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-                        (!locked && (isUploading || isLoading)) ? 'opacity-50 cursor-not-allowed' : '',
-                      ].join(' ')}
-                      style={{
-                        borderColor: locked ? 'var(--color-border)' : hasFile ? colors.border : 'var(--color-border)',
-                        color:       locked ? 'var(--color-muted)'  : hasFile ? colors.text   : 'var(--color-muted)',
-                      }}
-                      title={locked
-                        ? 'Upgrade for access to two more resume slots'
-                        : hasFile
-                        ? `${record!.name} — click to preview, right-click to rename`
-                        : `Upload Resume ${slot.toUpperCase()}`}
-                    >
-                      <FileText width={32} height={32} />
-                      <span className="font-pixel text-[7px] tracking-widest leading-none">
-                        {locked ? '🔒' : isUploading || isLoading ? '...' : hasFile ? record!.name.slice(0, 10) : slot.toUpperCase()}
-                      </span>
-                    </button>
-
-                    {/* Tooltip */}
-                    <div className={[
-                      'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-                      'bg-surface border border-border font-pixel text-[8px] text-primary',
-                      'px-2 py-1 pointer-events-none z-50',
-                      'opacity-0 group-hover:opacity-100 transition-none',
-                      locked ? 'whitespace-normal w-36 text-center' : 'whitespace-nowrap',
-                    ].join(' ')}>
-                      {locked
-                        ? 'Upgrade for access to two more resume slots'
-                        : isUploading ? 'UPLOADING...'
-                        : isLoading   ? 'LOADING...'
-                        : hasFile     ? record!.name
-                        : `RESUME ${slot.toUpperCase()}`}
-                    </div>
-                  </div>
-
-                  {/* Hidden file input */}
-                  {!locked && (
-                    <input
-                      ref={(el) => { fileInputRefs.current[slot] = el }}
-                      type="file"
-                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      className="hidden"
-                      onChange={(e) => handleResumeFileInput(slot, e)}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* ── Right zone: AI assistant ── */}
-          {aiMode !== 'off' &&
-          <div className="relative flex flex-col items-center" ref={aiMenuRef}>
-            <button
-              data-tutorial="ai-assistant"
-              onClick={() => {
-                if (aiGenerating) return
-                setAiModalOpen((prev) => !prev)
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                if (aiGenerating) return
-                setAiMenuOpen((prev) => !prev)
-              }}
-              className={[
-                'w-20 h-20 flex flex-col items-center justify-center gap-1 leading-none',
-                'border transition-none select-none cursor-pointer',
-                aiModalOpen
-                  ? 'border-primary text-primary'
-                  : aiResult && !aiGenerating
-                  ? 'qc-ai-ready'
-                  : 'border-border text-muted hover:border-primary hover:text-primary',
-              ].join(' ')}
-              title={aiGenerating ? 'Generating…' : aiResult ? 'Click to view result · Right-click for quick generate' : 'AI Resume Assistant · Right-click for quick generate'}
-            >
-              <span className="font-pixel leading-none font-bold tracking-tight" style={{ fontSize: 24 }}>
-                AI
-              </span>
-              <span
-                className="font-pixel text-[7px] tracking-widest leading-none"
-                style={{
-                  color: aiGenerating ? '#22c55e' : aiResult ? '#7e22ce' : '#22c55e',
-                }}
-              >
-                {aiGenerating
-                  ? `GEN${'.'.repeat(aiGenDots + 1)}${'  '.repeat(2 - aiGenDots)}`
-                  : aiResult
-                  ? '● READY'
-                  : '● ON'}
-              </span>
-            </button>
-
-            {/* AI right-click context menu */}
-            {aiMenuOpen && (
-              <div className="absolute bottom-full mb-2 right-0 z-50 bg-surface border border-border font-pixel text-xs flex flex-col w-56">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="text-[9px] tracking-widest text-muted">Quick Gen With JD in Clipboard:</span>
-                  <button
-                    onClick={() => setAiMenuOpen(false)}
-                    className="text-muted hover:text-primary text-[9px] transition-none"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="px-3 py-2 flex flex-col gap-1">
-                  {/* @deprecated — cover letter, why-good-fit, and custom quick-gen are superseded by the job row context menu (CoverLetterCanvas / AiModal flow). Remove this block when the context menu is confirmed stable. */}
-                  {([
-                    ['cover_letter',  'COVER LETTER'],
-                    ['why_work_here', 'WHY I WANT THIS JOB'],
-                    ['custom',        'CUSTOM'],
-                  ] as const).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      onClick={() => handleAiQuickGenerate(mode)}
-                      className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                  {/* @deprecated — history shortcut superseded by the job row context menu flow */}
-                  <button
-                    onClick={() => { setAiMenuOpen(false); setAiInitialView('history'); setAiModalOpen(true) }}
-                    className="text-left text-muted border border-border text-[9px] px-2 py-1 font-pixel hover:border-primary hover:text-primary transition-none"
-                  >
-                    HISTORY
-                  </button>
-                </div>
-              </div>
-            )}
-
-          </div>}
-
         </div>
       </div>
-
-      {/* AI panel — fixed centered overlay */}
-      {aiMode !== 'off' && aiModalOpen && userId && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <AiModal
-              userId={userId}
-              resumeSlots={resumeSlots}
-              initialOutput={aiResult ?? undefined}
-              initialView={aiInitialView}
-              onClose={() => { setAiModalOpen(false); setAiResult(null); setAiInitialView(undefined) }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Resume preview */}
-      {showResume && resumeSignedUrl && activeSlot && resumeSlots[activeSlot] && (() => {
-        const slotColor = SLOT_COLORS[activeSlot].border
-        const fileName = resumeSlots[activeSlot]!.name
-        const isDocx = resumeSignedUrl.toLowerCase().includes('.docx')
-        const replacing = uploadingSlot === activeSlot
-        const closePreview = () => { setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }
-        return (
-          <CanvasShell
-            position="fixed"
-            zIndex={100}
-            title="RESUME PREVIEW"
-            titleColor={slotColor}
-            headerBorderColor={slotColor}
-            headerRight={
-              <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: T.greenDim, maxWidth: '40vw', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {fileName}
-              </span>
-            }
-            footer={<>
-              <input
-                ref={resumeFileInputRef}
-                type="file"
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                style={{ display: 'none' }}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  const file = e.target.files?.[0]
-                  e.target.value = ''
-                  if (file) handleReplace(activeSlot, file)
-                }}
-              />
-              <button
-                onClick={() => resumeFileInputRef.current?.click()}
-                disabled={replacing}
-                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: replacing ? 'not-allowed' : 'pointer', opacity: replacing ? 0.4 : 1 }}
-                onMouseEnter={(e) => { if (!replacing) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
-                onMouseLeave={(e) => { if (!replacing) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
-              >
-                {replacing ? '▶ UPLOADING...' : '▶ REPLACE'}
-              </button>
-              <button
-                onClick={() => { playBookThud(); closePreview() }}
-                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-              >
-                ✕ CLOSE
-              </button>
-            </>}
-          >
-            {isDocx ? (
-              <div style={{ flex: 1, overflowY: 'auto', background: 'var(--color-bg)', color: 'var(--color-fg)' }}>
-                <div style={{ background: '#fefce8', borderBottom: '1px solid #fde047', padding: '6px 24px', textAlign: 'center' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#854d0e', letterSpacing: '0.06em' }}>
-                    Formatting may differ from original Word document — for your quick reference only
-                  </span>
-                </div>
-                {resumeDocxError ? (
-                  <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280', padding: 32 }}>Failed to load DOCX preview.</p>
-                ) : resumeDocxHtml === null ? (
-                  <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280', padding: 32 }}>Loading preview...</p>
-                ) : (
-                  <>
-                    <style>{`
-                      .docx-preview { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #111; }
-                      .docx-preview h1 { font-size: 18pt; font-weight: bold; margin: 0 0 4px; }
-                      .docx-preview h2 { font-size: 13pt; font-weight: bold; margin: 14px 0 4px; border-bottom: 1px solid #555; padding-bottom: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
-                      .docx-preview h3 { font-size: 11pt; font-weight: bold; margin: 10px 0 2px; }
-                      .docx-preview p { margin: 2px 0; }
-                      .docx-preview ul, .docx-preview ol { margin: 2px 0 2px 1.4em; padding: 0; }
-                      .docx-preview li { margin: 1px 0; }
-                      .docx-preview table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-                      .docx-preview td, .docx-preview th { padding: 2px 6px; vertical-align: top; }
-                      .docx-preview a { color: #1a0dab; }
-                      .docx-preview strong { font-weight: bold; }
-                      .docx-preview em { font-style: italic; }
-                    `}</style>
-                    <div style={{ maxWidth: 850, margin: '32px auto', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: '0.75in 1in' }}>
-                      <div className="docx-preview" dangerouslySetInnerHTML={{ __html: resumeDocxHtml }} />
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <embed src={resumeSignedUrl} type="application/pdf" style={{ flex: 1, width: '100%', height: '100%', display: 'block' }} />
-            )}
-          </CanvasShell>
-        )
-      })()}
     </>
   )
 }

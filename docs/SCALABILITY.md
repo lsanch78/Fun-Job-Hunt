@@ -70,7 +70,6 @@ Enforced at three layers: frontend `maxLength`, service-layer validation before 
 | notes | 2,000 chars | Half a page of notes |
 | cover_letter_prompt | 3,000 chars | Generous system prompt |
 | why_good_fit_prompt | 3,000 chars | Same |
-| resume slot name | 50 chars | "My Senior Dev Resume" |
 | jdText (AI panel) | 10,000 chars | Frontend only — never persisted to DB |
 
 ### Validation Error Handling

@@ -14,7 +14,6 @@ import { supabase } from '@/lib/supabase'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
 import { resetProfileXp } from '@/services/xpService'
 import { upsertScratchPad } from '@/services/scratchPadService'
-import { deleteAllResumes } from '@/services/resumeService'
 import { deleteAllTracks } from '@/services/musicService'
 import { deleteAllLinks } from '@/services/quickCastService'
 import { useSubscription } from '@/lib/SubscriptionContext'
@@ -191,7 +190,6 @@ export default function SettingsPage() {
       deleteAllWorkdays(userId),
       deleteAllContacts(userId),
       deleteAllCuratedResumes(userId),
-      deleteAllResumes(userId),
       deleteAllTracks(userId),
       deleteAllLinks(userId),
       resetProfileXp(userId),
@@ -507,7 +505,6 @@ export default function SettingsPage() {
               </p>
             )}
             <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
-            <p className="text-[10px] text-muted px-1">3 Total Resume Slots</p>
             <button
               onClick={() => openPortalSession().catch(() => {})}
               className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
@@ -521,7 +518,7 @@ export default function SettingsPage() {
               Free tier: {AI_MONTHLY_LIMIT_BASE}/mo → {AI_MONTHLY_LIMIT_RANK5}/mo at Rank 5 → {AI_MONTHLY_LIMIT_RANK7}/mo at Rank 7
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Pro: Unlimited AI generations · 3 Total Resume Slots
+              Pro: Unlimited AI generations
             </p>
             <button
               onClick={() => createCheckoutSession().catch(() => {})}

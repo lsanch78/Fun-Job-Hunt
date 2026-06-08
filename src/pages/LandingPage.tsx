@@ -263,7 +263,7 @@ export default function LandingPage() {
           working the job that you deserve. I built this for myself and I hate dark UX patterns, 
           I hate ads, and I especially hate subscription fees. ESPECIALLY when you're 
           job hunting. Unfortunately my AI and hosting costs are not free, so I provided
-          the "pro" option for heavy AI users with 2 extra resume slots.
+          the "pro" option for heavy AI users who want unlimited generations.
         </p>
         <p className="body-text text-primary leading-relaxed text-base">
           The app is intended to be free to use with generous limits, 

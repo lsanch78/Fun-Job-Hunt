@@ -50,16 +50,10 @@
 | Custom prompt mode | ✓ (10–30/mo) | ✓ (unlimited) | Up to 3,000 chars, saved per user |
 | Job description cleaning | ✓ (10–30/mo) | ✓ (unlimited) | Haiku model, fast |
 | AI history (localStorage) | ✓ | ✓ | Last 30 entries |
-| Resume context in AI | ✓ | ✓ | Extracted text cached locally |
 | Right-click quick-gen | ✓ (10–30/mo) | ✓ (unlimited) | Reads clipboard for JD |
 | AI mode (AI-first / off) | ✓ | ✓ | Hides all AI if set to off |
 | BYOK (OpenAI or Anthropic) | ✓ | ✓ | Keys stored locally, bypass limits |
 | PDF / Word export (cover letters) | ✗ | ✓ | Buttons disabled with warning color and tooltip for free users |
-| **RESUME** | | | |
-| Resume slot A (upload + preview) | ✓ | ✓ | PDF/DOCX, max 1 MB |
-| Resume slots B & C | ✗ | ✓ | 3 slots total on Pro |
-| Custom slot names | ✓ | ✓ | |
-| PDF text extraction (AI context) | ✓ | ✓ | Cached locally |
 | **QUICK CAST HOTBAR** | | | |
 | Quick links (up to 20) | ✓ | ✓ | Click to copy URL |
 | Icon picker (19 icons) | ✓ | ✓ | |
@@ -113,7 +107,6 @@
 | Gate | Free Limit | Pro |
 |------|------------|-----|
 | Contacts | 8 | Unlimited |
-| Resume slots | 1 (slot A) | 3 (A, B, C) |
 | AI generations | 10–30/mo | Unlimited |
 | Themes | Classic Terminal only | All 5 + custom |
 | Cover letter export (PDF/Word) | ✗ | ✓ | |
