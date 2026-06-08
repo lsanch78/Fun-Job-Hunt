@@ -1,4 +1,4 @@
-import { COL_DEFS, REQUIRED_COLS } from '@/hooks/useJobLogColumns'
+import { COL_DEFS, REQUIRED_COLS } from '@/hooks/joblog/useJobLogColumns'
 import type { UseColumns } from '@/types'
 
 /**

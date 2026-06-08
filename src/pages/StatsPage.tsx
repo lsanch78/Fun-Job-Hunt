@@ -4,7 +4,7 @@ import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
 import type { Job, Contact } from '@/types'
 import XpTracker from '@/components/hud/XpTracker'
-import { useXp } from '@/hooks/useXp'
+import { useXp } from '@/hooks/hud/useXp'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 

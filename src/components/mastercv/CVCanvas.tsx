@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
-import { useCVState } from '@/hooks/useCVState'
+import { useCVState } from '@/hooks/mastercv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
 import type { CVContent } from '@/services/cvService'

@@ -7,7 +7,7 @@ import MobileScratchPad from '@/components/hud/MobileScratchPad'
 import TutorialModal from '@/components/modals/TutorialModal'
 import { MOBILE_JOB_LOG_STEPS } from '@/lib/tutorialSteps'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
-import { useJobList } from '@/hooks/useJobList'
+import { useJobList } from '@/hooks/joblog/useJobList'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
