@@ -20,7 +20,7 @@ import { Share } from 'pixelarticons/react'
 import { AtSign } from 'pixelarticons/react'
 import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchLinks as dbFetchLinks,
   createLink as dbCreateLink,
@@ -137,7 +137,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (key: string
 export default function QuickCast() {
   // Link slots
   const [links,        setLinks]        = useState<QuickCastSlot[]>([])
-  const [userId,       setUserId]       = useState<string | null>(null)
+  const { userId } = useAuth()
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [draftLabel,   setDraftLabel]   = useState('')
@@ -152,19 +152,16 @@ export default function QuickCast() {
   const editPopupRef  = useRef<HTMLDivElement>(null)
   const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null)
 
-  // On mount: resolve user, load from DB
+  // Load links from DB when userId becomes available
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      setUserId(user.id)
-      setLinks(loadLinks(user.id))
-      dbFetchLinks(user.id).then((rows) => {
-        if (rows.length > 0) {
-          setLinks(rows.map((r) => ({ id: r.id, label: r.label, url: r.url, icon: r.icon })))
-        }
-      })
+    if (!userId) return
+    setLinks(loadLinks(userId))
+    dbFetchLinks(userId).then((rows) => {
+      if (rows.length > 0) {
+        setLinks(rows.map((r) => ({ id: r.id, label: r.label, url: r.url, icon: r.icon })))
+      }
     })
-  }, [])
+  }, [userId])
 
   // Persist links to localStorage whenever they change
   useEffect(() => { if (userId) saveLinks(userId, links) }, [userId, links])

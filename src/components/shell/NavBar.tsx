@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { MessageText } from 'pixelarticons/react'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { signOut } from '@/services/authService'
 import MusicPlayer from '@/components/shell/MusicPlayer'
 import FeedbackModal from '@/components/modals/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
@@ -22,9 +23,7 @@ export default function NavBar() {
   const { pathname } = useLocation()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [username, setUsername] = useState<string>('')
+  const { email: userEmail, userId, username } = useAuth()
   const [tutorialActive, setTutorialActive] = useState(false)
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -37,15 +36,6 @@ export default function NavBar() {
 
   useEffect(() => onSfxMutedChange(setSfxMutedState), [])
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user
-      setUserEmail(user?.email ?? null)
-      setUserId(user?.id ?? null)
-      const name = (user?.user_metadata?.['username'] as string | undefined) ?? ''
-      setUsername(name)
-    })
-  }, [])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -76,7 +66,7 @@ export default function NavBar() {
 
   async function handleSignOut() {
     playSignOutBlip()
-    await supabase.auth.signOut()
+    await signOut()
     setDropdownOpen(false)
     navigate('/auth')
   }

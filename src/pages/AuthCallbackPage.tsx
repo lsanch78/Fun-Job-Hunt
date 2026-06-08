@@ -1,17 +1,14 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { onAuthStateChange } from '@/services/authService'
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate('/', { replace: true })
-      }
+    return onAuthStateChange((session) => {
+      if (session) navigate('/', { replace: true })
     })
-    return () => subscription.unsubscribe()
   }, [navigate])
 
   return (

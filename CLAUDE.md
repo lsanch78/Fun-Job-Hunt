@@ -32,6 +32,8 @@ All source code lives under `src/`. Each folder has a strict, non-overlapping re
 src/
 ├── assets/      # Static files: images, icons, fonts. No logic.
 ├── components/  # Shared, reusable UI components. No business logic.
+├── config/      # Tweakable app constants: pricing, templates, prompts. No logic.
+├── contexts/    # React contexts (providers + consumers). Slow-changing global state.
 ├── hooks/       # React-specific wiring. Composes services + local state + side effects.
 ├── lib/         # Pure utility functions. No side effects, no React dependency.
 ├── pages/       # Route-level components. One file per route. Layout and composition only.
@@ -51,6 +53,8 @@ pages → hooks → services → Supabase
 - **Hooks** bridge React state to services. No direct Supabase calls.
 - **Services** own all business logic and data fetching. No React dependencies.
 - **Lib** contains pure, stateless utility functions. Runnable in Node with no context.
+- **Config** holds tweakable constants that require iteration — pricing tables, templates, prompts. No logic. Imported anywhere.
+- **Contexts** hold slow-changing global state shared across the component tree. Consumed via hooks.
 - **Types** are shared interfaces. No logic lives here.
 
 ---

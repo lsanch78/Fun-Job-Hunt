@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { PRO_FEATURE_TABLE } from '@/config/pricing'
 import { useNavigate } from 'react-router-dom'
 import { playLinkBlip } from '@/lib/sfx'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import JobLogDemo from '@/components/landing/JobLogDemo'
 import NetworkDemo from '@/components/landing/NetworkDemo'
 import QuickCastDemo from '@/components/landing/QuickCastDemo'
@@ -36,14 +36,11 @@ const KEYFRAMES = `
 
 
 export default function LandingPage() {
+  const { session } = useAuth()
   const [booted, setBooted] = useState(false)
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
-  const [loggedIn, setLoggedIn] = useState(false)
+  const loggedIn = !!session
   const navigate = useNavigate()
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setLoggedIn(!!data.session))
-  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 80)

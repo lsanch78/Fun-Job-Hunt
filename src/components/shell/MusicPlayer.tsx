@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { playMusicBlip } from '@/lib/sfx'
 import { Music } from 'pixelarticons/react'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import {
@@ -101,7 +101,7 @@ const inputCls = 'bg-bg border border-border text-primary text-xs px-2 py-1 outl
 export default function MusicPlayer() {
   const [open, setOpen] = useState(false)
   const [tracks, setTracks] = useState<Track[]>(loadTracks)
-  const [userId, setUserId] = useState<string | null>(null)
+  const { userId } = useAuth()
   const [currentIdx, setCurrentIdx] = useState(() => {
     const r = loadResume()
     const t = loadTracks()
@@ -131,36 +131,31 @@ export default function MusicPlayer() {
   const resumeSeekRef = useRef<number | null>(resume?.playing ? (resume.seconds ?? 0) : null)
   const shouldAutoStartRef = useRef<boolean>(resume?.playing ?? false)
 
-  // On mount: resolve user, load tracks from DB if signed in
+  // Load tracks from DB when userId becomes available
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      setUserId(user.id)
-      dbFetchTracks(user.id).then((rows) => {
-        if (rows.length > 0) {
-          const loaded = rows.map((r) => ({ id: r.id, url: r.url, videoId: r.videoId, title: r.title }))
-          setTracks(loaded)
-          tracksRef.current = loaded
-          // If YT is already ready and auto-start is still pending, fire it now with the real tracks
-          if (ytReadyRef.current && shouldAutoStartRef.current) {
-            shouldAutoStartRef.current = false
-            const r = loadResume()
-            const idx = r && r.idx < loaded.length ? r.idx : 0
-            setCurrentIdx(idx)
-            currentIdxRef.current = idx
-            createPlayer(loaded[idx].videoId)
-          } else if (ytReadyRef.current && playerRef.current && playingRef.current) {
-            // Player already playing a default track — swap to the correct DB track
-            const r = loadResume()
-            const idx = r && r.idx < loaded.length ? r.idx : 0
-            setCurrentIdx(idx)
-            currentIdxRef.current = idx
-            createPlayer(loaded[idx].videoId)
-          }
+    if (!userId) return
+    dbFetchTracks(userId).then((rows) => {
+      if (rows.length > 0) {
+        const loaded = rows.map((r) => ({ id: r.id, url: r.url, videoId: r.videoId, title: r.title }))
+        setTracks(loaded)
+        tracksRef.current = loaded
+        if (ytReadyRef.current && shouldAutoStartRef.current) {
+          shouldAutoStartRef.current = false
+          const r = loadResume()
+          const idx = r && r.idx < loaded.length ? r.idx : 0
+          setCurrentIdx(idx)
+          currentIdxRef.current = idx
+          createPlayer(loaded[idx].videoId)
+        } else if (ytReadyRef.current && playerRef.current && playingRef.current) {
+          const r = loadResume()
+          const idx = r && r.idx < loaded.length ? r.idx : 0
+          setCurrentIdx(idx)
+          currentIdxRef.current = idx
+          createPlayer(loaded[idx].videoId)
         }
-      })
+      }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist tracks to localStorage (fallback for signed-out users)
   useEffect(() => {

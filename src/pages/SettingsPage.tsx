@@ -10,7 +10,9 @@ import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { updateUsername } from '@/services/authService'
+import { resetEmployed } from '@/services/xpService'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
 import { resetProfileXp } from '@/services/xpService'
 import { upsertScratchPad } from '@/services/scratchPadService'
@@ -56,9 +58,8 @@ export default function SettingsPage() {
   const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
   const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
 
-  const [userId,        setUserId]        = useState<string | null>(null)
-  const [username,      setUsername]      = useState('')
-  const [nameInput,     setNameInput]     = useState('')
+  const { userId, username } = useAuth()
+  const [nameInput,     setNameInput]     = useState(username)
   const [editingName,   setEditingName]   = useState(false)
   const [nameSaving,    setNameSaving]    = useState(false)
   const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
@@ -72,24 +73,18 @@ export default function SettingsPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      setUserId(user.id)
-      setAiModeState(lsGet<AiMode>(SK.aiMode(user.id), 'ai-first'))
-      setCommCooldown(getCommCooldownHours(user.id))
-      const name = (user.user_metadata?.['username'] as string | undefined) ?? ''
-      setUsername(name)
-      setNameInput(name)
-    })
+    if (!userId) return
+    setAiModeState(lsGet<AiMode>(SK.aiMode(userId), 'ai-first'))
+    setCommCooldown(getCommCooldownHours(userId))
+    setNameInput(username)
     if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
-  }, [])
+  }, [userId, username])
 
   async function handleSaveName() {
     const trimmed = nameInput.trim()
     if (!trimmed || trimmed === username) { setEditingName(false); return }
     setNameSaving(true)
-    await supabase.auth.updateUser({ data: { username: trimmed } })
-    setUsername(trimmed)
+    await updateUsername(trimmed)
     setNameSaving(false)
     setEditingName(false)
   }
@@ -194,7 +189,7 @@ export default function SettingsPage() {
       deleteAllLinks(userId),
       resetProfileXp(userId),
       upsertScratchPad(userId, { notes: '', list: '' }),
-      supabase.from('game_progress').upsert({ user_id: userId, employed: false }),
+      resetEmployed(userId),
     ])
     const keys = [
       SK.jobs(userId),

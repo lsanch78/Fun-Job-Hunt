@@ -16,6 +16,10 @@ export async function awardXp(userId: string, delta: number, onOptimistic?: (del
   if (error) console.error('[xpService] awardXp:', error.message)
 }
 
+export async function resetEmployed(userId: string): Promise<void> {
+  await supabase.from('game_progress').upsert({ user_id: userId, employed: false })
+}
+
 export async function resetProfileXp(userId: string): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from('game_progress')
