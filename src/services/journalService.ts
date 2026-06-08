@@ -5,7 +5,7 @@ export const JOURNAL_LIMIT = 8000
 
 export async function fetchJournal(userId: string): Promise<JournalRecord | null> {
   const { data, error } = await supabase
-    .from('scratch_pad')
+    .from('journal')
     .select('notes, list')
     .eq('user_id', userId)
     .single()
@@ -18,7 +18,7 @@ export async function upsertJournal(
   record: Partial<JournalRecord>,
 ): Promise<void> {
   const { error } = await supabase
-    .from('scratch_pad')
+    .from('journal')
     .upsert(
       { user_id: userId, ...record, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },
