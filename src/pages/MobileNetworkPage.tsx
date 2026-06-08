@@ -122,6 +122,7 @@ export default function MobileNetworkPage({ userId }: { userId: string | null })
           jobsByContact={jobsByContact}
           onOpenJob={setDetailJobId}
           mobile
+          onUpgrade={handleUpgrade}
         />
       )}
 

@@ -323,6 +323,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
             cooldownHours={cooldownHours}
             userId={userId}
             onExpChange={handleExpChange}
+            onUpgrade={handleUpgrade}
           />
 
           {totalPages > 1 && (
