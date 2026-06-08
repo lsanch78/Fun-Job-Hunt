@@ -1,4 +1,4 @@
-import { T, labelClass, inputClass, CRT_FONT } from '@/lib/crtTheme'
+import { labelStyle, inputStyle, textareaStyle } from '@/lib/CVCardTheme'
 import CVCard from './CVCard'
 
 export interface Education {
@@ -26,14 +26,8 @@ function Field({ label, value, placeholder, onChange }: {
 }) {
   return (
     <div>
-      <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>{label}</div>
-      <input
-        className={inputClass}
-        style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div style={labelStyle}>{label}</div>
+      <input style={inputStyle} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
 }
@@ -48,54 +42,42 @@ export default function EducationCard({ data, collapsed, onChange, onToggleColla
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CVCard
-      title="EDUCATION"
-      summary={summary}
-      collapsed={collapsed}
-      onToggleCollapse={onToggleCollapse}
-      onDelete={onDelete}
-      glowColor="#a78bfa"
-    >
-      {/* Row 1: institution + location */}
+    <CVCard title="EDUCATION" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} onDelete={onDelete} accentColor="#22c55e">
       <div className="flex gap-3">
         <div className="flex-1">
-          <Field label="Institution" value={data.institution} placeholder="MIT"              onChange={(v) => set('institution', v)} />
+          <Field label="Institution" value={data.institution} placeholder="MIT"             onChange={(v) => set('institution', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Location"    value={data.location}    placeholder="Cambridge, MA"    onChange={(v) => set('location', v)} />
+          <Field label="Location"    value={data.location}    placeholder="Cambridge, MA"   onChange={(v) => set('location', v)} />
         </div>
       </div>
 
-      {/* Row 2: degree + field */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <Field label="Degree"      value={data.degree}      placeholder="B.S."             onChange={(v) => set('degree', v)} />
+          <Field label="Degree" value={data.degree} placeholder="B.S."            onChange={(v) => set('degree', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Field"       value={data.field}       placeholder="Computer Science"  onChange={(v) => set('field', v)} />
+          <Field label="Field"  value={data.field}  placeholder="Computer Science" onChange={(v) => set('field', v)} />
         </div>
       </div>
 
-      {/* Row 3: dates + GPA */}
       <div className="flex gap-3">
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="Start"       value={data.startDate}   placeholder="Sep 2018"         onChange={(v) => set('startDate', v)} />
+          <Field label="Start" value={data.startDate} placeholder="Sep 2018" onChange={(v) => set('startDate', v)} />
         </div>
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="End"         value={data.endDate}     placeholder="May 2022"         onChange={(v) => set('endDate', v)} />
+          <Field label="End"   value={data.endDate}   placeholder="May 2022" onChange={(v) => set('endDate', v)} />
         </div>
         <div style={{ flex: '0 0 80px' }}>
-          <Field label="GPA"         value={data.gpa}         placeholder="3.9"              onChange={(v) => set('gpa', v)} />
+          <Field label="GPA"   value={data.gpa}       placeholder="3.9"      onChange={(v) => set('gpa', v)} />
         </div>
       </div>
 
-      {/* Notes — honours, activities, relevant coursework */}
       <div>
-        <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>Notes</div>
+        <div style={labelStyle}>Notes</div>
         <textarea
-          className="bg-transparent outline-none w-full px-1 py-0.5 leading-tight border-b resize-none"
           rows={2}
-          style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
+          style={textareaStyle}
           value={data.notes}
           placeholder="Honours, activities, relevant coursework…"
           onChange={(e) => set('notes', e.target.value)}

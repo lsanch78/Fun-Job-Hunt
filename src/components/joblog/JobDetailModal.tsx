@@ -602,7 +602,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
         </div>
         <div className="flex-1">
           <div className={labelClass} style={{ color: T.greenDim }}>Date Applied</div>
-          <input type="date" className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, colorScheme: 'dark' }} value={job.applicationDate.slice(0, 10)} onChange={(e) => update('applicationDate', e.target.value)} />
+          <input type="date" className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body, colorScheme: 'dark' }} value={job.applicationDate.slice(0, 10)} onChange={(e) => update('applicationDate', new Date(e.target.value + 'T00:00:00').toISOString())} />
         </div>
       </div>
       <div>

@@ -112,7 +112,7 @@ const RESUME_STYLES = `
     margin: 1px 0;
   }
   .resume-row-bold   { font-size: 11pt; font-weight: bold; }
-  .resume-row-right  { font-size: 11pt; }
+  .resume-row-right  { font-size: 11pt; font-weight: bold; }
   .resume-row-italic { font-size: 10pt; font-style: italic; }
 
   .resume-bullets {

@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import mammoth from 'mammoth'
+import DOMPurify from 'dompurify'
+import { playBookThud } from '@/lib/sfx'
 import { createPortal } from 'react-dom'
 import { playPageFlip, playSpellCast, playAiConsume, playAiDing } from '@/lib/sfx'
+import CanvasShell from '@/components/canvas/CanvasShell'
+import { T } from '@/lib/crtTheme'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import type { ComponentType, SVGProps } from 'react'
@@ -22,7 +27,6 @@ import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/SubscriptionContext'
-import ResumeModal from '@/components/modals/ResumeModal'
 import AiModal from '@/components/ai/AiModal'
 import { invalidateSlot, getResumeText, warmResumeCache } from '@/services/resumeTextService'
 import { fetchModels, streamCompletion } from '@/services/aiService'
@@ -284,6 +288,9 @@ export default function QuickCast() {
   const [showResume,     setShowResume]     = useState(false)
   const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null)
   const [activeSlot,     setActiveSlot]     = useState<ResumeSlot | null>(null)
+  const [resumeDocxHtml, setResumeDocxHtml] = useState<string | null>(null)
+  const [resumeDocxError, setResumeDocxError] = useState(false)
+  const resumeFileInputRef = useRef<HTMLInputElement>(null)
   const [aiModalOpen,    setAiModalOpen]    = useState(false)
 
   // AI quick-generate (right-click submenu)
@@ -363,6 +370,32 @@ export default function QuickCast() {
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [editingSlot])
+
+  // DOCX preview loading for resume modal
+  useEffect(() => {
+    if (!showResume || !resumeSignedUrl) return
+    const isDocx = resumeSignedUrl.toLowerCase().includes('.docx')
+    if (!isDocx) { setResumeDocxHtml(null); return }
+    setResumeDocxHtml(null)
+    setResumeDocxError(false)
+    let cancelled = false
+    fetch(resumeSignedUrl)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => mammoth.convertToHtml({ arrayBuffer: buf }))
+      .then((result) => { if (!cancelled) setResumeDocxHtml(DOMPurify.sanitize(result.value)) })
+      .catch(() => { if (!cancelled) setResumeDocxError(true) })
+    return () => { cancelled = true }
+  }, [resumeSignedUrl, showResume])
+
+  // Esc key to close resume preview
+  useEffect(() => {
+    if (!showResume) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { playBookThud(); setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showResume])
 
   // Close link edit popup when clicking outside
   useEffect(() => {
@@ -968,17 +1001,95 @@ export default function QuickCast() {
         </div>
       )}
 
-      {/* Resume modal */}
-      {showResume && resumeSignedUrl && activeSlot && resumeSlots[activeSlot] && (
-        <ResumeModal
-          url={resumeSignedUrl}
-          fileName={resumeSlots[activeSlot]!.name}
-          slotColor={SLOT_COLORS[activeSlot].border}
-          replacing={uploadingSlot === activeSlot}
-          onClose={() => { setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }}
-          onReplace={(file) => handleReplace(activeSlot, file)}
-        />
-      )}
+      {/* Resume preview */}
+      {showResume && resumeSignedUrl && activeSlot && resumeSlots[activeSlot] && (() => {
+        const slotColor = SLOT_COLORS[activeSlot].border
+        const fileName = resumeSlots[activeSlot]!.name
+        const isDocx = resumeSignedUrl.toLowerCase().includes('.docx')
+        const replacing = uploadingSlot === activeSlot
+        const closePreview = () => { setShowResume(false); setResumeSignedUrl(null); setActiveSlot(null) }
+        return (
+          <CanvasShell
+            position="fixed"
+            zIndex={100}
+            title="RESUME PREVIEW"
+            titleColor={slotColor}
+            headerBorderColor={slotColor}
+            headerRight={
+              <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: T.greenDim, maxWidth: '40vw', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {fileName}
+              </span>
+            }
+            footer={<>
+              <input
+                ref={resumeFileInputRef}
+                type="file"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                style={{ display: 'none' }}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) handleReplace(activeSlot, file)
+                }}
+              />
+              <button
+                onClick={() => resumeFileInputRef.current?.click()}
+                disabled={replacing}
+                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: replacing ? 'not-allowed' : 'pointer', opacity: replacing ? 0.4 : 1 }}
+                onMouseEnter={(e) => { if (!replacing) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+                onMouseLeave={(e) => { if (!replacing) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+              >
+                {replacing ? '▶ UPLOADING...' : '▶ REPLACE'}
+              </button>
+              <button
+                onClick={() => { playBookThud(); closePreview() }}
+                style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+              >
+                ✕ CLOSE
+              </button>
+            </>}
+          >
+            {isDocx ? (
+              <div style={{ flex: 1, overflowY: 'auto', background: 'var(--color-bg)', color: 'var(--color-fg)' }}>
+                <div style={{ background: '#fefce8', borderBottom: '1px solid #fde047', padding: '6px 24px', textAlign: 'center' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#854d0e', letterSpacing: '0.06em' }}>
+                    Formatting may differ from original Word document — for your quick reference only
+                  </span>
+                </div>
+                {resumeDocxError ? (
+                  <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280', padding: 32 }}>Failed to load DOCX preview.</p>
+                ) : resumeDocxHtml === null ? (
+                  <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280', padding: 32 }}>Loading preview...</p>
+                ) : (
+                  <>
+                    <style>{`
+                      .docx-preview { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #111; }
+                      .docx-preview h1 { font-size: 18pt; font-weight: bold; margin: 0 0 4px; }
+                      .docx-preview h2 { font-size: 13pt; font-weight: bold; margin: 14px 0 4px; border-bottom: 1px solid #555; padding-bottom: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+                      .docx-preview h3 { font-size: 11pt; font-weight: bold; margin: 10px 0 2px; }
+                      .docx-preview p { margin: 2px 0; }
+                      .docx-preview ul, .docx-preview ol { margin: 2px 0 2px 1.4em; padding: 0; }
+                      .docx-preview li { margin: 1px 0; }
+                      .docx-preview table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+                      .docx-preview td, .docx-preview th { padding: 2px 6px; vertical-align: top; }
+                      .docx-preview a { color: #1a0dab; }
+                      .docx-preview strong { font-weight: bold; }
+                      .docx-preview em { font-style: italic; }
+                    `}</style>
+                    <div style={{ maxWidth: 850, margin: '32px auto', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: '0.75in 1in' }}>
+                      <div className="docx-preview" dangerouslySetInnerHTML={{ __html: resumeDocxHtml }} />
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <embed src={resumeSignedUrl} type="application/pdf" style={{ flex: 1, width: '100%', height: '100%', display: 'block' }} />
+            )}
+          </CanvasShell>
+        )
+      })()}
     </>
   )
 }

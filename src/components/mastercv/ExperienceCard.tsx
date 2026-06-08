@@ -1,4 +1,6 @@
-import { T, labelClass, inputClass, textareaClass, CRT_FONT } from '@/lib/crtTheme'
+import { useState } from 'react'
+import type { CSSProperties } from 'react'
+import { labelStyle, inputStyle, textareaStyle, bulletGlyphStyle, removeBtnStyle, removeBtnHoverStyle, addBtnStyle, addBtnHoverStyle } from '@/lib/CVCardTheme'
 import CVCard from './CVCard'
 
 export interface Experience {
@@ -24,19 +26,16 @@ function Field({ label, value, placeholder, onChange }: {
 }) {
   return (
     <div>
-      <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>{label}</div>
-      <input
-        className={inputClass}
-        style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div style={labelStyle}>{label}</div>
+      <input style={inputStyle} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
 }
 
 export default function ExperienceCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
+  const [addBtnHover, setAddBtnHover] = useState(false)
+  const [removeBtnHovers, setRemoveBtnHovers] = useState<Record<number, boolean>>({})
+
   function set<K extends keyof Experience>(key: K, val: Experience[K]) {
     onChange({ ...data, [key]: val })
   }
@@ -63,7 +62,6 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
   function handleBulletKeyDown(e: React.KeyboardEvent, i: number) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      // Insert new bullet after current
       const next = [...data.bullets]
       next.splice(i + 1, 0, '')
       set('bullets', next)
@@ -87,59 +85,38 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CVCard
-      title="EXPERIENCE"
-      summary={summary}
-      collapsed={collapsed}
-      onToggleCollapse={onToggleCollapse}
-      onDelete={onDelete}
-      glowColor="#f97316"
-    >
-      {/* Row 1: company + title */}
+    <CVCard title="EXPERIENCE" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} onDelete={onDelete} accentColor="#f97316">
       <div className="flex gap-3">
         <div className="flex-1">
-          <Field label="Company"   value={data.company}   placeholder="Acme Corp"          onChange={(v) => set('company', v)} />
+          <Field label="Company"   value={data.company}   placeholder="Acme Corp"         onChange={(v) => set('company', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Job Title" value={data.title}     placeholder="Software Engineer"   onChange={(v) => set('title', v)} />
+          <Field label="Job Title" value={data.title}     placeholder="Software Engineer"  onChange={(v) => set('title', v)} />
         </div>
       </div>
 
-      {/* Row 2: dates + location */}
       <div className="flex gap-3">
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="Start"    value={data.startDate}  placeholder="Jan 2022"            onChange={(v) => set('startDate', v)} />
+          <Field label="Start"    value={data.startDate} placeholder="Jan 2022" onChange={(v) => set('startDate', v)} />
         </div>
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="End"      value={data.endDate}    placeholder="Present"             onChange={(v) => set('endDate', v)} />
+          <Field label="End"      value={data.endDate}   placeholder="Present"  onChange={(v) => set('endDate', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Location" value={data.location}   placeholder="Remote"              onChange={(v) => set('location', v)} />
+          <Field label="Location" value={data.location}  placeholder="Remote"   onChange={(v) => set('location', v)} />
         </div>
       </div>
 
-      {/* Bullets */}
-      <div>
-        <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, marginBottom: 6 }}>
-          BULLETS
-        </div>
-
+      <div className="flex flex-col">
+        <div style={{ ...labelStyle, marginBottom: 6 }}>Bullets</div>
         <div className="flex flex-col gap-1.5">
           {data.bullets.map((bullet, i) => (
             <div key={i} className="flex items-start gap-2">
-              <span style={{ color: T.greenDim, fontSize: CRT_FONT.body, lineHeight: 1.6, flexShrink: 0 }}>›</span>
+              <span style={bulletGlyphStyle}>•</span>
               <textarea
                 data-bullet-card={data.id}
-                className={textareaClass}
                 rows={2}
-                style={{
-                  color: T.green,
-                  borderColor: T.border,
-                  caretColor: T.green,
-                  fontSize: CRT_FONT.body,
-                  flex: 1,
-                  lineHeight: 1.5,
-                }}
+                style={{ ...textareaStyle, flex: 1, lineHeight: 1.5 } as CSSProperties}
                 value={bullet}
                 placeholder="Describe what you did and the impact…"
                 onChange={(e) => setBullet(i, e.target.value)}
@@ -147,9 +124,9 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
               />
               <button
                 onClick={() => removeBullet(i)}
-                style={{ color: T.border, fontSize: CRT_FONT.chrome, lineHeight: 1.6, flexShrink: 0, cursor: 'pointer', background: 'none', border: 'none' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.border }}
+                style={removeBtnHovers[i] ? { ...removeBtnStyle, ...removeBtnHoverStyle } : removeBtnStyle}
+                onMouseEnter={() => setRemoveBtnHovers(prev => ({ ...prev, [i]: true }))}
+                onMouseLeave={() => setRemoveBtnHovers(prev => ({ ...prev, [i]: false }))}
                 title="Remove bullet"
               >
                 ✕
@@ -157,24 +134,13 @@ export default function ExperienceCard({ data, collapsed, onChange, onToggleColl
             </div>
           ))}
         </div>
-
         <button
           onClick={addBullet}
-          style={{
-            marginTop: 8,
-            fontFamily: 'monospace',
-            fontSize: CRT_FONT.chrome,
-            letterSpacing: '0.12em',
-            color: T.greenDim,
-            background: 'none',
-            border: `1px solid ${T.border}`,
-            padding: '3px 10px',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+          style={addBtnHover ? { ...addBtnStyle, ...addBtnHoverStyle } : addBtnStyle}
+          onMouseEnter={() => setAddBtnHover(true)}
+          onMouseLeave={() => setAddBtnHover(false)}
         >
-          + ADD BULLET
+          Add Bullet
         </button>
       </div>
     </CVCard>

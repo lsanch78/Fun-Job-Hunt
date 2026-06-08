@@ -159,7 +159,7 @@ function DateCell({ value, onChange }: { value: string; onChange: (v: string) =>
           aria-hidden="true"
           className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
           value={datePart}
-          onChange={(e) => { onChange(e.target.value); setEditing(false) }}
+          onChange={(e) => { onChange(new Date(e.target.value + 'T00:00:00').toISOString()); setEditing(false) }}
           onBlur={() => setEditing(false)}
         />
       </div>

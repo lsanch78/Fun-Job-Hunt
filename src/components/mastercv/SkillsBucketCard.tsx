@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
-import { T, labelClass, CRT_FONT } from '@/lib/crtTheme'
+import { P, CV_FONT, labelStyle, inputStyle, addBtnStyle, addBtnHoverStyle, removeBtnStyle, removeBtnHoverStyle } from '@/lib/CVCardTheme'
 import CVCard from './CVCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface SkillGroup {
   id: string
-  label: string      // user-named; "EVERGREEN" is fixed and never removed
+  label: string
   skills: string[]
 }
 
@@ -34,6 +34,7 @@ interface TagInputProps {
 
 function TagInput({ tags, inputId, placeholder = 'Add skill…', onChange }: TagInputProps) {
   const [draft, setDraft] = useState('')
+  const [removeHovers, setRemoveHovers] = useState<Record<number, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   function commit() {
@@ -59,8 +60,8 @@ function TagInput({ tags, inputId, placeholder = 'Add skill…', onChange }: Tag
 
   return (
     <div
-      className="flex flex-wrap gap-1.5 items-center px-1 py-1 border-b"
-      style={{ borderColor: T.border, cursor: 'text' }}
+      className="flex flex-wrap gap-1.5 items-center px-1 py-1"
+      style={{ borderBottom: `1px solid ${P.border}`, cursor: 'text' }}
       onClick={() => inputRef.current?.focus()}
     >
       {tags.map((tag, i) => (
@@ -70,23 +71,23 @@ function TagInput({ tags, inputId, placeholder = 'Add skill…', onChange }: Tag
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
-            background: 'rgba(57,255,20,0.07)',
-            border: `1px solid ${T.greenDim}`,
+            background: '#f3f4f6',
+            border: `1px solid ${P.border}`,
             borderRadius: 3,
             padding: '1px 6px',
-            fontFamily: 'monospace',
-            fontSize: CRT_FONT.chrome,
-            color: T.green,
-            letterSpacing: '0.05em',
+            fontFamily: CV_FONT.family,
+            fontSize: CV_FONT.label,
+            color: P.text,
+            letterSpacing: '0.04em',
           }}
         >
           {tag}
           <button
             tabIndex={-1}
             onClick={(e) => { e.stopPropagation(); removeTag(i) }}
-            style={{ color: T.greenDim, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 0 }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim }}
+            style={removeHovers[i] ? { ...removeBtnStyle, ...removeBtnHoverStyle, padding: 0 } : { ...removeBtnStyle, padding: 0 }}
+            onMouseEnter={() => setRemoveHovers(p => ({ ...p, [i]: true }))}
+            onMouseLeave={() => setRemoveHovers(p => ({ ...p, [i]: false }))}
           >
             ✕
           </button>
@@ -108,32 +109,17 @@ function TagInput({ tags, inputId, placeholder = 'Add skill…', onChange }: Tag
         }}
         onKeyDown={handleKeyDown}
         onBlur={commit}
-        style={{
-          background: 'transparent',
-          outline: 'none',
-          border: 'none',
-          color: T.green,
-          caretColor: T.green,
-          fontFamily: 'monospace',
-          fontSize: CRT_FONT.body,
-          minWidth: 100,
-          flex: 1,
-        }}
+        style={{ ...inputStyle, minWidth: 100, flex: 1, padding: '1px 0' }}
       />
     </div>
   )
 }
 
-// ── Section divider label ──────────────────────────────────────────────────────
+// ── Sub-label inside a card section ───────────────────────────────────────────
 
-function SectionLabel({ children }: { children: string }) {
+function SubLabel({ children }: { children: string }) {
   return (
-    <div
-      className={labelClass}
-      style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, marginBottom: 4 }}
-    >
-      {children}
-    </div>
+    <div style={{ ...labelStyle, marginBottom: 4 }}>{children}</div>
   )
 }
 
@@ -145,6 +131,9 @@ function nextGroupId() { return `sg-${++_groupSeq}` }
 export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [groupDraft, setGroupDraft] = useState('')
+  const [addGroupHover, setAddGroupHover] = useState(false)
+  const [renameHovers, setRenameHovers] = useState<Record<string, boolean>>({})
+  const [removeGroupHovers, setRemoveGroupHovers] = useState<Record<string, boolean>>({})
 
   function setEvergreen(skills: string[]) {
     onChange({ ...data, evergreen: skills })
@@ -183,24 +172,26 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
   const evergreenCount = data.evergreen.length
   const modularCount   = data.modular.reduce((sum, g) => sum + g.skills.length, 0)
   const summary = [
-    evergreenCount  ? `${evergreenCount} evergreen`  : null,
-    modularCount    ? `${modularCount} modular`       : null,
+    evergreenCount ? `${evergreenCount} evergreen` : null,
+    modularCount   ? `${modularCount} modular`     : null,
   ].filter(Boolean).join('  ·  ') || undefined
+
+  const actionBtnBase = { ...addBtnStyle, marginTop: 0 }
 
   return (
     <CVCard
       title="SKILLS"
+      accentColor="#06b6d4"
       summary={summary}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onDelete={onDelete}
-      glowColor="#38bdf8"
     >
-      {/* ── Evergreen ────────────────────────────────────────────────────────── */}
+      {/* ── Core / Evergreen ─────────────────────────────────────────────────── */}
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-          <SectionLabel>Core</SectionLabel>
-          <span style={{ color: T.border, fontSize: CRT_FONT.chrome, fontFamily: 'monospace' }}>
+          <SubLabel>Core</SubLabel>
+          <span style={{ fontSize: CV_FONT.label, fontFamily: CV_FONT.family, color: P.textMuted }}>
             — works on any application
           </span>
         </div>
@@ -217,7 +208,6 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
         <div className="flex flex-col gap-3" style={{ marginTop: 4 }}>
           {data.modular.map((group) => (
             <div key={group.id}>
-              {/* Group header row */}
               <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
                 {editingGroupId === group.id ? (
                   <input
@@ -230,41 +220,34 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
                       if (e.key === 'Escape') setEditingGroupId(null)
                     }}
                     style={{
-                      background: 'transparent',
-                      outline: 'none',
-                      border: 'none',
-                      borderBottom: `1px solid ${T.green}`,
-                      color: T.green,
-                      caretColor: T.green,
-                      fontFamily: 'monospace',
-                      fontSize: CRT_FONT.chrome,
-                      letterSpacing: '0.15em',
+                      ...inputStyle,
+                      borderBottom: `1px solid ${P.textMuted}`,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      fontSize: CV_FONT.label,
                       width: 160,
                     }}
                   />
                 ) : (
-                  <span
-                    className={labelClass}
-                    style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, marginBottom: 0, cursor: 'default' }}
-                  >
+                  <span style={{ ...labelStyle, marginBottom: 0, cursor: 'default' }}>
                     {group.label}
                   </span>
                 )}
 
                 <button
                   onClick={() => startRename(group)}
-                  style={{ color: T.border, fontSize: CRT_FONT.chrome, fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.border }}
+                  style={renameHovers[group.id] ? { ...actionBtnBase, ...addBtnHoverStyle } : actionBtnBase}
+                  onMouseEnter={() => setRenameHovers(p => ({ ...p, [group.id]: true }))}
+                  onMouseLeave={() => setRenameHovers(p => ({ ...p, [group.id]: false }))}
                   title="Rename group"
                 >
                   rename
                 </button>
                 <button
                   onClick={() => removeGroup(group.id)}
-                  style={{ color: T.border, fontSize: CRT_FONT.chrome, fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.border }}
+                  style={removeGroupHovers[group.id] ? { ...actionBtnBase, ...removeBtnHoverStyle } : actionBtnBase}
+                  onMouseEnter={() => setRemoveGroupHovers(p => ({ ...p, [group.id]: true }))}
+                  onMouseLeave={() => setRemoveGroupHovers(p => ({ ...p, [group.id]: false }))}
                   title="Remove group"
                 >
                   remove
@@ -283,24 +266,16 @@ export default function SkillsBucketCard({ data, collapsed, onChange, onToggleCo
       )}
 
       {/* ── Add group button ─────────────────────────────────────────────────── */}
-      <button
-        onClick={addGroup}
-        style={{
-          marginTop: 6,
-          fontFamily: 'monospace',
-          fontSize: CRT_FONT.chrome,
-          letterSpacing: '0.12em',
-          color: T.greenDim,
-          background: 'none',
-          border: `1px solid ${T.border}`,
-          padding: '3px 10px',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-      >
-        + ADD MODULAR GROUP
-      </button>
+      <div className="flex justify-end">
+        <button
+          onClick={addGroup}
+          style={addGroupHover ? { ...addBtnStyle, ...addBtnHoverStyle, marginTop: 6 } : { ...addBtnStyle, marginTop: 6 }}
+          onMouseEnter={() => setAddGroupHover(true)}
+          onMouseLeave={() => setAddGroupHover(false)}
+        >
+          Add Group
+        </button>
+      </div>
     </CVCard>
   )
 }

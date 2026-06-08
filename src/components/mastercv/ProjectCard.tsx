@@ -1,4 +1,6 @@
-import { T, labelClass, inputClass, textareaClass, CRT_FONT } from '@/lib/crtTheme'
+import { useState } from 'react'
+import type { CSSProperties } from 'react'
+import { labelStyle, inputStyle, textareaStyle, bulletGlyphStyle, removeBtnStyle, removeBtnHoverStyle, addBtnStyle, addBtnHoverStyle } from '@/lib/CVCardTheme'
 import CVCard from './CVCard'
 
 export interface Project {
@@ -25,19 +27,16 @@ function Field({ label, value, placeholder, onChange }: {
 }) {
   return (
     <div>
-      <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome }}>{label}</div>
-      <input
-        className={inputClass}
-        style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div style={labelStyle}>{label}</div>
+      <input style={inputStyle} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
 }
 
 export default function ProjectCard({ data, collapsed, onChange, onToggleCollapse, onDelete }: Props) {
+  const [addBtnHover, setAddBtnHover] = useState(false)
+  const [removeBtnHovers, setRemoveBtnHovers] = useState<Record<number, boolean>>({})
+
   function set<K extends keyof Project>(key: K, val: Project[K]) {
     onChange({ ...data, [key]: val })
   }
@@ -87,64 +86,42 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
   const summary = summaryParts.length ? summaryParts.join('  ·  ') : undefined
 
   return (
-    <CVCard
-      title="PROJECT"
-      summary={summary}
-      collapsed={collapsed}
-      onToggleCollapse={onToggleCollapse}
-      onDelete={onDelete}
-      glowColor="#34d399"
-    >
-      {/* Row 1: name + role */}
+    <CVCard title="PROJECT" summary={summary} collapsed={collapsed} onToggleCollapse={onToggleCollapse} onDelete={onDelete} accentColor="#a855f7">
       <div className="flex gap-3">
         <div className="flex-1">
           <Field label="Project Name" value={data.name} placeholder="My Awesome App" onChange={(v) => set('name', v)} />
         </div>
         <div className="flex-1">
-          <Field label="Your Role" value={data.role} placeholder="Lead Developer" onChange={(v) => set('role', v)} />
+          <Field label="Your Role"    value={data.role} placeholder="Lead Developer"  onChange={(v) => set('role', v)} />
         </div>
       </div>
 
-      {/* Row 2: dates + url */}
       <div className="flex gap-3">
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="Start" value={data.startDate} placeholder="Jan 2024" onChange={(v) => set('startDate', v)} />
+          <Field label="Start"    value={data.startDate} placeholder="Jan 2024" onChange={(v) => set('startDate', v)} />
         </div>
         <div style={{ flex: '0 0 90px' }}>
-          <Field label="End" value={data.endDate} placeholder="Present" onChange={(v) => set('endDate', v)} />
+          <Field label="End"      value={data.endDate}   placeholder="Present"  onChange={(v) => set('endDate', v)} />
         </div>
         <div className="flex-1">
           <Field label="URL / Repo" value={data.url} placeholder="github.com/you/project" onChange={(v) => set('url', v)} />
         </div>
       </div>
 
-      {/* Row 3: technologies */}
       <div>
         <Field label="Technologies" value={data.technologies} placeholder="React, TypeScript, Supabase…" onChange={(v) => set('technologies', v)} />
       </div>
 
-      {/* Bullets */}
-      <div>
-        <div className={labelClass} style={{ color: T.greenDim, fontSize: CRT_FONT.chrome, marginBottom: 6 }}>
-          BULLETS
-        </div>
-
+      <div className="flex flex-col">
+        <div style={{ ...labelStyle, marginBottom: 6 }}>Bullets</div>
         <div className="flex flex-col gap-1.5">
           {data.bullets.map((bullet, i) => (
             <div key={i} className="flex items-start gap-2">
-              <span style={{ color: T.greenDim, fontSize: CRT_FONT.body, lineHeight: 1.6, flexShrink: 0 }}>›</span>
+              <span style={bulletGlyphStyle}>•</span>
               <textarea
                 data-bullet-card={data.id}
-                className={textareaClass}
                 rows={2}
-                style={{
-                  color: T.green,
-                  borderColor: T.border,
-                  caretColor: T.green,
-                  fontSize: CRT_FONT.body,
-                  flex: 1,
-                  lineHeight: 1.5,
-                }}
+                style={{ ...textareaStyle, flex: 1, lineHeight: 1.5 } as CSSProperties}
                 value={bullet}
                 placeholder="Describe what you built and the impact…"
                 onChange={(e) => setBullet(i, e.target.value)}
@@ -152,9 +129,9 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
               />
               <button
                 onClick={() => removeBullet(i)}
-                style={{ color: T.border, fontSize: CRT_FONT.chrome, lineHeight: 1.6, flexShrink: 0, cursor: 'pointer', background: 'none', border: 'none' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.border }}
+                style={removeBtnHovers[i] ? { ...removeBtnStyle, ...removeBtnHoverStyle } : removeBtnStyle}
+                onMouseEnter={() => setRemoveBtnHovers(prev => ({ ...prev, [i]: true }))}
+                onMouseLeave={() => setRemoveBtnHovers(prev => ({ ...prev, [i]: false }))}
                 title="Remove bullet"
               >
                 ✕
@@ -162,24 +139,13 @@ export default function ProjectCard({ data, collapsed, onChange, onToggleCollaps
             </div>
           ))}
         </div>
-
         <button
           onClick={addBullet}
-          style={{
-            marginTop: 8,
-            fontFamily: 'monospace',
-            fontSize: CRT_FONT.chrome,
-            letterSpacing: '0.12em',
-            color: T.greenDim,
-            background: 'none',
-            border: `1px solid ${T.border}`,
-            padding: '3px 10px',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
+          style={addBtnHover ? { ...addBtnStyle, ...addBtnHoverStyle } : addBtnStyle}
+          onMouseEnter={() => setAddBtnHover(true)}
+          onMouseLeave={() => setAddBtnHover(false)}
         >
-          + ADD BULLET
+          Add Bullet
         </button>
       </div>
     </CVCard>

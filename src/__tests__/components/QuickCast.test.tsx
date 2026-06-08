@@ -77,15 +77,6 @@ jest.mock('@/services/subscriptionService', () => ({
 }))
 
 // Mock child components that would require heavy setup
-jest.mock('@/components/modals/ResumeModal', () => ({
-  __esModule: true,
-  default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="resume-modal">
-      <button onClick={onClose}>Close</button>
-    </div>
-  ),
-}))
-
 jest.mock('@/components/ai/AiModal', () => ({
   __esModule: true,
   default: ({ onClose }: { onClose: () => void }) => (
