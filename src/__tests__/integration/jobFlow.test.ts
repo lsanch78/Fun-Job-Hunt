@@ -168,6 +168,51 @@ describe('useJobList — add flow', () => {
     expect(res!.error).toBe('DB down')
     expect(result.current.jobs.some((j) => j.company === 'Failing Co')).toBe(false)
   })
+
+  it('addJob translates job_cap_reached sentinel to a human-readable message', async () => {
+    ;(insertJob as jest.Mock).mockResolvedValueOnce({ error: 'job_cap_reached' })
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    let res: { error: string | null }
+    await act(async () => {
+      res = await result.current.addJob('One Too Many', 'Dev')
+    })
+
+    expect(res!.error).toMatch(/cap reached/i)
+    expect(res!.error).not.toBe('job_cap_reached')
+  })
+
+  it('onCommit returns null and skips insert when at job cap', () => {
+    // Override JOB_CAP to 0 so the ref limit is hit immediately
+    const jobServiceMock = jest.requireMock('@/services/jobService')
+    const originalCap = jobServiceMock.JOB_CAP
+    jobServiceMock.JOB_CAP = 0
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    const draft = result.current.jobs[0]
+    let returnValue: number | null = -1
+    act(() => { returnValue = result.current.onCommit({ ...draft, company: 'X', title: 'Y' }, null) })
+
+    expect(returnValue).toBeNull()
+    expect(insertJob).not.toHaveBeenCalled()
+    expect(awardXp).not.toHaveBeenCalled()
+
+    jobServiceMock.JOB_CAP = originalCap
+  })
+
+  it('keeps draft-only state when fetchJobs returns empty', async () => {
+    ;(fetchJobs as jest.Mock).mockResolvedValueOnce([])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    await waitFor(() => expect(fetchJobs).toHaveBeenCalled())
+
+    const committed = result.current.jobs.filter((j) => j.committed)
+    expect(committed).toHaveLength(0)
+    expect(result.current.jobs[0].committed).toBe(false)
+  })
 })
 
 // ── useJobDetail ──────────────────────────────────────────────────────────────
@@ -253,5 +298,49 @@ describe('useJobDetail — edit flow', () => {
     expect(result.current.job.id).toBe('j2')
     act(() => { result.current.goJob(-1) })
     expect(result.current.job.id).toBe('j1')
+  })
+
+  it('goJob clamps at boundaries — no wrapping', () => {
+    const jobs = [
+      makeCommittedJob({ id: 'j1', company: 'A' }),
+      makeCommittedJob({ id: 'j2', company: 'B' }),
+    ]
+    const { result } = renderHook(() => useJobDetail(jobs, 'j1', jest.fn()))
+
+    act(() => { result.current.goJob(-1) })
+    expect(result.current.job.id).toBe('j1')
+
+    act(() => { result.current.goJob(1) })
+    act(() => { result.current.goJob(1) })
+    expect(result.current.job.id).toBe('j2')
+  })
+
+  it('fetchJobDetails failure does not call onChange or crash', async () => {
+    ;(fetchJobDetails as jest.Mock).mockResolvedValueOnce(null)
+
+    const onChange = jest.fn()
+    renderHook(() => useJobDetail([baseJob], baseJob.id, onChange))
+
+    await waitFor(() => expect(fetchJobDetails).toHaveBeenCalled())
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('handleSave is a no-op when already saving', async () => {
+    const loadedJob = { ...baseJob, description: 'text', notes: '' }
+
+    let resolveSave!: (v: { error: string | null }) => void
+    ;(svcUpdateJobDetails as jest.Mock).mockImplementationOnce(
+      () => new Promise((res) => { resolveSave = res })
+    )
+
+    const { result } = renderHook(() => useJobDetail([loadedJob], loadedJob.id, jest.fn()))
+
+    act(() => { result.current.handleSave() })
+    expect(result.current.saveState).toBe('saving')
+
+    await act(async () => { await result.current.handleSave() })
+    expect(svcUpdateJobDetails).toHaveBeenCalledTimes(1)
+
+    act(() => { resolveSave({ error: null }) })
   })
 })
