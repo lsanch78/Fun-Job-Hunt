@@ -15,7 +15,7 @@ import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShado
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
-import { useSubscription } from '@/lib/SubscriptionContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { lsGet } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { PROMPT_CLEAN_JD } from '@/config/aiPrompts'

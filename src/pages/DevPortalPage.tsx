@@ -17,7 +17,7 @@ function formatDate(iso: string) {
   })
 }
 
-type Tab = 'FEEDBACK' | 'COSTS'
+import type { Tab } from '@/types'
 
 export default function DevPortalPage() {
   const [tab, setTab] = useState<Tab>('FEEDBACK')

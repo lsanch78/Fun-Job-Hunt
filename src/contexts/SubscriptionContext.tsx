@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { fetchSubscription, isSubscribed as checkSubscribed, type Subscription } from '@/services/subscriptionService'
 
 interface SubscriptionContextValue {
@@ -17,18 +17,18 @@ const SubscriptionContext = createContext<SubscriptionContextValue>({
 })
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
+  const { userId } = useAuth()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading]           = useState(true)
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    const sub = await fetchSubscription(user.id)
+    if (!userId) { setLoading(false); return }
+    const sub = await fetchSubscription(userId)
     setSubscription(sub)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [userId])
 
   return (
     <SubscriptionContext.Provider value={{

@@ -51,7 +51,7 @@ jest.mock('@/lib/sfx', () => ({
   playAiDing: jest.fn(),
 }))
 
-jest.mock('@/lib/SubscriptionContext', () => ({
+jest.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: jest.fn(() => ({ isSubscribed: false, subscription: null, loading: false, refresh: jest.fn() })),
 }))
 

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getSession } from '@/services/authService'
 
 const CHECKOUT_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-checkout-session`
 const PORTAL_URL   = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/create-portal-session`
@@ -31,7 +32,7 @@ export async function fetchSubscription(userId: string): Promise<Subscription | 
 }
 
 export async function createCheckoutSession(): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getSession()
   if (!session) return
 
   const returnUrl = window.location.origin
@@ -54,7 +55,7 @@ export async function createCheckoutSession(): Promise<void> {
 }
 
 export async function openPortalSession(): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getSession()
   if (!session) return
 
   const res = await fetch(PORTAL_URL, {

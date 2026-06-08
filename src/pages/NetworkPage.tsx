@@ -10,20 +10,17 @@ import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
 import SearchBar from '@/components/shell/SearchBar'
 import NetworkBackdrop from '@/components/shell/NetworkBackdrop'
-import type { Contact, Job } from '@/types'
+import type { Contact, Job, TimeRange } from '@/types'
 import {
   fetchContactsWithJobs, insertContact, updateContact, pingContact, linkContactToJob, deleteContact, updateContactExp,
 } from '@/services/contactService'
 import { playDeleteBump, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
-import { useSubscription } from '@/lib/SubscriptionContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { FREE_CONTACT_CAP } from '@/services/contactService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { getCommCooldownHours } from '@/lib/commSettings'
 import { Trash } from 'pixelarticons/react'
 import { fetchJobs } from '@/services/jobService'
-
-// ── Time range ────────────────────────────────────────────────────────────────
-type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'today', label: 'TODAY'    },

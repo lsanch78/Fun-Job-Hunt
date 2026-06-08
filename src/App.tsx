@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { ThemeProvider } from '@/lib/ThemeContext'
-import { SubscriptionProvider } from '@/lib/SubscriptionContext'
-import { supabase } from '@/lib/supabase'
+import { ThemeProvider } from '@/contexts/ThemeContext'
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import AuthPage from '@/pages/AuthPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import JobLogPage from '@/pages/JobLogPage'
@@ -14,7 +14,6 @@ import NavBar from '@/components/shell/NavBar'
 import QuickCast from '@/components/hud/QuickCast'
 import WorkdayBar from '@/components/hud/WorkdayBar'
 import ScratchPad from '@/components/hud/ScratchPad'
-import type { Session } from '@supabase/supabase-js'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileJobLogPage from '@/pages/MobileJobLogPage'
 import NetworkPage from '@/pages/NetworkPage'
@@ -26,33 +25,9 @@ import LandingPage from '@/pages/LandingPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
-// Prefetch credits photos while the browser is idle so they're instant on arrival
-const CREDITS_PHOTOS = ['/me1.webp', '/me2.webp', '/me3.webp']
-function prefetchCreditsPhotos() {
-  const cb = () => {
-    CREDITS_PHOTOS.forEach((src) => {
-      const link = document.createElement('link')
-      link.rel = 'prefetch'
-      link.as = 'image'
-      link.href = src
-      document.head.appendChild(link)
-    })
-  }
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(cb, { timeout: 3000 })
-  } else {
-    setTimeout(cb, 2000)
-  }
-}
 
-function ProtectedRoute({
-  session,
-  children,
-}: {
-  session: Session | null | undefined
-  children: React.ReactNode
-}) {
-  const userId = session?.user?.id ?? null
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { session, userId } = useAuth()
   if (DEV_BYPASS) return (
     <div className="flex flex-col h-screen">
       <NavBar />
@@ -62,7 +37,6 @@ function ProtectedRoute({
       <WorkdayBar userId={userId} inline />
     </div>
   )
-  // undefined = still loading, null = no session
   if (session === undefined) return null
   if (!session) return <Navigate to="/auth" replace />
   return (
@@ -82,107 +56,74 @@ function MobileGatedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function NetworkRoute({ session }: { session: Session | null | undefined }) {
+function NetworkRoute() {
+  const { userId } = useAuth()
   const isMobile = useIsMobile()
-  const userId = session?.user?.id ?? null
   if (isMobile) return <MobileNetworkPage userId={userId} />
   return <NetworkPage userId={userId} />
 }
 
-function JobLogRoute({ session }: { session: Session | null | undefined }) {
+function JobLogRoute() {
+  const { userId, username } = useAuth()
   const isMobile = useIsMobile()
-  const userId = session?.user?.id ?? null
-  const userName =
-    (session?.user?.user_metadata?.['username'] as string | undefined) ??
-    null
-  if (isMobile) return <MobileJobLogPage userId={userId} userName={userName} />
-  return <JobLogPage userId={userId} userName={userName} />
+  if (isMobile) return <MobileJobLogPage userId={userId} userName={username || null} />
+  return <JobLogPage userId={userId} userName={username || null} />
 }
 
-export default function App() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined)
+function AppRoutes() {
+  const { session } = useAuth()
 
   useEffect(() => {
-    prefetchCreditsPhotos()
-  }, [])
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
+    const photos = ['/me1.webp', '/me2.webp', '/me3.webp']
+    const cb = () => photos.forEach((src) => {
+      const link = document.createElement('link')
+      link.rel = 'prefetch'
+      link.as = 'image'
+      link.href = src
+      document.head.appendChild(link)
     })
-    return () => subscription.unsubscribe()
+    if ('requestIdleCallback' in window) requestIdleCallback(cb, { timeout: 3000 })
+    else setTimeout(cb, 2000)
   }, [])
 
   return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/landing" element={session ? <Navigate to="/jobs" replace /> : <LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/" element={<Navigate to="/landing" replace />} />
+        <Route path="/jobs" element={<ProtectedRoute><JobLogRoute /></ProtectedRoute>} />
+        <Route path="/network" element={<ProtectedRoute><NetworkRoute /></ProtectedRoute>} />
+        <Route
+          path="/stats"
+          element={
+            <ProtectedRoute>
+              <MobileGatedRoute>
+                <StatsPage userId={session?.user?.id ?? null} />
+              </MobileGatedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/settings" element={<ProtectedRoute><MobileGatedRoute><SettingsPage /></MobileGatedRoute></ProtectedRoute>} />
+        <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
+        <Route path="/dev" element={<ProtectedRoute><MobileGatedRoute><DevPortalPage /></MobileGatedRoute></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Analytics />
+      <SpeedInsights />
+    </BrowserRouter>
+  )
+}
+
+export default function App() {
+  return (
     <ThemeProvider>
-      <SubscriptionProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/landing" element={session ? <Navigate to="/jobs" replace /> : <LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/" element={<Navigate to="/landing" replace />} />
-          <Route
-            path="/jobs"
-            element={
-              <ProtectedRoute session={session}>
-                <JobLogRoute session={session} />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/network"
-            element={
-              <ProtectedRoute session={session}>
-                <NetworkRoute session={session} />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/stats"
-            element={
-              <ProtectedRoute session={session}>
-                <MobileGatedRoute>
-                  <StatsPage userId={session?.user?.id ?? null} />
-                </MobileGatedRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute session={session}>
-                <MobileGatedRoute>
-                  <SettingsPage />
-                </MobileGatedRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/credits"
-            element={
-              <ProtectedRoute session={session}>
-                <CreditsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dev"
-            element={
-              <ProtectedRoute session={session}>
-                <MobileGatedRoute>
-                  <DevPortalPage />
-                </MobileGatedRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <Analytics />
-        <SpeedInsights />
-      </BrowserRouter>
-      </SubscriptionProvider>
+      <AuthProvider>
+        <SubscriptionProvider>
+          <AppRoutes />
+        </SubscriptionProvider>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

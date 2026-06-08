@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { COL_DEFS, REQUIRED_COLS } from './useColumns'
-import type { ColConfig } from './types'
+import { COL_DEFS, REQUIRED_COLS } from '@/hooks/useJobLogColumns'
+import type { ColConfig } from '@/types'
 
 interface Props {
   x: number

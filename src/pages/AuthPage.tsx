@@ -1,14 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import introMp3 from '@/assets/music/1-intro.mp3'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { getSession, signInWithIdToken, signInWithOtp, verifyOtp, signInWithOAuth } from '@/services/authService'
 import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
 import { startTerminalHum, playAuthBlip as playBlip } from '@/lib/sfx'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
-type Screen = 'title' | 'email' | 'code'
-type AuthError = string | null
+import type { Screen, AuthError } from '@/types'
 
 declare global {
   interface Window {
@@ -51,11 +50,9 @@ export default function AuthPage() {
   const nonceRef    = useRef<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        const name =
-          (data.session.user.user_metadata?.['username'] as string | undefined) ??
-          null
+    getSession().then((session) => {
+      if (session) {
+        const name = (session.user.user_metadata?.['username'] as string | undefined) ?? null
         setReturningName(name)
       }
     })
@@ -117,13 +114,9 @@ export default function AuthPage() {
   async function handleOneTapResponse(response: { credential: string }) {
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: response.credential,
-      nonce: nonceRef.current ?? undefined,
-    })
+    const { error } = await signInWithIdToken(response.credential, nonceRef.current ?? undefined)
     setLoading(false)
-    if (error) { setError(error.message); return }
+    if (error) { setError(error); return }
     navigate('/jobs')
   }
 
@@ -174,15 +167,9 @@ export default function AuthPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true,
-        data: { stayLoggedIn },
-      },
-    })
+    const { error } = await signInWithOtp(email, stayLoggedIn)
     setLoading(false)
-    if (error) { setError(error.message); return }
+    if (error) { setError(error); return }
     setScreen('code')
   }
 
@@ -190,14 +177,8 @@ export default function AuthPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type: 'email',
-    })
-    if (error) { setLoading(false); setError(error.message); return }
-    // Refresh session so the JWT reflects metadata set by the DB trigger on insert
-    await supabase.auth.refreshSession()
+    const { error } = await verifyOtp(email, otp)
+    if (error) { setLoading(false); setError(error); return }
     setLoading(false)
     navigate('/jobs')
   }
@@ -206,16 +187,8 @@ export default function AuthPage() {
   async function handleOAuthRedirect() {
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/auth/callback',
-      },
-    })
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    }
+    const { error } = await signInWithOAuth()
+    if (error) { setError(error); setLoading(false) }
   }
 
   // ── Title screen ─────────────────────────────────────────────────────────────

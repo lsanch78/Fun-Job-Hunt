@@ -8,8 +8,8 @@ import MasterCV from '@/components/hud/MasterCV'
 import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
 import CVCanvas from '@/components/mastercv/CVCanvas'
 import CoverLetterCanvas from '@/components/coverletter/CoverLetterCanvas'
-import { useXp } from '@/services/xpService'
-import type { Job, JobStatus } from '@/types'
+import { useXp } from '@/hooks/useXp'
+import type { Job, JobStatus, XpPopup, SortField, SortState, TimeRange } from '@/types'
 import { JOB_CAP, fetchJobDetails } from '@/services/jobService'
 import { useJobList } from '@/hooks/useJobList'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
@@ -19,12 +19,9 @@ import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialAc
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import { JobRow, type JobRowHandle } from '@/components/joblog/JobRow'
-import { useColumns } from '@/components/joblog/useColumns'
+import { useJobLogColumns } from '@/hooks/useJobLogColumns'
 import { ColumnHeader } from '@/components/joblog/ColumnHeader'
 import { ColumnContextMenu } from '@/components/joblog/ColumnContextMenu'
-
-// ── XP popup ────────────────────────────────────────────────────────────────
-interface XpPopup { id: number; mega: boolean; x: number; y: number; label?: string }
 
 // Inject keyframes once into the document head
 const XP_POP_STYLE = `
@@ -49,13 +46,6 @@ if (typeof document !== 'undefined' && !document.getElementById('xp-pop-keyframe
   document.head.appendChild(el)
 }
 
-
-// ── Filter / sort types ───────────────────────────────────────────────────────
-type SortField = 'company' | 'date' | 'status'
-type SortDir   = 'asc' | 'desc'
-interface SortState { field: SortField; dir: SortDir }
-
-type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'today', label: 'TODAY'     },
@@ -181,7 +171,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [clInitialCoverLetterId, setClInitialCoverLetterId] = useState<string | null>(null)
   const [clInitialCompany, setClInitialCompany] = useState<string | null>(null)
   const [clInitialJobId, setClInitialJobId] = useState<string | null>(null)
-  const columns = useColumns()
+  const columns = useJobLogColumns()
   const totalColWeight = columns.visibleCols.reduce((s, c) => s + c.width, 0)
   const PAGE_SIZE = 30
   const popupCounter = useRef(0)
