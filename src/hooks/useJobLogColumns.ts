@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
-import type { ColConfig } from '@/components/joblog/types'
+import type { ColConfig, ColumnMenuState, UseColumns } from '@/types'
 
 // ── Static config ─────────────────────────────────────────────────────────────
 
@@ -51,42 +51,6 @@ function writeColConfig(cols: ColConfig[]): void {
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
-
-export interface ColumnMenuState {
-  x: number
-  y: number
-  key: string
-}
-
-export interface UseColumns {
-  cols: ColConfig[]
-  visibleCols: ColConfig[]
-  /** Drag-in-progress state — header uses this to dim/highlight cells. */
-  dragColKey: string | null
-  dragOverKey: string | null
-  /** Right-click menu state — null when closed. */
-  menu: ColumnMenuState | null
-  closeMenu: () => void
-  openMenu: (x: number, y: number, key: string) => void
-
-  // Mutators — all persist to localStorage.
-  moveLeft: (key: string) => void
-  moveRight: (key: string) => void
-  hide: (key: string) => void
-  toggleVisible: (key: string) => void
-  reset: () => void
-  reorder: (fromKey: string, toKey: string) => void
-  setWidth: (key: string, width: number) => void
-  commitWidths: () => void
-
-  // Drag handlers — header attaches these to <th>.
-  beginDrag: (key: string) => void
-  endDrag: () => void
-  setDragOver: (key: string | null) => void
-
-  /** Set by ColumnHeader's resize handle so drag-start can ignore it. */
-  isResizingRef: React.MutableRefObject<boolean>
-}
 
 export function useJobLogColumns(): UseColumns {
   const [cols, setCols] = useState<ColConfig[]>(readColConfig)

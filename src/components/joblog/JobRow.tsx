@@ -5,7 +5,7 @@ import { FileText } from 'pixelarticons/react'
 import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS } from '@/services/jobService'
 import { parseSalaryK } from '@/lib/salaryUtils'
-import type { ColConfig } from './types'
+import type { ColConfig } from '@/types'
 import { CuratedResumePreviewModal } from './JobDetailModal'
 
 export interface JobRowHandle {

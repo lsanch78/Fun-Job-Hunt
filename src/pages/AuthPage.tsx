@@ -7,8 +7,7 @@ import { startTerminalHum, playAuthBlip as playBlip } from '@/lib/sfx'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 
-type Screen = 'title' | 'email' | 'code'
-type AuthError = string | null
+import type { Screen, AuthError } from '@/types'
 
 declare global {
   interface Window {

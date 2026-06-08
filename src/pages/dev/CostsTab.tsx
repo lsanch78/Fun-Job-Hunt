@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchCostData, type CostData, type MonthlySnapshot, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import type { StatCardProps, SliderRowProps } from '@/types'
 
 function fmt(n: number, decimals = 2) {
   return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
@@ -9,13 +10,6 @@ function fmtTokens(n: number) {
   if (n >= 1_000_000) return `${fmt(n / 1_000_000, 2)}M`
   if (n >= 1_000)     return `${fmt(n / 1_000, 1)}K`
   return String(n)
-}
-
-interface StatCardProps {
-  label: string
-  value: string
-  sub?: string
-  accent?: 'green' | 'red' | 'blue' | 'yellow' | 'muted'
 }
 
 function StatCard({ label, value, sub, accent = 'muted' }: StatCardProps) {
@@ -33,14 +27,6 @@ function StatCard({ label, value, sub, accent = 'muted' }: StatCardProps) {
       {sub && <span className="font-pixel text-[7px] text-muted">{sub}</span>}
     </div>
   )
-}
-
-interface SliderRowProps {
-  label: string
-  value: number
-  min: number
-  max: number
-  onChange: (v: number) => void
 }
 
 function SliderRow({ label, value, min, max, onChange }: SliderRowProps) {
