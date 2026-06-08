@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toLocalDateStr } from '@/lib/dateUtils'
 import { useSearchParams } from 'react-router-dom'
 import type { JobStatus } from '@/types'
 import JobDetailModal from '@/components/joblog/JobDetailModal'
@@ -157,10 +158,10 @@ export default function MobileJobLogPage({
   // Filter/sort/paginate — committed jobs only on mobile (no draft row in the list)
   const committedJobs = jobs.filter((j) => j.committed)
   const cutoff = getTimeRangeCutoff(timeRange)
-  const tomorrowStart = (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d.toISOString() })()
+  const todayStr = toLocalDateStr(new Date().toISOString())
   const rangeJobs = committedJobs.filter((j) => {
     if (cutoff === null) return true
-    if (timeRange === 'today') return j.applicationDate >= cutoff && j.applicationDate < tomorrowStart
+    if (timeRange === 'today') return toLocalDateStr(j.applicationDate) === todayStr
     return j.applicationDate >= cutoff
   })
   const filteredJobs = applyFilters(rangeJobs, search, hidden, sort)

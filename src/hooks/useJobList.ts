@@ -14,7 +14,8 @@ import { awardXp, xpForJob } from '@/services/xpService'
 // ── Draft factory ─────────────────────────────────────────────────────────────
 
 function today(): string {
-  return new Date().toISOString()
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function emptyJob(): Job {

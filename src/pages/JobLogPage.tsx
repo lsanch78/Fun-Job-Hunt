@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { toLocalDateStr } from '@/lib/dateUtils'
 import { playThud, playDeleteBump, playSelectClick, playTrash, playNetworkMapOpen, playNetworkMapClose } from '@/lib/sfx'
 import { Trash } from 'pixelarticons/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -289,9 +290,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
 
   // ── Derived display values ───────────────────────────────────────────────────
 
-  const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString() })()
-  const tomorrowStart = (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d.toISOString() })()
-  const todayCount = jobs.filter((j) => j.committed && j.applicationDate >= todayStart && j.applicationDate < tomorrowStart).length
+  const todayStr = toLocalDateStr(new Date().toISOString())
+  const todayCount = jobs.filter((j) => j.committed && toLocalDateStr(j.applicationDate) === todayStr).length
 
   function handleTimeRange(r: TimeRange) {
     setTimeRange(r)
@@ -302,7 +302,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const rangeJobs = jobs.filter((j) => {
     if (!j.committed) return true
     if (cutoff === null) return true
-    if (timeRange === 'today') return j.applicationDate >= cutoff && j.applicationDate < tomorrowStart
+    if (timeRange === 'today') return toLocalDateStr(j.applicationDate) === todayStr
     return j.applicationDate >= cutoff
   })
   const filteredJobs = applyFilters(rangeJobs, search, hidden, sort)
