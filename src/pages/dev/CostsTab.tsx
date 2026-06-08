@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { fetchCostData, type CostData, type MonthlySnapshot, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import { useCosts } from '@/hooks/dev/useCosts'
+import { SUBSCRIPTION_PRICE_USD, type MonthlySnapshot } from '@/services/dev/costService'
 import type { StatCardProps, SliderRowProps } from '@/types'
 
 function fmt(n: number, decimals = 2) {
@@ -46,60 +46,21 @@ function SliderRow({ label, value, min, max, onChange }: SliderRowProps) {
   )
 }
 
-const DEFAULT_FREE_CALLS_PER_USER = 8
-const DEFAULT_PAID_CALLS_PER_USER = 20
-
 export default function CostsTab() {
-  const [data, setData] = useState<CostData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const [simTotalUsers, setSimTotalUsers]         = useState(0)
-  const [simConversionPct, setSimConversionPct]   = useState(3)
-  const [simSubPrice, setSimSubPrice]             = useState(SUBSCRIPTION_PRICE_USD)
-  const [simFreeCallsPerUser, setSimFreeCallsPerUser] = useState(DEFAULT_FREE_CALLS_PER_USER)
-  const [simPaidCallsPerUser, setSimPaidCallsPerUser] = useState(DEFAULT_PAID_CALLS_PER_USER)
-  const [simDirty, setSimDirty]                   = useState(false)
-
-  useEffect(() => {
-    fetchCostData()
-      .then((d) => {
-        setData(d)
-        setSimTotalUsers(d.usageRows.length)
-        setSimFreeCallsPerUser(Math.round(d.avgCallsFreeUser) || DEFAULT_FREE_CALLS_PER_USER)
-        setSimPaidCallsPerUser(Math.round(d.avgCallsPaidUser) || DEFAULT_PAID_CALLS_PER_USER)
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  function resetSim() {
-    if (!data) return
-    setSimTotalUsers(data.usageRows.length)
-    setSimConversionPct(3)
-    setSimSubPrice(SUBSCRIPTION_PRICE_USD)
-    setSimFreeCallsPerUser(Math.round(data.avgCallsFreeUser) || DEFAULT_FREE_CALLS_PER_USER)
-    setSimPaidCallsPerUser(Math.round(data.avgCallsPaidUser) || DEFAULT_PAID_CALLS_PER_USER)
-    setSimDirty(false)
-  }
-
-  function handleSim(setter: (v: number) => void) {
-    return (v: number) => { setter(v); setSimDirty(true) }
-  }
+  const {
+    data, loading, error,
+    simTotalUsers, simConversionPct, simSubPrice, simFreeCallsPerUser, simPaidCallsPerUser, simDirty,
+    setSimTotalUsers, setSimConversionPct,
+    setSimSubPrice, setSimFreeCallsPerUser, setSimPaidCallsPerUser,
+    simPaidUsers, simFreeUsers, simTotalCalls, simIncome, simClaudeCost, simProfit,
+    resetSim,
+  } = useCosts()
 
   if (loading) return <p className="font-pixel text-[9px] text-muted tracking-wider p-6">LOADING...</p>
   if (error || !data) return <p className="font-pixel text-[9px] text-red-400 tracking-wider p-6">{error ?? 'No data'}</p>
 
   const supabaseCost = 0
   const profit = data.estimatedMonthlyIncome - data.totalAnthropicCostUsd - supabaseCost
-
-  const simPaidUsers  = Math.round(simTotalUsers * simConversionPct / 100)
-  const simFreeUsers  = simTotalUsers - simPaidUsers
-  const simTotalCalls = simFreeUsers * simFreeCallsPerUser + simPaidUsers * simPaidCallsPerUser
-  const simIncome     = simPaidUsers * simSubPrice
-  const simClaudeCost = data.avgCostPerCall > 0 ? data.avgCostPerCall * simTotalCalls : 0
-  const simProfit     = simIncome - simClaudeCost - supabaseCost
-
   const hasTokenData = data.models.length > 0
 
   return (
@@ -191,8 +152,8 @@ export default function CostsTab() {
           )}
         </div>
         <div className="border border-border bg-surface px-4 py-4 flex flex-col gap-3">
-          <SliderRow label="TOTAL USERS"    value={simTotalUsers}    min={0} max={50000} onChange={handleSim(setSimTotalUsers)}    />
-          <SliderRow label="CONVERSION %"   value={simConversionPct} min={0} max={100}  onChange={handleSim(setSimConversionPct)} />
+          <SliderRow label="TOTAL USERS"    value={simTotalUsers}    min={0} max={50000} onChange={setSimTotalUsers}    />
+          <SliderRow label="CONVERSION %"   value={simConversionPct} min={0} max={100}  onChange={setSimConversionPct} />
           <div className="flex items-center gap-4">
             <span className="font-pixel text-[8px] text-muted w-28 shrink-0">SUB PRICE $</span>
             <input
@@ -201,7 +162,7 @@ export default function CostsTab() {
               max={999}
               step={1}
               value={simSubPrice}
-              onChange={(e) => { setSimSubPrice(Math.max(1, Number(e.target.value))); setSimDirty(true) }}
+              onChange={(e) => setSimSubPrice(Number(e.target.value))}
               className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
             />
           </div>
@@ -213,7 +174,7 @@ export default function CostsTab() {
               max={999}
               step={1}
               value={simFreeCallsPerUser}
-              onChange={(e) => { setSimFreeCallsPerUser(Math.max(0, Number(e.target.value))); setSimDirty(true) }}
+              onChange={(e) => setSimFreeCallsPerUser(Number(e.target.value))}
               className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
             />
           </div>
@@ -225,7 +186,7 @@ export default function CostsTab() {
               max={999}
               step={1}
               value={simPaidCallsPerUser}
-              onChange={(e) => { setSimPaidCallsPerUser(Math.max(0, Number(e.target.value))); setSimDirty(true) }}
+              onChange={(e) => setSimPaidCallsPerUser(Number(e.target.value))}
               className="w-20 bg-bg border border-border text-primary font-pixel text-[10px] px-2 py-1 text-right focus:outline-none focus:border-primary"
             />
           </div>
@@ -260,13 +221,13 @@ export default function CostsTab() {
               ))}
             </div>
             {data.snapshots.map((s: MonthlySnapshot) => {
-              const profit = s.estimated_monthly_income - s.total_anthropic_cost_usd
+              const rowProfit = s.estimated_monthly_income - s.total_anthropic_cost_usd
               return (
                 <div key={s.period} className="grid grid-cols-8 gap-2 px-3 py-2 border-b border-border last:border-b-0 min-w-[640px]">
                   <span className="font-pixel text-[8px] text-secondary">{s.period}</span>
                   <span className="font-pixel text-[8px] text-green-400">${fmt(s.estimated_monthly_income)}</span>
                   <span className="font-pixel text-[8px] text-red-400">${fmt(s.total_anthropic_cost_usd)}</span>
-                  <span className={`font-pixel text-[8px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>${fmt(profit)}</span>
+                  <span className={`font-pixel text-[8px] ${rowProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>${fmt(rowProfit)}</span>
                   <span className="font-pixel text-[8px] text-text">{s.total_calls.toLocaleString()}</span>
                   <span className="font-pixel text-[8px] text-yellow-400">{s.active_sub_count}</span>
                   <span className="font-pixel text-[8px] text-text">{s.unique_users}</span>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { WORKDAY } from '@/config/game'
-import { useWorkdayTracking } from '@/hooks/useWorkdayTracking'
+import { useWorkdayTracking } from '@/hooks/stats/useWorkdayTracking'
 
 // ── Time formatting helpers ───────────────────────────────────────────────────
 

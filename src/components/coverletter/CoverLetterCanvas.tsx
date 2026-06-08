@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { useCVState } from '@/hooks/useCVState'
+import { useCVState } from '@/hooks/mastercv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
 import { T } from '@/lib/crtTheme'

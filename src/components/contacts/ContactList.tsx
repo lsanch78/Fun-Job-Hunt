@@ -10,7 +10,6 @@ import type { Contact } from '@/types'
 import { useAI } from '@/hooks/useAI'
 import type { AiPhase } from '@/hooks/useAI'
 import AiButton from '@/components/ai/AiButton'
-import { createCheckoutSession } from '@/services/subscriptionService'
 import { PROMPT_OUTREACH } from '@/config/aiPrompts'
 
 export type { Contact }
@@ -390,7 +389,7 @@ function buildOutreachPrompt(contact: Contact, apps: AppLink[], senderResume: st
   return lines.join('\n')
 }
 
-function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onStopEditing }: {
+function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onStopEditing, onUpgrade }: {
   phase: AiPhase
   dots: number
   draft: string
@@ -398,6 +397,7 @@ function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onS
   isEditing: boolean
   onClose: () => void
   onStopEditing: () => void
+  onUpgrade?: () => void
 }) {
   const [copied, setCopied] = useState(false)
   const [promptInput, setPromptInput] = useState(() => loadOutreachPrompt())
@@ -465,7 +465,7 @@ function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onS
         <div className="flex items-center gap-3">
           <span className="text-warning text-[10px]">// MONTHLY LIMIT REACHED</span>
           <button
-            onClick={() => createCheckoutSession().catch(() => {})}
+            onClick={() => onUpgrade?.()}
             className="text-[10px] px-2 py-0.5 border border-warning text-warning hover:opacity-80 transition-none"
           >
             {PRO_UPGRADE_CTA_SHORT}
@@ -492,7 +492,7 @@ function ContactAiDrawer({ phase, dots, draft, limitHit, isEditing, onClose, onS
 
 interface ContactXpPopup { id: number; x: number; y: number }
 
-function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours, aiPhase, aiDots, isAiActive, isAiEditing, aiDraft, aiLimitHit, onAiClick, onAiRightClick, onStopEditing }: {
+function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours, aiPhase, aiDots, isAiActive, isAiEditing, aiDraft, aiLimitHit, onAiClick, onAiRightClick, onStopEditing, onUpgrade }: {
   contact: Contact
   apps?: AppLink[]
   onPing: (id: string) => void
@@ -512,6 +512,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
   onAiClick: () => void
   onAiRightClick: (e: React.MouseEvent) => void
   onStopEditing: () => void
+  onUpgrade?: () => void
 }) {
   const aiMode = lsGet<AiMode>(SK.aiMode(''), 'ai-first')
   const [commBonus, setCommBonus] = useState(contact.commExp ?? 0)
@@ -651,6 +652,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
             isEditing={isAiEditing}
             onClose={onAiClick}
             onStopEditing={onStopEditing}
+            onUpgrade={onUpgrade}
           />
         </td>
       </tr>
@@ -720,9 +722,10 @@ interface ContactListProps {
   onExpChange?: (id: string, exp: number) => void
   cooldownHours?: number
   userId?: string | null
+  onUpgrade?: () => void
 }
 
-export default function ContactList({ contacts, sortBy, sortDir = 'asc', search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168, userId = null }: ContactListProps) {
+export default function ContactList({ contacts, sortBy, sortDir = 'asc', search = '', onPing, onOpenDetail, jobsByContact = {}, onOpenJob, mobile = false, deleteMode, selected, onToggle, page = 1, pageSize, onTotalFiltered, onExpChange, cooldownHours = 168, userId = null, onUpgrade }: ContactListProps) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? contacts.filter((c) =>
@@ -835,6 +838,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
               onAiClick={() => handleAiClick(c, jobsByContact[c.id] ?? [])}
               onAiRightClick={(e) => handleAiRightClick(e, c.id)}
               onStopEditing={() => setEditingAiContactId(null)}
+              onUpgrade={onUpgrade}
             />
           ))}
         </tbody>

@@ -130,7 +130,9 @@
       "Bash(sed -i \"s|'\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\nCURRENT CODEX:\\\\\\\\\\\\\\\\n'|'\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\nCURRENT CV:\\\\\\\\\\\\\\\\n'|g\" c:/effjobhunt/src/components/mastercv/CVCanvas.tsx)",
       "Bash(sed -i \"s|'\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\nCODEX:\\\\\\\\\\\\\\\\n'|'\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\nMASTER CV:\\\\\\\\\\\\\\\\n'|g\" c:/effjobhunt/src/components/mastercv/CVCanvas.tsx)",
       "Bash(sed -i 's|<CodexRenderer|<CVRenderer|g' c:/effjobhunt/src/components/mastercv/CVCanvas.tsx)",
-      "Bash(sed -i 's|</CodexRenderer>|</CVRenderer>|g' c:/effjobhunt/src/components/mastercv/CVCanvas.tsx)"
+      "Bash(sed -i 's|</CodexRenderer>|</CVRenderer>|g' c:/effjobhunt/src/components/mastercv/CVCanvas.tsx)",
+      "Bash(Get-ChildItem -Path \"c:\\\\effjobhunt\\\\src\" -Recurse -Filter \"*.ts\" -o File)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ],
     "additionalDirectories": [
       "C:\\effjobhunt\\public"

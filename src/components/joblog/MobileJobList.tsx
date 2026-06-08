@@ -1,11 +1,5 @@
 import { useState } from 'react'
-import type { Job, JobStatus } from '@/types'
-
-type SortField = 'company' | 'date' | 'status'
-type SortDir   = 'asc' | 'desc'
-export interface SortState { field: SortField; dir: SortDir }
-
-export type TimeRange = 'today' | '7d' | '30d' | 'year' | 'all'
+import type { Job, JobStatus, SortField, SortState, TimeRange } from '@/types'
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'today', label: 'TODAY'    },

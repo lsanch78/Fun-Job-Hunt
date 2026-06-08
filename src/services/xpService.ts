@@ -1,8 +1,18 @@
 import { XP, RANK_THRESHOLDS, RANK_TITLES } from '@/config/game'
 import { supabase } from '@/lib/supabase'
-import { lsRemove } from '@/lib/storage'
+import { lsGet, lsRemove, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+
+export function readXpCache(userId: string): number | null {
+  const fromNew = lsGet<number | null>(SK.xp(userId), null)
+  if (fromNew !== null) return fromNew
+  return lsGet<number | null>(`xp:${userId}`, null)
+}
+
+export function writeXpCache(userId: string, xp: number): void {
+  lsSet(SK.xp(userId), xp)
+}
 
 export async function fetchXp(userId: string): Promise<number | null> {
   const { data } = await supabase

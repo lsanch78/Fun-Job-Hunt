@@ -18,15 +18,8 @@ export async function countJobs(userId: string): Promise<number> {
   return count ?? 0
 }
 
-// ── Field limits (see docs/SCALABILITY.md) ───────────────────────────────────
-export const JOB_LIMITS = {
-  company:     100,
-  title:       150,
-  postingUrl:  500,
-  salary:       20,
-  description: 10000,
-  notes:       2000,
-} as const
+export { JOB_LIMITS } from '@/config/jobLimits'
+import { JOB_LIMITS } from '@/config/jobLimits'
 
 // ── Cache key ────────────────────────────────────────────────────────────────
 export function cacheKey(userId: string): string {

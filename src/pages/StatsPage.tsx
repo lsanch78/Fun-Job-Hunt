@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
-import { fetchWorkdays, readWorkdayCache, type WorkdayRow } from '@/services/workdayService'
-import { fetchJobs, readCache } from '@/services/jobService'
-import { fetchContacts } from '@/services/contactService'
-import type { Job, Contact } from '@/types'
+import { useMemo } from 'react'
+import { useStats } from '@/hooks/stats/useStats'
+import type { WorkdayRow } from '@/services/workdayService'
+import type { Job } from '@/types'
 import XpTracker from '@/components/hud/XpTracker'
-import { useXp } from '@/hooks/useXp'
+import { useXp } from '@/hooks/hud/useXp'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -24,19 +23,16 @@ function formatHours(h: number): string {
   return `${hrs}h ${mins}m`
 }
 
-/** Duration in fractional hours between two ISO strings. Returns 0 if punch_out is null. */
 function sessionHours(row: WorkdayRow): number {
   if (!row.punch_out) return 0
   const ms = new Date(row.punch_out).getTime() - new Date(row.punch_in).getTime()
   return Math.max(0, ms / 3_600_000)
 }
 
-/** Total hours across all completed workday rows. */
 function totalHours(workdays: WorkdayRow[]): number {
   return workdays.reduce((acc, r) => acc + sessionHours(r), 0)
 }
 
-/** Returns "YYYY-MM-DD" in local time for a given Date. */
 function localDateStr(d: Date): string {
   return [
     d.getFullYear(),
@@ -45,10 +41,9 @@ function localDateStr(d: Date): string {
   ].join('-')
 }
 
-/** Hours for rows whose `date` field falls in the current ISO week (Mon–Sun). */
 function hoursThisWeek(workdays: WorkdayRow[]): number {
   const now = new Date()
-  const dayOfWeek = (now.getDay() + 6) % 7 // Mon=0 … Sun=6
+  const dayOfWeek = (now.getDay() + 6) % 7
   const monday = new Date(now)
   monday.setHours(0, 0, 0, 0)
   monday.setDate(monday.getDate() - dayOfWeek)
@@ -58,7 +53,6 @@ function hoursThisWeek(workdays: WorkdayRow[]): number {
     .reduce((acc, r) => acc + sessionHours(r), 0)
 }
 
-/** Hours for rows whose `date` field falls in the current calendar month. */
 function hoursThisMonth(workdays: WorkdayRow[]): number {
   const now = new Date()
   const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -67,10 +61,6 @@ function hoursThisMonth(workdays: WorkdayRow[]): number {
     .reduce((acc, r) => acc + sessionHours(r), 0)
 }
 
-/**
- * Current streak: consecutive calendar days with at least one completed session,
- * counting backwards from today (or yesterday if today has no session yet).
- */
 function computeStreak(workdays: WorkdayRow[]): number {
   const completedDates = new Set(
     workdays.filter((r) => r.punch_out).map((r) => r.date)
@@ -80,7 +70,6 @@ function computeStreak(workdays: WorkdayRow[]): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Start from today; if today has no session, still count from yesterday
   let cursor = new Date(today)
   if (!completedDates.has(localDateStr(cursor))) {
     cursor.setDate(cursor.getDate() - 1)
@@ -95,10 +84,6 @@ function computeStreak(workdays: WorkdayRow[]): number {
   return streak
 }
 
-/**
- * Applications per calendar day for the last `days` days (inclusive of today),
- * filling days with zero applications as 0.
- */
 function appsPerDay(jobs: Job[], days = 30): { date: string; count: number }[] {
   const map = new Map<string, number>()
   for (const job of jobs) {
@@ -123,19 +108,6 @@ function appsPerDay(jobs: Job[], days = 30): { date: string; count: number }[] {
   return result
 }
 
-/** ISO week string "YYYY-Www" for a YYYY-MM-DD date string. */
-function isoWeek(dateStr: string): string {
-  const d = new Date(dateStr)
-  const jan4 = new Date(d.getFullYear(), 0, 4)
-  const startOfWeek1 = new Date(jan4)
-  startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-  const daysDiff = Math.floor((d.getTime() - startOfWeek1.getTime()) / 86_400_000)
-  const week = Math.floor(daysDiff / 7) + 1
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
-}
-
-const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-
 // ── Bar chart ─────────────────────────────────────────────────────────────────
 
 function AppsPerDayChart({ data }: { data: { date: string; count: number }[] }) {
@@ -156,12 +128,10 @@ function AppsPerDayChart({ data }: { data: { date: string; count: number }[] }) 
             key={date}
             className="group relative flex-1 min-w-[4px] flex flex-col items-center justify-end h-full"
           >
-            {/* Bar */}
             <div
               className="w-full bg-secondary transition-all duration-300 min-h-[3px]"
               style={{ height: `${heightPct}%` }}
             />
-            {/* Tooltip */}
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
               <div className="font-terminal bg-surface border border-border px-2 py-1 text-base whitespace-nowrap text-primary">
                 {date.slice(5)}<br />{count} APP{count !== 1 ? 'S' : ''}
@@ -197,172 +167,53 @@ function StatCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage({ userId }: { userId: string | null }) {
-  const [workdays, setWorkdays] = useState<WorkdayRow[]>(() =>
-    userId ? readWorkdayCache(userId) : []
-  )
-  const [jobs, setJobs] = useState<Job[]>(() =>
-    userId ? readCache(userId) : []
-  )
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(() =>
-    userId ? readCache(userId).length === 0 && readWorkdayCache(userId).length === 0 : true
-  )
+  const {
+    loading,
+    workdays,
+    jobs,
+    huntStartDate,
+    totalApps,
+    interviewRatio,
+    offerCount,
+    ghostedCount,
+    rejectedCount,
+    ghostRate,
+    rejectionRate,
+    winRate,
+    avgRating,
+    highConvictionCount,
+    daysSinceLastApp,
+    bestWeek,
+    busiestDayOfWeek,
+    totalContacts,
+    champCount,
+    allyCount,
+    avgCommExp,
+    mostActiveContact,
+    contactsCommThisWeek,
+  } = useStats(userId)
 
-  useEffect(() => {
-    if (!userId) { setLoading(false); return }
-    let cancelled = false
-    async function load() {
-      const [rows, jobRows, contactRows] = await Promise.all([
-        fetchWorkdays(userId!),
-        fetchJobs(userId!),
-        fetchContacts(userId!),
-      ])
-      if (!cancelled) {
-        setWorkdays(rows)
-        setJobs(jobRows)
-        setContacts(contactRows)
-        setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [userId])
+  const { xp } = useXp(userId)
 
-  // ── Computed stats ──────────────────────────────────────────────────────────
-
-  const huntStartDate = useMemo(() => {
-    if (jobs.length === 0) return null
-    return jobs
-      .map((j) => j.applicationDate)
-      .filter(Boolean)
-      .sort()[0] ?? null
-  }, [jobs])
-
-  const totalApps = jobs.length
-
-  const interviewRatio = useMemo(() => {
-    if (totalApps === 0) return null
-    const interviewed = jobs.filter((j) =>
-      j.status === 'PHONE_SCREEN' ||
-      j.status === 'INTERVIEW' ||
-      j.status === 'OFFER'
-    ).length
-    return Math.round((interviewed / totalApps) * 100)
-  }, [jobs, totalApps])
-
-  const streak = useMemo(() => computeStreak(workdays), [workdays])
-  const weekHrs = useMemo(() => hoursThisWeek(workdays), [workdays])
-  const monthHrs = useMemo(() => hoursThisMonth(workdays), [workdays])
-  const allHrs = useMemo(() => totalHours(workdays), [workdays])
-  const chartData = useMemo(() => appsPerDay(jobs), [jobs])
-
-  // Funnel / outcome
-  const offerCount = useMemo(() => jobs.filter((j) => j.status === 'OFFER').length, [jobs])
-  const ghostedCount = useMemo(() => jobs.filter((j) => j.status === 'GHOSTED').length, [jobs])
-  const rejectedCount = useMemo(() => jobs.filter((j) => j.status === 'REJECTED').length, [jobs])
-
-  const ghostRate = useMemo(() => {
-    if (totalApps === 0) return null
-    return Math.round((ghostedCount / totalApps) * 100)
-  }, [ghostedCount, totalApps])
-
-  const rejectionRate = useMemo(() => {
-    if (totalApps === 0) return null
-    return Math.round((rejectedCount / totalApps) * 100)
-  }, [rejectedCount, totalApps])
-
-  const winRate = useMemo(() => {
-    if (totalApps === 0) return null
-    return Math.round((offerCount / totalApps) * 100)
-  }, [offerCount, totalApps])
-
-  // Activity insights
-  const appsPerWorkHour = useMemo(() => {
+  // Workday-specific stats not in useStats
+  const streak           = useMemo(() => computeStreak(workdays), [workdays])
+  const weekHrs          = useMemo(() => hoursThisWeek(workdays), [workdays])
+  const monthHrs         = useMemo(() => hoursThisMonth(workdays), [workdays])
+  const allHrs           = useMemo(() => totalHours(workdays), [workdays])
+  const chartData        = useMemo(() => appsPerDay(jobs), [jobs])
+  const appsPerWorkHour  = useMemo(() => {
     if (allHrs === 0 || totalApps === 0) return null
     return (totalApps / allHrs).toFixed(1)
   }, [totalApps, allHrs])
-
-  const busiestDayOfWeek = useMemo(() => {
-    const counts = new Array(7).fill(0)
-    for (const job of jobs) {
-      if (!job.applicationDate) continue
-      const dow = new Date(job.applicationDate).getDay()
-      counts[dow]++
-    }
-    const max = Math.max(...counts)
-    if (max === 0) return null
-    return DAY_NAMES[counts.indexOf(max)]
-  }, [jobs])
-
   const avgSessionLength = useMemo(() => {
     const completed = workdays.filter((r) => r.punch_out)
     if (completed.length === 0) return null
     return totalHours(completed) / completed.length
   }, [workdays])
-
-  const longestSession = useMemo(() => {
+  const longestSession   = useMemo(() => {
     if (workdays.length === 0) return null
     return Math.max(...workdays.map(sessionHours))
   }, [workdays])
-
-  // Job quality
-  const avgRating = useMemo(() => {
-    const rated = jobs.filter((j) => j.rating > 0)
-    if (rated.length === 0) return null
-    const sum = rated.reduce((acc, j) => acc + j.rating, 0)
-    return (sum / rated.length).toFixed(1)
-  }, [jobs])
-
-  const highConvictionCount = useMemo(() =>
-    jobs.filter((j) => j.rating >= 4).length
-  , [jobs])
-
-  // Momentum
-  const bestWeek = useMemo(() => {
-    const weekCounts = new Map<string, number>()
-    for (const job of jobs) {
-      if (!job.applicationDate) continue
-      const w = isoWeek(job.applicationDate)
-      weekCounts.set(w, (weekCounts.get(w) ?? 0) + 1)
-    }
-    if (weekCounts.size === 0) return null
-    return Math.max(...weekCounts.values())
-  }, [jobs])
-
-  const daysSinceLastApp = useMemo(() => {
-    const dates = jobs.map((j) => j.applicationDate).filter(Boolean).sort()
-    if (dates.length === 0) return null
-    const last = new Date(dates[dates.length - 1])
-    last.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return Math.floor((today.getTime() - last.getTime()) / 86_400_000)
-  }, [jobs])
-
-  // ── Network ─────────────────────────────────────────────────────────────────
-  const totalContacts = contacts.length
-
-  const champCount    = useMemo(() => contacts.filter((c) => c.commExp >= 80).length, [contacts])
-  const allyCount     = useMemo(() => contacts.filter((c) => c.commExp >= 60 && c.commExp < 80).length, [contacts])
-  const avgCommExp    = useMemo(() => {
-    if (contacts.length === 0) return null
-    return Math.round(contacts.reduce((sum, c) => sum + c.commExp, 0) / contacts.length)
-  }, [contacts])
-
-  const mostActiveContact = useMemo(() => {
-    if (contacts.length === 0) return null
-    return contacts.reduce((best, c) => c.commExp > best.commExp ? c : best)
-  }, [contacts])
-
-  const contactsCommThisWeek = useMemo(() => {
-    const since = Date.now() - 7 * 86_400_000
-    return contacts.filter((c) => c.lastCommAt && new Date(c.lastCommAt).getTime() > since).length
-  }, [contacts])
-
-  // ── Rank ────────────────────────────────────────────────────────────────────
-  const { xp } = useXp(userId)
-
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-full overflow-y-auto bg-bg text-primary scanlines pb-20">
@@ -567,7 +418,6 @@ export default function StatsPage({ userId }: { userId: string | null }) {
           ? <p className="font-terminal text-muted text-xl">LOADING...</p>
           : <AppsPerDayChart data={chartData} />
         }
-        {/* X-axis: first and last date labels */}
         {!loading && chartData.length > 1 && (
           <div className="flex justify-between mt-1">
             <span className="text-muted text-[8px]">{chartData[0].date.slice(5)}</span>

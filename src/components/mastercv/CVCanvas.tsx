@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
-import { useCVState } from '@/hooks/useCVState'
+import { useCVState } from '@/hooks/mastercv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_CV_ORGANIZE, PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
 import type { CVContent } from '@/services/cvService'
@@ -18,7 +18,8 @@ import CanvasShell from '@/components/canvas/CanvasShell'
 import { T } from '@/lib/crtTheme'
 import { P, CV_FONT } from '@/lib/CVCardTheme'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
-import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes, updateCuratedResume } from '@/services/curatedResumeService'
+import { fetchCuratedResume } from '@/services/curatedResumeService'
+import { useCuratedResume } from '@/hooks/mastercv/useCuratedResume'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -159,6 +160,12 @@ function GlitchOverlay({ width, height, words }: { width: number; height: number
 
 export default function CVCanvas({ visible, userName: _userName, userId, initialCurateText, initialCuratedResumeId, initialOpenCuratePanel, initialCompany, initialJobId, onInitialCurateConsumed, onResumeSaved, onClose: _onClose }: Props) {
   const {
+    resumes: savedResumes,
+    handleCreate: createCuratedResume,
+    handleUpdate: updateCuratedResumeRecord,
+  } = useCuratedResume(userId ?? null)
+
+  const {
     mainInfo, setMainInfo,
     experiences, setExperiences,
     educations, setEducations,
@@ -257,10 +264,10 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
         setCurateResult({
           matchedKeywords: resume.matchedKeywords,
           summary: null,
-          experiences: resume.content.experiences.map((e) => ({ id: e.id, bullets: e.bullets })),
-          projects:    resume.content.projects.map((p)    => ({ id: p.id, bullets: p.bullets })),
+          experiences: resume.content.experiences.map((e: { id: string; bullets: string[] }) => ({ id: e.id, bullets: e.bullets })),
+          projects:    resume.content.projects.map((p: { id: string; bullets: string[] })    => ({ id: p.id, bullets: p.bullets })),
           skills:      resume.content.skills
-            ? { evergreen: resume.content.skills.evergreen, modular: resume.content.skills.modular.map((g) => ({ id: g.id, label: g.label, skills: g.skills })) }
+            ? { evergreen: resume.content.skills.evergreen, modular: resume.content.skills.modular.map((g: { id: string; label: string; skills: string[] }) => ({ id: g.id, label: g.label, skills: g.skills })) }
             : { evergreen: [], modular: [] },
         })
         setCuratedContent(resume.content)
@@ -575,7 +582,7 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
   useEffect(() => {
     if (!viewResumeIdRef.current || !curatedContent) return
     if (!viewLoadedRef.current) { viewLoadedRef.current = true; return }
-    updateCuratedResume(viewResumeIdRef.current, curatedContent, curatedOrder)
+    updateCuratedResumeRecord(viewResumeIdRef.current, curatedContent, curatedOrder)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curatedContent, curatedOrder])
 
@@ -590,13 +597,12 @@ export default function CVCanvas({ visible, userName: _userName, userId, initial
     if (initialCompany?.trim()) {
       label = `${initialCompany.trim()}_${lastName}`
     } else {
-      const existing = await fetchCuratedResumes(userId)
-      label = `${lastName}_${existing.length + 1}`
+      label = `${lastName}_${savedResumes.length + 1}`
     }
 
-    const { data: savedResume, error } = await insertCuratedResume(userId, label, curatedContent, curatedOrder, curateResult.matchedKeywords)
+    const savedResume = await createCuratedResume(userId, label, curatedContent, curatedOrder, curateResult.matchedKeywords)
 
-    if (error || !savedResume) {
+    if (!savedResume) {
       setSavePhase('error')
       setTimeout(() => { setSavePhase('idle') }, 4000)
     } else {

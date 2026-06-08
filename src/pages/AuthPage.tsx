@@ -1,13 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
 import introMp3 from '@/assets/music/1-intro.mp3'
-import { useNavigate } from 'react-router-dom'
-import { getSession, signInWithIdToken, signInWithOtp, verifyOtp, signInWithOAuth } from '@/services/authService'
-import { type GlobalStats, startStatsPoll } from '@/services/globalStatsService'
-import { startTerminalHum, playAuthBlip as playBlip } from '@/lib/sfx'
-import { lsGet, lsSet } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
-
-import type { Screen, AuthError } from '@/types'
+import { useAuthFlow } from '@/hooks/auth/useAuthFlow'
+import { playAuthBlip as playBlip } from '@/lib/sfx'
 
 declare global {
   interface Window {
@@ -23,173 +16,23 @@ declare global {
   }
 }
 
-async function generateNonce(): Promise<[string, string]> {
-  const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
-  const encoded = new TextEncoder().encode(nonce)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
-  const hashedNonce = Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-  return [nonce, hashedNonce]
-}
-
 export default function AuthPage() {
-  const navigate = useNavigate()
-
-  const [screen,        setScreen]        = useState<Screen>('title')
-  const [returningName, setReturningName] = useState<string | null>(null)
-  const [email,         setEmail]         = useState('')
-  const [stayLoggedIn,  setStayLoggedIn]  = useState(true)
-  const [otp,           setOtp]           = useState('')
-  const [error,         setError]         = useState<AuthError>(null)
-  const [loading,       setLoading]       = useState(false)
-  const [globalStats,   setGlobalStats]   = useState<GlobalStats | null>(null)
-  const [soundOn,       setSoundOn]       = useState(() => lsGet<number>(SK.authSound, 0) === 1)
-  const stopHumRef  = useRef<(() => void) | null>(null)
-  const introRef    = useRef<HTMLAudioElement | null>(null)
-  const nonceRef    = useRef<string | null>(null)
-
-  useEffect(() => {
-    getSession().then((session) => {
-      if (session) {
-        const name = (session.user.user_metadata?.['username'] as string | undefined) ?? null
-        setReturningName(name)
-      }
-    })
-  }, [])
-
-  // Start stats polling — refreshes every 5 min, serves cache in between
-  useEffect(() => {
-    const stop = startStatsPoll(setGlobalStats)
-    return stop
-  }, [])
-
-  // Stop hum + intro on unmount
-  useEffect(() => {
-    return () => {
-      stopHumRef.current?.()
-      if (introRef.current) { introRef.current.pause(); introRef.current.src = '' }
-      window.google?.accounts.id.cancel()
-    }
-  }, [])
-
-  // Load Google GSI script and initialize One Tap when on the email screen
-  useEffect(() => {
-    if (screen !== 'email') return
-
-    const clientId = import.meta.env['VITE_GOOGLE_CLIENT_ID'] as string | undefined
-    if (!clientId) return
-
-    async function initOneTap() {
-      const [nonce, hashedNonce] = await generateNonce()
-      nonceRef.current = nonce
-
-      const scriptId = 'gsi-script'
-      if (!document.getElementById(scriptId)) {
-        const script = document.createElement('script')
-        script.id = scriptId
-        script.src = 'https://accounts.google.com/gsi/client'
-        script.async = true
-        script.defer = true
-        script.onload = () => setupOneTap(hashedNonce)
-        document.head.appendChild(script)
-      } else {
-        setupOneTap(hashedNonce)
-      }
-    }
-
-    function setupOneTap(hashedNonce: string) {
-      window.google?.accounts.id.initialize({
-        client_id: import.meta.env['VITE_GOOGLE_CLIENT_ID'],
-        callback: handleOneTapResponse,
-        nonce: hashedNonce,
-        use_fedcm_for_prompt: true,
-      })
-      window.google?.accounts.id.prompt()
-    }
-
-    initOneTap()
-  }, [screen]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleOneTapResponse(response: { credential: string }) {
-    setError(null)
-    setLoading(true)
-    const { error } = await signInWithIdToken(response.credential, nonceRef.current ?? undefined)
-    setLoading(false)
-    if (error) { setError(error); return }
-    navigate('/jobs')
-  }
-
-  function toggleSound() {
-    if (soundOn) {
-      stopHumRef.current?.()
-      stopHumRef.current = null
-      if (introRef.current) { introRef.current.pause(); introRef.current.src = ''; introRef.current = null }
-      setSoundOn(false)
-      lsSet(SK.authSound, 0)
-    } else {
-      stopHumRef.current = startTerminalHum()
-      const audio = new Audio(introMp3)
-      audio.volume = 0.8
-      audio.play().catch(() => {})
-      introRef.current = audio
-      setSoundOn(true)
-      lsSet(SK.authSound, 1)
-    }
-  }
-
-  function proceedFromTitle() {
-    if (soundOn && !stopHumRef.current) {
-      stopHumRef.current = startTerminalHum()
-    }
-    playBlip()
-    setTimeout(() => {
-      if (returningName) navigate('/jobs')
-      else setScreen('email')
-    }, 80)
-  }
-
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (screen === 'title' && e.key === 'Enter') proceedFromTitle()
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [screen, returningName],
-  )
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
-
-  async function handleSendOtp(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const { error } = await signInWithOtp(email, stayLoggedIn)
-    setLoading(false)
-    if (error) { setError(error); return }
-    setScreen('code')
-  }
-
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const { error } = await verifyOtp(email, otp)
-    if (error) { setLoading(false); setError(error); return }
-    setLoading(false)
-    navigate('/jobs')
-  }
-
-  // Fallback: full-page redirect for browsers where One Tap is blocked
-  async function handleOAuthRedirect() {
-    setError(null)
-    setLoading(true)
-    const { error } = await signInWithOAuth()
-    if (error) { setError(error); setLoading(false) }
-  }
+  const {
+    screen, setScreen,
+    returningName,
+    email, setEmail,
+    stayLoggedIn, setStayLoggedIn,
+    otp, setOtp,
+    error,
+    loading,
+    globalStats,
+    soundOn,
+    toggleSound,
+    proceedFromTitle,
+    handleSendOtp,
+    handleVerifyOtp,
+    handleOAuthRedirect,
+  } = useAuthFlow(introMp3)
 
   // ── Title screen ─────────────────────────────────────────────────────────────
   if (screen === 'title') {
@@ -280,7 +123,7 @@ export default function AuthPage() {
         <div className="w-full max-w-sm">
           <button
             className="text-muted text-xs mb-8 hover:text-primary"
-            onClick={() => { setError(null); setOtp(''); setScreen('email') }}
+            onClick={() => { setOtp(''); setScreen('email') }}
           >
             &lt; BACK
           </button>

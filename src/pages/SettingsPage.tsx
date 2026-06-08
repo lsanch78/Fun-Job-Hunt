@@ -1,25 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/contexts/ThemeContext'
 import { THEMES, type Theme } from '@/config/game'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
-import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
-import { fetchContacts, deleteAllContacts } from '@/services/contactService'
-import { deleteAllCuratedResumes } from '@/services/curatedResumeService'
-import { buildCombinedCSV } from '@/lib/csvData'
-import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours, type CommCooldownHours } from '@/lib/commSettings'
-import { deleteAllWorkdays } from '@/services/workdayService'
-import { lsGet, lsSet, lsRemove } from '@/lib/storage'
-import { SK, type AiMode } from '@/lib/storageKeys'
-import { useAuth } from '@/contexts/AuthContext'
-import { updateUsername } from '@/services/authService'
-import { resetEmployed } from '@/services/xpService'
-import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
-import { resetProfileXp } from '@/services/xpService'
-import { upsertScratchPad } from '@/services/scratchPadService'
-import { deleteAllTracks } from '@/services/musicService'
-import { deleteAllLinks } from '@/services/quickCastService'
-import { useSubscription } from '@/contexts/SubscriptionContext'
-import { createCheckoutSession, openPortalSession } from '@/services/subscriptionService'
+import { AI_MONTHLY_LIMIT } from '@/services/aiService'
+import { useSettings } from '@/hooks/settings/useSettings'
 
 const THEME_LABELS: Record<Theme, string> = {
   terminal:     'Classic Terminal',
@@ -43,204 +26,44 @@ const COLOR_LABELS: Record<keyof CustomColors, string> = {
   warning:   'WARNING',
 }
 
-
 export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
-  const { isSubscribed, subscription, refresh } = useSubscription()
-  const [exporting, setExporting] = useState(false)
-  const [confirmTarget, setConfirmTarget] = useState<'jobs' | 'contacts' | 'full' | null>(null)
-  const [fullResetPhrase, setFullResetPhrase] = useState('')
-  const [resetting, setResetting] = useState(false)
-  const [resetDone, setResetDone] = useState<'jobs' | 'contacts' | 'full' | null>(null)
-  const [checkoutPending, setCheckoutPending] = useState(false)
 
-  const initialGhost = readAutoGhostSetting()
-  const [ghostEnabled, setGhostEnabled] = useState(initialGhost.enabled)
-  const [ghostDays, setGhostDays] = useState(String(initialGhost.days))
-
-  const { userId, username } = useAuth()
-  const [nameInput,     setNameInput]     = useState(username)
-  const [editingName,   setEditingName]   = useState(false)
-  const [nameSaving,    setNameSaving]    = useState(false)
-  const [commCooldown,  setCommCooldown]  = useState<CommCooldownHours>(168)
-  const [aiMode,        setAiModeState]     = useState<AiMode>('ai-first')
-  const [aiProvider,    setAiProviderState] = useState<AiProvider>(() => getAiProvider())
-  const [aiApiKey,      setAiApiKeyState]  = useState<string>(() => getAiApiKey())
-  const [apiKeyVisible, setApiKeyVisible]  = useState(false)
-  const [apiKeySaved,   setApiKeySaved]    = useState(false)
-  const [aiUsage,       setAiUsage]        = useState<{ count: number; limit: number } | null>(null)
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (!userId) return
-    setAiModeState(lsGet<AiMode>(SK.aiMode(userId), 'ai-first'))
-    setCommCooldown(getCommCooldownHours(userId))
-    setNameInput(username)
-    if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
-  }, [userId, username])
-
-  async function handleSaveName() {
-    const trimmed = nameInput.trim()
-    if (!trimmed || trimmed === username) { setEditingName(false); return }
-    setNameSaving(true)
-    await updateUsername(trimmed)
-    setNameSaving(false)
-    setEditingName(false)
-  }
-
-  // After Stripe redirects back with ?checkout=success, poll until the
-  // webhook has updated the subscription row, then clear the query param.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('checkout') !== 'success') return
-
-    setCheckoutPending(true)
-    let attempts = 0
-    pollRef.current = setInterval(async () => {
-      await refresh()
-      attempts++
-      // refresh() updates context; isSubscribed will reflect new value on next render
-      // We stop after 15 attempts (~30s) to avoid polling forever
-      if (attempts >= 15) {
-        clearInterval(pollRef.current!)
-        setCheckoutPending(false)
-      }
-    }, 2000)
-
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Once subscription becomes active, stop polling and clean up the URL
-  useEffect(() => {
-    if (isSubscribed && checkoutPending) {
-      if (pollRef.current) clearInterval(pollRef.current)
-      setCheckoutPending(false)
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-  }, [isSubscribed, checkoutPending])
-
-  function handleGhostToggle() {
-    const next = !ghostEnabled
-    setGhostEnabled(next)
-    writeAutoGhostSetting({ enabled: next, days: Number(ghostDays) || 60 })
-  }
-
-  function handleGhostDaysBlur() {
-    const parsed = Math.max(1, parseInt(ghostDays, 10) || 60)
-    setGhostDays(String(parsed))
-    writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
-  }
-
-  function handleAiModeChange(mode: AiMode) {
-    if (!userId) return
-    const wasOff = aiMode === 'off'
-    const willBeOff = mode === 'off'
-    setAiModeState(mode)
-    lsSet(SK.aiMode(userId), mode)
-    if (wasOff !== willBeOff) window.location.reload()
-  }
-
-  function handleProviderChange(p: AiProvider) {
-    setAiProviderState(p)
-    setAiProvider(p)
-    if (p === 'proxy') fetchUsage().then(setAiUsage)
-    else setAiUsage(null)
-  }
-
-  function handleSaveApiKey() {
-    setAiApiKey(aiApiKey)
-    setApiKeySaved(true)
-    setTimeout(() => setApiKeySaved(false), 2000)
-  }
-
-  async function handleDeleteJobs() {
-    if (!userId) return
-    setResetting(true)
-    await Promise.all([deleteAllJobs(userId), deleteAllWorkdays(userId)])
-    lsRemove(SK.jobs(userId))
-    lsRemove(SK.workdays(userId))
-    lsRemove(SK.workdayPunchIn)
-    lsRemove(SK.workdayId)
-    setResetting(false)
-    setConfirmTarget(null)
-    setResetDone('jobs')
-  }
-
-  async function handleDeleteContacts() {
-    if (!userId) return
-    setResetting(true)
-    await deleteAllContacts(userId)
-    setResetting(false)
-    setConfirmTarget(null)
-    setResetDone('contacts')
-  }
-
-  async function handleFullReset() {
-    if (!userId) return
-    setResetting(true)
-    await Promise.all([
-      deleteAllJobs(userId),
-      deleteAllWorkdays(userId),
-      deleteAllContacts(userId),
-      deleteAllCuratedResumes(userId),
-      deleteAllTracks(userId),
-      deleteAllLinks(userId),
-      resetProfileXp(userId),
-      upsertScratchPad(userId, { notes: '', list: '' }),
-      resetEmployed(userId),
-    ])
-    const keys = [
-      SK.jobs(userId),
-      SK.workdays(userId),
-      SK.workdayPunchIn,
-      'workday_punch_in',                           // legacy workday key
-      SK.workdayId,
-      'workday_id',                                 // legacy workday key
-      SK.scratchPad(userId),
-      SK.scratchList(userId),
-      SK.xp(userId),
-      `xp:${userId}`,                               // legacy xp key
-      SK.musicTracks,
-      SK.musicResume,
-      SK.aiMode(userId),
-      SK.aiModalSlots(userId),
-      `ai_panel_slots_${userId}`,                   // legacy AI modal key
-      `fjobhunt:ai-panel-slots:${userId}`,          // legacy AI modal key (pre-rename)
-      SK.aiModalText(userId),
-      `ai_panel_resume_text_${userId}`,             // legacy AI modal key
-      `fjobhunt:ai-panel-text:${userId}`,           // legacy AI modal key (pre-rename)
-      SK.commCooldown(userId),
-      `fjobhunt:${userId}:comm-cooldown-hours`,     // legacy comm cooldown key
-      SK.quickcastLinks(userId),
-      SK.tutorialSeen(userId, 'job-log'),
-      SK.tutorialSeen(userId, 'mobile-job-log'),
-      SK.tutorialSeen(userId, 'network'),
-    ]
-    keys.forEach((k) => lsRemove(k))
-    window.location.reload()
-  }
-
-  async function handleExport() {
-    if (!userId) return
-    setExporting(true)
-    try {
-      const [jobs, contacts] = await Promise.all([fetchJobsForExport(userId), fetchContacts(userId)])
-      if (jobs.length === 0 && contacts.length === 0) return
-      const csv = buildCombinedCSV(jobs, contacts)
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `fjh-export-${new Date().toISOString().slice(0, 10)}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-    } finally {
-      setExporting(false)
-    }
-  }
-
+  const {
+    username,
+    isSubscribed, subscription,
+    exporting,
+    confirmTarget, setConfirmTarget,
+    fullResetPhrase, setFullResetPhrase,
+    resetting,
+    resetDone,
+    checkoutPending,
+    ghostEnabled, ghostDays, setGhostDays,
+    nameInput, setNameInput,
+    editingName, setEditingName,
+    nameSaving,
+    commCooldown,
+    aiMode,
+    aiProvider,
+    aiApiKey, setAiApiKeyState,
+    apiKeyVisible, setApiKeyVisible,
+    apiKeySaved,
+    aiUsage,
+    COMM_COOLDOWN_OPTIONS,
+    handleSaveName,
+    handleGhostToggle,
+    handleGhostDaysBlur,
+    handleAiModeChange,
+    handleProviderChange,
+    handleSaveApiKey,
+    handleDeleteJobs,
+    handleDeleteContacts,
+    handleFullReset,
+    handleExport,
+    handleCommCooldownChange,
+    handleUpgrade,
+    handleManageSubscription,
+  } = useSettings()
 
   return (
     <div className="h-full overflow-y-auto bg-bg font-pixel text-primary p-8">
@@ -336,7 +159,6 @@ export default function SettingsPage() {
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">JOBS</h2>
 
-        {/* Auto-ghost toggle */}
         <div className="flex flex-col gap-3">
           <button
             onClick={handleGhostToggle}
@@ -383,11 +205,7 @@ export default function SettingsPage() {
             {COMM_COOLDOWN_OPTIONS.map((opt) => (
               <button
                 key={opt.hours}
-                onClick={() => {
-                  if (!userId) return
-                  setCommCooldown(opt.hours)
-                  setCommCooldownHours(userId, opt.hours)
-                }}
+                onClick={() => handleCommCooldownChange(opt.hours)}
                 className={`text-[10px] px-3 py-1.5 border transition-none
                   ${commCooldown === opt.hours
                     ? 'border-primary text-primary'
@@ -405,7 +223,6 @@ export default function SettingsPage() {
         <h2 className="text-sm mb-6 text-secondary">DATA</h2>
         <div className="flex flex-col gap-4">
 
-          {/* ── Export ── */}
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -414,12 +231,10 @@ export default function SettingsPage() {
             {exporting ? '  Exporting…' : '  Export jobs + contacts to CSV'}
           </button>
 
-
           <div className="flex flex-col gap-3">
-            {/* ── Delete all jobs ── */}
             {confirmTarget !== 'jobs' && (
               <button
-                onClick={() => { setConfirmTarget('jobs'); setResetDone(null) }}
+                onClick={() => { setConfirmTarget('jobs'); }}
                 disabled={resetting}
                 className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
               >
@@ -441,10 +256,9 @@ export default function SettingsPage() {
             )}
             {resetDone === 'jobs' && <p className="text-xs text-secondary px-1">All jobs deleted.</p>}
 
-            {/* ── Delete all contacts ── */}
             {confirmTarget !== 'contacts' && (
               <button
-                onClick={() => { setConfirmTarget('contacts'); setResetDone(null) }}
+                onClick={() => { setConfirmTarget('contacts'); }}
                 disabled={resetting}
                 className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
               >
@@ -466,9 +280,8 @@ export default function SettingsPage() {
             )}
             {resetDone === 'contacts' && <p className="text-xs text-secondary px-1">All contacts deleted.</p>}
 
-            {/* ── Full reset ── */}
             <button
-              onClick={() => { setConfirmTarget('full'); setFullResetPhrase(''); setResetDone(null) }}
+              onClick={() => { setConfirmTarget('full'); setFullResetPhrase('') }}
               disabled={resetting}
               className="text-left text-xs px-4 py-3 border-2 border-red-900 text-red-700 hover:border-red-500 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
             >
@@ -500,7 +313,7 @@ export default function SettingsPage() {
             )}
             <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
             <button
-              onClick={() => openPortalSession().catch(() => {})}
+              onClick={handleManageSubscription}
               className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
             >
               {'  Manage / cancel subscription'}
@@ -515,7 +328,7 @@ export default function SettingsPage() {
               Pro: Unlimited AI generations
             </p>
             <button
-              onClick={() => createCheckoutSession().catch(() => {})}
+              onClick={handleUpgrade}
               className="text-left text-xs px-4 py-3 border-2 border-secondary text-secondary hover:opacity-80 transition-none w-fit"
             >
               {`  ${PRO_UPGRADE_CTA}`}
@@ -528,7 +341,6 @@ export default function SettingsPage() {
         <h2 className="text-sm mb-6 text-secondary">AI SETTINGS</h2>
 
         <div className="flex flex-col gap-6">
-          {/* ── AI Mode selector ── */}
           <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI MODE</label>
             {([
@@ -552,11 +364,10 @@ export default function SettingsPage() {
           </div>
 
           {aiMode !== 'off' && <>
-          {/* ── Provider selector ── */}
           <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
             <div className="flex flex-col gap-2">
-              {(['proxy', 'openai', 'anthropic'] as AiProvider[]).map((p) => (
+              {(['proxy', 'openai', 'anthropic'] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => handleProviderChange(p)}
@@ -580,7 +391,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* ── API key (BYOK providers only) ── */}
           {aiProvider !== 'proxy' && (
             <div className="flex flex-col gap-2">
               <label className="text-muted text-[10px] tracking-widest">API KEY</label>
