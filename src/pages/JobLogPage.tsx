@@ -4,7 +4,6 @@ import { Trash } from 'pixelarticons/react'
 import { useSearchParams } from 'react-router-dom'
 import { XP } from '@/config/game'
 import XpTracker from '@/components/hud/XpTracker'
-import CV from '@/components/hud/CV'
 import StarfieldBackdrop from '@/components/shell/StarfieldBackdrop'
 import CVCanvas from '@/components/cv/CVCanvas'
 import CoverLetterCanvas from '@/components/coverletter/CoverLetterCanvas'
@@ -409,7 +408,6 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           </p>
         </div>
         <div className="flex items-stretch gap-3">
-          <CV />
           <XpTracker xp={xp} />
         </div>
       </div>
