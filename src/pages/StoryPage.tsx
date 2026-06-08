@@ -124,13 +124,6 @@ if (typeof document !== 'undefined' && !document.getElementById('story-keyframes
 }
 
 // ── Cutscene ──────────────────────────────────────────────────────────────────
-const AI_BUMP_RANK = 5
-
-const RANK_REWARDS: Partial<Record<number, string>> = {
-  [AI_BUMP_RANK]: '20 free AI credits/mo',
-  7:              '30 free AI credits/mo',
-}
-
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 const STORY_AVATAR_CHARS = ['◉', '◈', '◆', '▣', '★', '✦', '⬡', '⬟', '◉', '✸', '✺']
@@ -461,13 +454,6 @@ export default function StoryPage({ userId }: { userId: string | null }) {
                     {locked && rank < 11 && (
                       <div className="text-[9px] text-muted mt-0.5">
                         {RANK_THRESHOLDS[rank]} XP
-                      </div>
-                    )}
-
-                    {/* Reward hint — shown on locked and current nodes */}
-                    {(locked || isCurrent) && RANK_REWARDS[rank] && (
-                      <div className="text-[9px] text-primary mt-0.5 opacity-30">
-                        {RANK_REWARDS[rank]}
                       </div>
                     )}
 

@@ -31,7 +31,7 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     subtitle: 'the most powerful time saver',
     body: [
       'Once your resume is uploaded, the AI will always reference your skills and experience — writing cover letters, first reach outs, and more. Right-click the AI button to instantly paste a job description and quickly generate common deliverables while you continue filling out applications.',
-      `Everyone gets 10–30 uses a month (grows with your rank). Pro users unlock unlimited usage for ${PRO_PRICE_LABEL}. Tech savvy? Bring your own API key in Settings.`,
+      `Everyone gets 30 uses a month. Pro users unlock unlimited usage for ${PRO_PRICE_LABEL}. Tech savvy? Bring your own API key in Settings.`,
     ],
   },
   {

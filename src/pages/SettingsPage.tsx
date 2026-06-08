@@ -11,7 +11,7 @@ import { deleteAllWorkdays } from '@/services/workdayService'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { supabase } from '@/lib/supabase'
-import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT_BASE, AI_MONTHLY_LIMIT_RANK5, AI_MONTHLY_LIMIT_RANK7, type AiProvider } from '@/services/aiService'
+import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage, AI_MONTHLY_LIMIT, type AiProvider } from '@/services/aiService'
 import { resetProfileXp } from '@/services/xpService'
 import { upsertScratchPad } from '@/services/scratchPadService'
 import { deleteAllTracks } from '@/services/musicService'
@@ -515,7 +515,7 @@ export default function SettingsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Free tier: {AI_MONTHLY_LIMIT_BASE}/mo → {AI_MONTHLY_LIMIT_RANK5}/mo at Rank 5 → {AI_MONTHLY_LIMIT_RANK7}/mo at Rank 7
+              Free tier: {AI_MONTHLY_LIMIT}/mo
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
               Pro: Unlimited AI generations
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT_BASE}–${AI_MONTHLY_LIMIT_RANK7}/month`
+                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>

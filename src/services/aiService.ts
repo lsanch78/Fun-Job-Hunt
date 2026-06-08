@@ -4,11 +4,7 @@ import { SK } from '@/lib/storageKeys'
 
 export type AiProvider = 'proxy' | 'openai' | 'anthropic'
 
-export const AI_MONTHLY_LIMIT_BASE   = 10  // Rank 1–4
-export const AI_MONTHLY_LIMIT_RANK5  = 20  // Rank 5–6
-export const AI_MONTHLY_LIMIT_RANK7  = 30  // Rank 7+
-/** Displayed in UI as the starting free tier */
-export const AI_MONTHLY_LIMIT = AI_MONTHLY_LIMIT_BASE
+export const AI_MONTHLY_LIMIT = 30
 
 export const OPENAI_MODELS = [
   'gpt-4o',
@@ -119,7 +115,7 @@ async function streamProxy(params: {
     })
     if (!res.ok || !res.body) {
       if (res.status === 429) {
-        let limit = AI_MONTHLY_LIMIT_BASE
+        let limit = AI_MONTHLY_LIMIT
         try {
           const json = await res.clone().json() as { limit?: number }
           if (json.limit) limit = json.limit
