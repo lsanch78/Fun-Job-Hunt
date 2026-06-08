@@ -15,11 +15,9 @@ export interface Contact {
   createdAt: string
 }
 
-type ExpTier = 'excellent' | 'good' | 'fair' | 'low' | 'dead'
-
 export interface ExpInfo {
   pct: number
-  tier: ExpTier
+  tier: 'excellent' | 'good' | 'fair' | 'low' | 'dead'
   daysAgo: number | null
   barColor: string
 }
