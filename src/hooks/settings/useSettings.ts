@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
-import { deleteAllCuratedResumes } from '@/services/curatedResumeService'
+import { deleteAllTailoredResumes } from '@/services/tailoredResumeService'
 import { deleteAllWorkdays } from '@/services/workdayService'
 import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours } from '@/lib/commSettings'
@@ -148,7 +148,7 @@ export function useSettings() {
       deleteAllJobs(userId),
       deleteAllWorkdays(userId),
       deleteAllContacts(userId),
-      deleteAllCuratedResumes(userId),
+      deleteAllTailoredResumes(userId),
       deleteAllTracks(userId),
       deleteAllLinks(userId),
       resetProfileXp(userId),

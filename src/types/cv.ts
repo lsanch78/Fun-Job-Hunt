@@ -103,7 +103,6 @@ export interface CVRendererHandle {
 }
 
 export interface CVCanvasHandle {
-  openCurate: () => void
   openPreview: () => void
   openAddSection: () => void
 }

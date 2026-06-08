@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
-import { insertCuratedResume, fetchCuratedResume, fetchCuratedResumes, updateCuratedResume } from '@/services/curatedResumeService'
-import type { CVContent } from '@/types'
-import type { CuratedResume } from '@/types'
+import { insertTailoredResume, fetchTailoredResume, fetchTailoredResumes, updateTailoredResume } from '@/services/tailoredResumeService'
+import type { CVContent, TailoredResume } from '@/types'
 
-export function useCuratedResume(userId: string | null) {
-  const [resumes,      setResumes]      = useState<CuratedResume[]>([])
-  const [activeResume, setActiveResume] = useState<CuratedResume | null>(null)
+export function useTailoredResume(userId: string | null) {
+  const [resumes,      setResumes]      = useState<TailoredResume[]>([])
+  const [activeResume, setActiveResume] = useState<TailoredResume | null>(null)
   const [loading,      setLoading]      = useState(true)
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
-    fetchCuratedResumes(userId).then((list) => {
+    fetchTailoredResumes(userId).then((list) => {
       setResumes(list)
       if (list.length > 0) setActiveResume(list[0])
       setLoading(false)
@@ -23,8 +22,8 @@ export function useCuratedResume(userId: string | null) {
     content: CVContent,
     sectionOrder: string[],
     matchedKeywords: string[],
-  ): Promise<CuratedResume | null> {
-    const { data } = await insertCuratedResume(uid, label, content, sectionOrder, matchedKeywords)
+  ): Promise<TailoredResume | null> {
+    const { data } = await insertTailoredResume(uid, label, content, sectionOrder, matchedKeywords)
     if (data) {
       setResumes((prev) => [data, ...prev])
       setActiveResume(data)
@@ -33,7 +32,7 @@ export function useCuratedResume(userId: string | null) {
   }
 
   async function handleUpdate(id: string, content: CVContent, sectionOrder: string[]): Promise<void> {
-    await updateCuratedResume(id, content, sectionOrder)
+    await updateTailoredResume(id, content, sectionOrder)
     setResumes((prev) => prev.map((r) => r.id === id ? { ...r, content, sectionOrder } : r))
     if (activeResume?.id === id) setActiveResume((prev) => prev ? { ...prev, content, sectionOrder } : prev)
   }
@@ -41,7 +40,7 @@ export function useCuratedResume(userId: string | null) {
   async function handleSelect(id: string): Promise<void> {
     const existing = resumes.find((r) => r.id === id)
     if (existing) { setActiveResume(existing); return }
-    const fetched = await fetchCuratedResume(id)
+    const fetched = await fetchTailoredResume(id)
     if (fetched) setActiveResume(fetched)
   }
 

@@ -1,6 +1,6 @@
 import type { CVContent } from './cv'
 
-export interface CuratedResume {
+export interface TailoredResume {
   id: string
   userId: string
   label: string

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
-import type { Job, Contact, CuratedResume } from '@/types'
+import type { Job, Contact, TailoredResume } from '@/types'
 import { JOB_LIMITS } from '@/config/jobLimits'
-import { linkCuratedResumeToJob } from '@/services/jobService'
-import { fetchCuratedResume, fetchCuratedResumes, updateCuratedResumeLabel } from '@/services/curatedResumeService'
+import { linkTailoredResumeToJob } from '@/services/jobService'
+import { fetchTailoredResume, fetchTailoredResumes, updateTailoredResumeLabel } from '@/services/tailoredResumeService'
 import CVRenderer from '@/components/cv/CVRenderer'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import { useAI } from '@/hooks/useAI'
@@ -240,18 +240,18 @@ function ContactsPanel({ jobId, jobTitle, jobCompany, userId }: { jobId: string;
   )
 }
 
-// ── CuratedResumePanel ────────────────────────────────────────────────────────
+// ── TailoredResumePanel ───────────────────────────────────────────────────────
 
-function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
+function TailoredResumePanel({ jobId, userId, linkedId, onChange }: {
   jobId: string
   userId: string | null
   linkedId: string | undefined
   onChange: (id: string | null) => void
 }) {
-  const [linked, setLinked]         = useState<CuratedResume | null>(null)
+  const [linked, setLinked]         = useState<TailoredResume | null>(null)
   const [loading, setLoading]       = useState(false)
   const [picking, setPicking]       = useState(false)
-  const [all, setAll]               = useState<CuratedResume[]>([])
+  const [all, setAll]               = useState<TailoredResume[]>([])
   const [viewing, setViewing]       = useState(false)
   const [editingLabel, setEditingLabel] = useState(false)
   const [labelDraft, setLabelDraft]     = useState('')
@@ -259,28 +259,28 @@ function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
   useEffect(() => {
     if (!linkedId) { setLinked(null); return }
     setLoading(true)
-    fetchCuratedResume(linkedId).then((r) => { setLinked(r); setLoading(false) })
+    fetchTailoredResume(linkedId).then((r) => { setLinked(r); setLoading(false) })
   }, [linkedId])
 
   useEffect(() => {
-    if (picking && userId) fetchCuratedResumes(userId).then(setAll)
+    if (picking && userId) fetchTailoredResumes(userId).then(setAll)
     if (!picking) setAll([])
   }, [picking, userId])
 
-  async function handleLink(resume: CuratedResume) {
-    const { error } = await linkCuratedResumeToJob(jobId, resume.id)
+  async function handleLink(resume: TailoredResume) {
+    const { error } = await linkTailoredResumeToJob(jobId, resume.id)
     if (!error) { setLinked(resume); onChange(resume.id); setPicking(false) }
   }
 
   async function handleUnlink() {
-    const { error } = await linkCuratedResumeToJob(jobId, null)
+    const { error } = await linkTailoredResumeToJob(jobId, null)
     if (!error) { setLinked(null); onChange(null) }
   }
 
   async function commitLabelEdit() {
     if (!linked || !labelDraft.trim()) { setEditingLabel(false); return }
     const newLabel = labelDraft.trim()
-    await updateCuratedResumeLabel(linked.id, newLabel)
+    await updateTailoredResumeLabel(linked.id, newLabel)
     setLinked({ ...linked, label: newLabel })
     setEditingLabel(false)
   }
@@ -290,7 +290,7 @@ function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className={labelClass} style={{ color: T.greenDim }}>Curated Resume</div>
+      <div className={labelClass} style={{ color: T.greenDim }}>Tailored Resume</div>
 
       {loading ? (
         <span style={dimStyle}>loading…</span>
@@ -393,13 +393,13 @@ function CuratedResumePanel({ jobId, userId, linkedId, onChange }: {
   )
 }
 
-// ── CuratedResumePreviewModal ─────────────────────────────────────────────────
+// ── TailoredResumePreviewModal ────────────────────────────────────────────────
 
-export function CuratedResumePreviewModal({ resumeId, onClose }: { resumeId: string; onClose: () => void }) {
-  const [resume, setResume] = useState<CuratedResume | null>(null)
+export function TailoredResumePreviewModal({ resumeId, onClose }: { resumeId: string; onClose: () => void }) {
+  const [resume, setResume] = useState<TailoredResume | null>(null)
 
   useEffect(() => {
-    fetchCuratedResume(resumeId).then(setResume)
+    fetchTailoredResume(resumeId).then(setResume)
   }, [resumeId])
 
   useEffect(() => {
@@ -584,11 +584,11 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
         </div>
       </div>
       <ContactsPanel jobId={job.id} jobTitle={job.title} jobCompany={job.company} userId={userId} />
-      <CuratedResumePanel
+      <TailoredResumePanel
         jobId={job.id}
         userId={userId}
-        linkedId={job.curatedResumeId}
-        onChange={(id) => onChange({ ...job, curatedResumeId: id ?? undefined })}
+        linkedId={job.tailoredResumeId}
+        onChange={(id) => onChange({ ...job, tailoredResumeId: id ?? undefined })}
       />
       <div className="flex-1 flex flex-col min-h-0">
         <div className={labelClass} style={{ color: T.greenDim }}>Notes</div>

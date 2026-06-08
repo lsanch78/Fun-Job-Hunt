@@ -116,12 +116,12 @@ export const PROMPT_CV_ORGANIZE =
   '• Preserve dates verbatim as they appear in the pasted text.\n' +
   '• If nothing new is found, return { "summary": "Everything in this document is already in your CV.", "changes": [] }.\n\n'
 
-// ── Resume curation (used in CV / resume builder) ──────────────────
+// ── Resume tailoring (used in CV / resume builder) ──────────────────
 // Haiku-targeted. Goal: keyword-match and reorder existing content against a JD.
 // NO rewriting. Every output word must come from the user's CV verbatim.
 
 export const PROMPT_CURATE_RESUME =
-  'You are a resume curation assistant. Your job is to reorder and surface existing resume content to best match a job description. You are NOT a writer — do not rephrase, rewrite, or generate new bullet points under any circumstances.\n\n' +
+  'You are a resume tailoring assistant. Your job is to reorder and surface existing resume content to best match a job description. You are NOT a writer — do not rephrase, rewrite, or generate new bullet points under any circumstances.\n\n' +
   'You will receive:\n' +
   '  1. JOB DESCRIPTION — the target role\n' +
   '  2. CV — the candidate\'s full resume content as JSON\n\n' +

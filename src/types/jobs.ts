@@ -19,7 +19,7 @@ export interface DbJob {
   salary: string | null
   description: string | null
   notes: string | null
-  curated_resume_id: string | null
+  tailored_resume_id: string | null
   cover_letter_id: string | null
 }
 
@@ -36,6 +36,6 @@ export interface Job {
   saving?: boolean
   description?: string
   notes?: string
-  curatedResumeId?: string
+  tailoredResumeId?: string
   coverLetterId?: string
 }

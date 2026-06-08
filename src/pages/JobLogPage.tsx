@@ -141,7 +141,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     onDraftChange,
     onCommit,
     updateJobDetails,
-    patchJobCuratedResume,
+    patchJobTailoredResume,
     patchJobCoverLetter,
     deleteJobs,
     pendingFocusIdRef,
@@ -160,9 +160,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showTutorial, setShowTutorial] = useState(false)
   const [cvOpen, setCvOpen] = useState(false)
-  const [cvInitialCurateText, setCvInitialCurateText] = useState<string | null>(null)
-  const [cvInitialCuratedResumeId, setCvInitialCuratedResumeId] = useState<string | null>(null)
-  const [cvInitialOpenCuratePanel, setCvInitialOpenCuratePanel] = useState(false)
+  const [cvInitialTailorText, setCvInitialTailorText] = useState<string | null>(null)
+  const [cvInitialTailoredResumeId, setCvInitialTailoredResumeId] = useState<string | null>(null)
   const [cvInitialCompany, setCvInitialCompany] = useState<string | null>(null)
   const [cvInitialJobId, setCvInitialJobId] = useState<string | null>(null)
   const [clOpen, setClOpen] = useState(false)
@@ -198,31 +197,19 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   async function handleTailorResume(job: Job) {
     const company = job.company || null
     setCvInitialJobId(job.id)
+    setCvInitialCompany(company)
 
-    // Already has a linked curated resume — open it for viewing/editing
-    if (job.curatedResumeId) {
-      setCvInitialCuratedResumeId(job.curatedResumeId)
-      setCvInitialCurateText(null)
-      setCvInitialOpenCuratePanel(false)
-      setCvInitialCompany(company)
+    if (job.tailoredResumeId) {
+      setCvInitialTailoredResumeId(job.tailoredResumeId)
+      setCvInitialTailorText(null)
       setCvOpen(true)
       return
     }
 
-    // Use description already in memory if available, otherwise lazy-load
     const jd = job.description ?? (await fetchJobDetails(job.id).then((d) => d?.description ?? null))
-
-    setCvInitialCompany(company)
-    if (jd?.trim()) {
-      setCvInitialCurateText(jd)
-      setCvInitialCuratedResumeId(null)
-      setCvInitialOpenCuratePanel(false)
-    } else {
-      // No JD — open CV with the curate panel already open so user can paste
-      setCvInitialCurateText(null)
-      setCvInitialCuratedResumeId(null)
-      setCvInitialOpenCuratePanel(true)
-    }
+    if (!jd?.trim()) return
+    setCvInitialTailorText(jd)
+    setCvInitialTailoredResumeId(null)
     setCvOpen(true)
   }
 
@@ -535,17 +522,15 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           visible={cvOpen}
           userName={userName}
           userId={userId}
-          initialCurateText={cvInitialCurateText}
-          initialCuratedResumeId={cvInitialCuratedResumeId}
-          initialOpenCuratePanel={cvInitialOpenCuratePanel}
+          initialTailorText={cvInitialTailorText}
+          initialTailoredResumeId={cvInitialTailoredResumeId}
           initialCompany={cvInitialCompany}
           initialJobId={cvInitialJobId}
-          onResumeSaved={(jobId, resumeId) => patchJobCuratedResume(jobId, resumeId)}
+          onResumeSaved={(jobId, resumeId) => patchJobTailoredResume(jobId, resumeId)}
           onClose={() => { playNetworkMapClose(); setCvOpen(false) }}
-          onInitialCurateConsumed={() => {
-            setCvInitialCurateText(null)
-            setCvInitialCuratedResumeId(null)
-            setCvInitialOpenCuratePanel(false)
+          onInitialTailorConsumed={() => {
+            setCvInitialTailorText(null)
+            setCvInitialTailoredResumeId(null)
             setCvInitialCompany(null)
             setCvInitialJobId(null)
           }}
@@ -600,7 +585,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
               <th className="px-2 py-2 w-6" scope="col"><span className="sr-only">Details</span></th>
               <ColumnHeader columns={columns} />
               <th className="px-1 py-2" scope="col"><span className="sr-only">Cover letter</span></th>
-              <th className="px-1 py-2" scope="col"><span className="sr-only">Curated resume</span></th>
+              <th className="px-1 py-2" scope="col"><span className="sr-only">Tailored resume</span></th>
               <th className="px-1 py-2" scope="col"><span className="sr-only">Save status</span></th>
             </tr>
           </thead>

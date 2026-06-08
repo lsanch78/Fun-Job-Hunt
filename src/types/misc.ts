@@ -151,7 +151,7 @@ export interface JobListState {
   onDraftChange: (draft: Job) => void
   onCommit: (committed: Job, rowEl: HTMLTableRowElement | null) => number | null
   updateJobDetails: (jobId: string, details: { description: string | null; notes: string | null }) => void
-  patchJobCuratedResume: (jobId: string, resumeId: string) => void
+  patchJobTailoredResume: (jobId: string, resumeId: string) => void
   patchJobCoverLetter: (jobId: string, coverLetterId: string) => void
   deleteJobs: (ids: string[]) => Promise<void>
   addJob: (company: string, title: string) => Promise<{ error: string | null }>

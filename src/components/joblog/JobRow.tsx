@@ -6,7 +6,7 @@ import type { Job, JobStatus } from '@/types'
 import { JOB_LIMITS } from '@/config/jobLimits'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import type { ColConfig } from '@/types'
-import { CuratedResumePreviewModal } from './JobDetailModal'
+import { TailoredResumePreviewModal } from './JobDetailModal'
 
 export interface JobRowHandle {
   focusFirstInput(): void
@@ -382,9 +382,9 @@ export const JobRow = forwardRef<JobRowHandle, {
   // Keep committed job's detail fields in sync (lazy-loaded after detail card opens)
   useEffect(() => {
     if (job.committed) {
-      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes, curatedResumeId: job.curatedResumeId, coverLetterId: job.coverLetterId }))
+      setDraft((prev) => ({ ...prev, description: job.description, notes: job.notes, tailoredResumeId: job.tailoredResumeId, coverLetterId: job.coverLetterId }))
     }
-  }, [job.description, job.notes, job.curatedResumeId, job.coverLetterId, job.committed])
+  }, [job.description, job.notes, job.tailoredResumeId, job.coverLetterId, job.committed])
 
   function update<K extends keyof Job>(key: K, val: Job[K]) {
     const next = { ...draft, [key]: val }
@@ -540,12 +540,12 @@ export const JobRow = forwardRef<JobRowHandle, {
         )}
       </td>
 
-      {/* Curated resume icon */}
+      {/* Tailored resume icon */}
       <td className="px-1 py-1 w-6">
-        {committed && !job.saving && draft.curatedResumeId && (
+        {committed && !job.saving && draft.tailoredResumeId && (
           <button
             tabIndex={-1}
-            title="View curated resume"
+            title="View tailored resume"
             onClick={() => setPreviewingResume(true)}
             className="inline-flex items-center justify-center text-muted hover:text-secondary transition-none"
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, marginTop: 5 }}
@@ -573,8 +573,8 @@ export const JobRow = forwardRef<JobRowHandle, {
       </td>
     </tr>
 
-    {previewingResume && draft.curatedResumeId && (
-      <CuratedResumePreviewModal resumeId={draft.curatedResumeId} onClose={() => setPreviewingResume(false)} />
+    {previewingResume && draft.tailoredResumeId && (
+      <TailoredResumePreviewModal resumeId={draft.tailoredResumeId} onClose={() => setPreviewingResume(false)} />
     )}
 
     {ctxMenu && (
@@ -607,11 +607,11 @@ export const JobRow = forwardRef<JobRowHandle, {
           </button>
           {onTailorResume && (
             <button
-              onClick={() => { if (draft.curatedResumeId) playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
+              onClick={() => { if (draft.tailoredResumeId) playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
               className="text-left border text-[9px] px-2 py-1 font-pixel transition-none hover:border-secondary hover:text-secondary"
               style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
             >
-              {draft.curatedResumeId ? 'VIEW RESUME' : 'TAILOR RESUME'}
+              {draft.tailoredResumeId ? 'VIEW RESUME' : 'TAILOR RESUME'}
             </button>
           )}
           {onCoverLetter && (

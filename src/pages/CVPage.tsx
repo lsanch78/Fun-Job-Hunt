@@ -2,14 +2,13 @@ import { useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import CVCanvas from '@/components/cv/CVCanvas'
-import { linkCuratedResumeToJob } from '@/services/jobService'
+import { linkTailoredResumeToJob } from '@/services/jobService'
 import { playNetworkMapClose } from '@/lib/sfx'
 import type { CVCanvasHandle } from '@/types'
 
 interface CVPageLocationState {
-  initialCurateText?: string | null
-  initialCuratedResumeId?: string | null
-  initialOpenCuratePanel?: boolean
+  initialTailorText?: string | null
+  initialTailoredResumeId?: string | null
   initialCompany?: string | null
   initialJobId?: string | null
 }
@@ -20,7 +19,6 @@ export default function CVPage() {
   const { userId, username } = useAuth()
   const canvasRef = useRef<CVCanvasHandle>(null)
 
-  const [curateActive, setCurateActive] = useState(false)
   const [previewActive, setPreviewActive] = useState(false)
 
   const state = (location.state as CVPageLocationState | null) ?? {}
@@ -35,22 +33,14 @@ export default function CVPage() {
           <p className="text-muted text-xs mt-1">your master resume</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => canvasRef.current?.openAddSection()}
-            className="text-[10px] px-3 py-1.5 border border-border text-muted hover:border-secondary hover:text-secondary transition-none"
-          >
-            ADD SECTION
-          </button>
-          <button
-            onClick={() => canvasRef.current?.openCurate()}
-            className={`text-[10px] px-3 py-1.5 border transition-none ${
-              curateActive
-                ? 'border-primary text-primary'
-                : 'border-border text-muted hover:border-secondary hover:text-secondary'
-            }`}
-          >
-            CURATE
-          </button>
+          {!previewActive && (
+            <button
+              onClick={() => canvasRef.current?.openAddSection()}
+              className="text-[10px] px-3 py-1.5 border border-border text-muted hover:border-secondary hover:text-secondary transition-none"
+            >
+              ADD SECTION
+            </button>
+          )}
           <button
             onClick={() => canvasRef.current?.openPreview()}
             className={`text-[10px] px-3 py-1.5 border transition-none ${
@@ -59,7 +49,7 @@ export default function CVPage() {
                 : 'border-border text-muted hover:border-secondary hover:text-secondary'
             }`}
           >
-            PREVIEW
+            {previewActive ? 'EDIT' : 'PREVIEW'}
           </button>
         </div>
       </div>
@@ -70,15 +60,13 @@ export default function CVPage() {
           ref={canvasRef}
           userName={username ?? null}
           userId={userId}
-          initialCurateText={state.initialCurateText ?? null}
-          initialCuratedResumeId={state.initialCuratedResumeId ?? null}
-          initialOpenCuratePanel={state.initialOpenCuratePanel ?? false}
+          initialTailorText={state.initialTailorText ?? null}
+          initialTailoredResumeId={state.initialTailoredResumeId ?? null}
           initialCompany={state.initialCompany ?? null}
           initialJobId={state.initialJobId ?? null}
-          onResumeSaved={(jobId, resumeId) => linkCuratedResumeToJob(jobId, resumeId)}
+          onResumeSaved={(jobId, resumeId) => linkTailoredResumeToJob(jobId, resumeId)}
           onClose={() => { playNetworkMapClose(); navigate('/jobs') }}
-          onInitialCurateConsumed={() => navigate(location.pathname, { replace: true, state: null })}
-          onCurateOpenChange={setCurateActive}
+          onInitialTailorConsumed={() => navigate(location.pathname, { replace: true, state: null })}
           onPreviewOpenChange={setPreviewActive}
         />
       </div>

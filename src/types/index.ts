@@ -1,6 +1,6 @@
 export * from './jobs'
 export * from './contacts'
-export * from './curatedResume'
+export * from './tailoredResume'
 export * from './coverLetter'
 export * from './joblog'
 export * from './auth'
