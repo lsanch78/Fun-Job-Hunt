@@ -27,7 +27,6 @@ export const PROMPT_COVER_LETTER =
   '[candidate full name extracted from the resume]'
 
 // ── Cover letter canvas prompt (used in CoverLetterCanvas, receives JSON CV) ──
-// Distinct from PROMPT_COVER_LETTER (used in AiModal with plain text resume).
 // Receives structured JSON so it can pull fields precisely. Longer body allowed.
 
 export const PROMPT_COVER_LETTER_CANVAS =
@@ -91,7 +90,7 @@ export const PROMPT_CUSTOM =
   META_RULES +
   'You are a helpful career assistant. Using the resume and job description provided, complete the following task:'
 
-// ── Human-first coaching prompts (toggled via HUMAN-FIRST mode in AiModal) ───
+// ── Human-first coaching prompts ─────────────────────────────────────────────
 
 export const COACHING_COVER_LETTER =
   META_RULES +

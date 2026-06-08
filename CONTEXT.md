@@ -120,13 +120,7 @@ Character limits enforced at three layers: frontend `maxLength`, service-layer v
 | notes | 2,000 |
 | cover_letter_prompt | 3,000 |
 | why_good_fit_prompt | 3,000 |
-| resume slot name | 50 |
 | jdText (AI panel, not persisted) | 10,000 — frontend only |
-
----
-
-## Resume Limit
-Each user may store up to 3 resume PDFs (slots a, b, c). Maximum file size per PDF: **1 MB**. Enforced in the frontend before upload and via Supabase Storage bucket policy. Rationale: 3 slots × 1 MB = 3 MB max storage exposure per user.
 
 ---
 

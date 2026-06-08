@@ -27,21 +27,6 @@ jest.mock('@/services/quickCastService', () => ({
   deleteLink: jest.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock('@/services/resumeService', () => ({
-  fetchResumeSlots: jest.fn().mockResolvedValue([]),
-  upsertResumeSlot: jest.fn().mockResolvedValue({ error: null }),
-  deleteResumeSlot: jest.fn().mockResolvedValue({ error: null }),
-  getResumeSignedUrl: jest.fn().mockResolvedValue(null),
-  uploadResumePdf: jest.fn().mockResolvedValue({ error: null }),
-  deleteResumePdf: jest.fn().mockResolvedValue({ error: null }),
-}))
-
-jest.mock('@/services/resumeTextService', () => ({
-  invalidateSlot: jest.fn(),
-  getResumeText: jest.fn().mockResolvedValue(null),
-}))
-
-
 jest.mock('@/services/aiService', () => ({
   getAiProvider: jest.fn(() => 'proxy'),
   setAiProvider: jest.fn(),
@@ -74,16 +59,6 @@ jest.mock('@/services/subscriptionService', () => ({
   isSubscribed: jest.fn(() => false),
   fetchSubscription: jest.fn().mockResolvedValue(null),
   createCheckoutSession: jest.fn().mockResolvedValue(undefined),
-}))
-
-// Mock child components that would require heavy setup
-jest.mock('@/components/ai/AiModal', () => ({
-  __esModule: true,
-  default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="ai-panel">
-      <button onClick={onClose}>Close AI</button>
-    </div>
-  ),
 }))
 
 // Mock pixelarticons to avoid SVG/module issues
@@ -188,17 +163,3 @@ describe('QuickCast — existing links', () => {
   })
 })
 
-describe('QuickCast — resume slots', () => {
-  it('renders slot A and lock icons for B and C on free accounts', async () => {
-    await act(async () => { render(<QuickCast />) })
-    expect(screen.getByText('A')).toBeInTheDocument()
-    expect(screen.getAllByText('🔒').length).toBeGreaterThanOrEqual(2)
-  })
-})
-
-describe('QuickCast — AI status', () => {
-  it('renders without crashing when AI provider is proxy (default)', async () => {
-    await act(async () => { render(<QuickCast />) })
-    expect(document.body).not.toBeEmptyDOMElement()
-  })
-})

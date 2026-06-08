@@ -11,8 +11,6 @@ import { useAI } from '@/hooks/useAI'
 import type { AiPhase } from '@/hooks/useAI'
 import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
-import { getResumeSignedUrl, type ResumeSlot } from '@/services/resumeService'
-import { getResumeText } from '@/services/resumeTextService'
 import { PROMPT_OUTREACH } from '@/config/aiPrompts'
 
 export type { Contact }
@@ -369,21 +367,9 @@ function saveOutreachPrompt(prompt: string): void {
   else lsRemove(SK.outreachPrompt)
 }
 
-async function loadSenderResume(userId: string | null): Promise<string> {
-  if (!userId) return ''
-  const parts: string[] = []
-  // Uploaded PDF/DOCX slots (a, b, c) — pulls from in-memory cache if already extracted
-  for (const slot of ['a', 'b', 'c'] as ResumeSlot[]) {
-    const signedUrl = await getResumeSignedUrl(userId, slot)
-    if (signedUrl) {
-      const text = await getResumeText(userId, slot, signedUrl)
-      if (text.trim()) { parts.push(text.trim()); break } // use first populated slot
-    }
-  }
-  // Pasted text (from AiModal text input)
-  const pasted = lsGet<string>(SK.aiModalText(userId), '')
-  if (pasted.trim() && parts.length === 0) parts.push(pasted.trim())
-  return parts.join('\n\n')
+// TODO: wire up master CV / curated resume as resume context for outreach drafts. 
+async function loadSenderResume(_userId: string | null): Promise<string> {
+  return 'Let the user know that their resume did not load and it is being worked on by the developer'
 }
 
 function buildOutreachPrompt(contact: Contact, apps: AppLink[], senderResume: string): string {

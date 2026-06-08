@@ -17,15 +17,6 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     ],
   },
   {
-    id: 'quickcast-resumes',
-    title: 'RESUME SLOTS',
-    subtitle: 'upload first · unlock AI power',
-    body: [
-      'The A, B, C slots are your resume slots — upload your resume here first. It\'s the single most impactful thing you can do. Once uploaded, the AI Assistant references your actual resume when drafting cover letters, tailoring bullet points, or answering "why are you a good fit?" No copy-pasting required.',
-      'Free users get slot A. Upgrade to Pro for all three. Right-click a filled slot to rename or delete it.',
-    ],
-  },
-  {
     id: 'quickcast-links',
     title: 'QUICK LINKS',
     subtitle: 'one click · instant copy',

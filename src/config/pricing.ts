@@ -15,7 +15,6 @@ export const PRO_FEATURE_TABLE: ProFeatureRow[] = [
   { feature: 'Job Tracking',  free: '∞ applications',   pro: '∞ applications' },
   { feature: 'Network',       free: 'Up to 8 contacts',  pro: '∞ contacts' },
   { feature: 'AI Assistant',  free: 'Unlock up to 30 requests/month',           pro: 'Unlimited' },
-  { feature: 'Resume Slots',  free: '1 slot',            pro: '3 slots' },
   { feature: 'Cover Letter Exports',       free: '✗',                 pro: 'PDF + Docx Downloads' },
   { feature: 'Story Mode',    free: '✓',                 pro: '✓' },
   { feature: 'Time Tracking', free: '✓',                 pro: '✓' },
