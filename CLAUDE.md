@@ -61,18 +61,23 @@ pages → hooks → services → Supabase
 
 ## Type Definitions
 
-- All types are defined in `src/types/` sub-files (e.g. `types/jobs.ts`, `types/user.ts`).
+- Any type used in more than one file belongs in `src/types/` — in the appropriate sub-file (e.g. `types/jobs.ts`, `types/contacts.ts`).
 - All sub-files are re-exported through `src/types/index.ts`.
-- **Types are always imported from `@/types` — never from sub-files directly.**
-- No type declarations anywhere else in the codebase. No exceptions.
+- **Shared types are always imported from `@/types` — never from sub-files directly.**
+- Types that are only used within a single file (e.g. local component state shapes, internal prop interfaces, context value types) may be declared inline in that file.
 
 ```ts
-// ✅ Correct
-import { Job, User } from '@/types'
+// ✅ Correct — shared type imported from @/types
+import { Job, Contact } from '@/types'
 
-// ❌ Wrong
+// ✅ Correct — type only used in this one file
+interface DragState { dragId: string; dropIndex: number }
+
+// ❌ Wrong — shared type imported from a sub-file directly
 import { Job } from '@/types/jobs'
-type Job = { ... } // defined inline in a component
+
+// ❌ Wrong — type used in multiple files but defined inline
+type JobStatus = 'APPLIED' | 'REJECTED' // already in @/types
 ```
 
 ---

@@ -14,3 +14,10 @@ export interface Contact {
   lastCommAt: string | null
   createdAt: string
 }
+
+export interface ExpInfo {
+  pct: number
+  tier: 'excellent' | 'good' | 'fair' | 'low' | 'dead'
+  daysAgo: number | null
+  barColor: string
+}

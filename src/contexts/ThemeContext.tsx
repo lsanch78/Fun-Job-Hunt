@@ -2,19 +2,11 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { THEMES, type Theme } from '@/config/game'
 import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
+import type { CustomColors } from '@/types'
+
+export type { CustomColors }
 
 const DEFAULT_THEME: Theme = 'terminal'
-
-export interface CustomColors {
-  bg: string
-  surface: string
-  border: string
-  primary: string
-  secondary: string
-  muted: string
-  dim: string
-  warning: string
-}
 
 export const DEFAULT_CUSTOM_COLORS: CustomColors = {
   bg:        '#000000',

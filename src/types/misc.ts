@@ -24,7 +24,7 @@ export interface QuickCastLink {
   label: string
   url: string
   icon: string
-  position: number
+  position?: number
 }
 
 // ── Journal ───────────────────────────────────────────────────────────────────
@@ -114,6 +114,19 @@ export interface FeedbackEntry {
 }
 
 export type SubmitFeedbackResult = 'ok' | 'rate_limited' | 'error'
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+export interface CustomColors {
+  bg: string
+  surface: string
+  border: string
+  primary: string
+  secondary: string
+  muted: string
+  dim: string
+  warning: string
+}
 
 // ── Contacts ──────────────────────────────────────────────────────────────────
 
