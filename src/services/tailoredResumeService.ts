@@ -1,14 +1,14 @@
 import { supabase } from '@/lib/supabase'
-import type { CuratedResume } from '@/types'
+import type { TailoredResume } from '@/types'
 import type { CVContent } from '@/types'
 
-const CURATED_RESUME_LIMITS = {
+const TAILORED_RESUME_LIMITS = {
   label: 100,
 } as const
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
-interface DbCuratedResume {
+interface DbTailoredResume {
   id: string
   user_id: string
   label: string
@@ -18,7 +18,7 @@ interface DbCuratedResume {
   created_at: string
 }
 
-function dbToCuratedResume(row: DbCuratedResume): CuratedResume {
+function dbToTailoredResume(row: DbTailoredResume): TailoredResume {
   return {
     id:              row.id,
     userId:          row.user_id,
@@ -32,81 +32,80 @@ function dbToCuratedResume(row: DbCuratedResume): CuratedResume {
 
 // ── DB reads ──────────────────────────────────────────────────────────────────
 
-export async function fetchCuratedResume(id: string): Promise<CuratedResume | null> {
+export async function fetchTailoredResume(id: string): Promise<TailoredResume | null> {
   const { data, error } = await supabase
-    .from('curated_resumes')
+    .from('tailored_resumes')
     .select('id,user_id,label,content,section_order,matched_keywords,created_at')
     .eq('id', id)
     .single()
 
   if (error) {
-    console.error('[curatedResumeService] fetchCuratedResume:', error.message, id)
+    console.error('[tailoredResumeService] fetchTailoredResume:', error.message, id)
     return null
   }
-  return dbToCuratedResume(data as DbCuratedResume)
+  return dbToTailoredResume(data as DbTailoredResume)
 }
 
-export async function fetchCuratedResumes(userId: string): Promise<CuratedResume[]> {
+export async function fetchTailoredResumes(userId: string): Promise<TailoredResume[]> {
   const { data, error } = await supabase
-    .from('curated_resumes')
+    .from('tailored_resumes')
     .select('id,user_id,label,content,section_order,matched_keywords,created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('[curatedResumeService] fetchCuratedResumes:', error.message)
+    console.error('[tailoredResumeService] fetchTailoredResumes:', error.message)
     return []
   }
-  return (data as DbCuratedResume[]).map(dbToCuratedResume)
+  return (data as DbTailoredResume[]).map(dbToTailoredResume)
 }
 
 // ── DB writes ─────────────────────────────────────────────────────────────────
 
-export async function insertCuratedResume(
+export async function insertTailoredResume(
   userId: string,
   label: string,
   content: CVContent,
   sectionOrder: string[],
   matchedKeywords: string[],
-): Promise<{ data: CuratedResume | null; error: string | null }> {
-  const trimmedLabel = label.trim().slice(0, CURATED_RESUME_LIMITS.label) || 'Untitled'
+): Promise<{ data: TailoredResume | null; error: string | null }> {
+  const trimmedLabel = label.trim().slice(0, TAILORED_RESUME_LIMITS.label) || 'Untitled'
 
   const { data, error } = await supabase
-    .from('curated_resumes')
+    .from('tailored_resumes')
     .insert({ user_id: userId, label: trimmedLabel, content, section_order: sectionOrder, matched_keywords: matchedKeywords })
     .select('id,user_id,label,content,section_order,matched_keywords,created_at')
     .single()
 
   if (error) {
-    console.error('[curatedResumeService] insertCuratedResume:', error.message)
+    console.error('[tailoredResumeService] insertTailoredResume:', error.message)
     return { data: null, error: error.message }
   }
-  return { data: dbToCuratedResume(data as DbCuratedResume), error: null }
+  return { data: dbToTailoredResume(data as DbTailoredResume), error: null }
 }
 
-export async function updateCuratedResume(
+export async function updateTailoredResume(
   id: string,
   content: CVContent,
   sectionOrder: string[],
 ): Promise<{ error: string | null }> {
   const { error } = await supabase
-    .from('curated_resumes')
+    .from('tailored_resumes')
     .update({ content, section_order: sectionOrder })
     .eq('id', id)
-  if (error) console.error('[curatedResumeService] updateCuratedResume:', error.message)
+  if (error) console.error('[tailoredResumeService] updateTailoredResume:', error.message)
   return { error: error?.message ?? null }
 }
 
-export async function updateCuratedResumeLabel(id: string, label: string): Promise<{ error: string | null }> {
-  const trimmedLabel = label.trim().slice(0, CURATED_RESUME_LIMITS.label) || 'Untitled'
-  const { error } = await supabase.from('curated_resumes').update({ label: trimmedLabel }).eq('id', id)
-  if (error) console.error('[curatedResumeService] updateCuratedResumeLabel:', error.message)
+export async function updateTailoredResumeLabel(id: string, label: string): Promise<{ error: string | null }> {
+  const trimmedLabel = label.trim().slice(0, TAILORED_RESUME_LIMITS.label) || 'Untitled'
+  const { error } = await supabase.from('tailored_resumes').update({ label: trimmedLabel }).eq('id', id)
+  if (error) console.error('[tailoredResumeService] updateTailoredResumeLabel:', error.message)
   return { error: error?.message ?? null }
 }
 
-
-export async function deleteAllCuratedResumes(userId: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('curated_resumes').delete().eq('user_id', userId)
-  if (error) console.error('[curatedResumeService] deleteAllCuratedResumes:', error.message)
+export async function deleteAllTailoredResumes(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('tailored_resumes').delete().eq('user_id', userId)
+  if (error) console.error('[tailoredResumeService] deleteAllTailoredResumes:', error.message)
   return { error: error?.message ?? null }
 }

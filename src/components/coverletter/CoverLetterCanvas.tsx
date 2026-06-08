@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { useCVState } from '@/hooks/mastercv/useCVState'
+import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
 import { T } from '@/lib/crtTheme'
@@ -170,7 +170,7 @@ export default function CoverLetterCanvas({
 
     const prompt =
       'JOB DESCRIPTION:\n' + jd +
-      '\n\nMASTER CV:\n' + JSON.stringify(cvContent, null, 2)
+      '\n\nCV:\n' + JSON.stringify(cvContent, null, 2)
 
     // ── Letter call ───────────────────────────────────────────────────────────
     runAI({

@@ -31,7 +31,7 @@ export function useJobDetail(
         ...job,
         description:     details.description      ?? '',
         notes:           details.notes            ?? '',
-        curatedResumeId: details.curated_resume_id ?? undefined,
+        tailoredResumeId: details.tailored_resume_id ?? undefined,
         coverLetterId:   details.cover_letter_id   ?? undefined,
       })
     })

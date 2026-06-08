@@ -38,7 +38,7 @@ function dbJobToJob(row: DbJob): Job {
     salary:          row.salary ?? '',
     committed:       true,
     saving:          false,
-    curatedResumeId: row.curated_resume_id ?? undefined,
+    tailoredResumeId: row.tailored_resume_id ?? undefined,
     coverLetterId:   row.cover_letter_id   ?? undefined,
     // Description and notes are intentionally omitted here — they're lazy-loaded
   }
@@ -57,7 +57,7 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     salary:       job.salary || null,
     description:       job.description ?? null,
     notes:             job.notes ?? null,
-    curated_resume_id: job.curatedResumeId ?? null,
+    tailored_resume_id: job.tailoredResumeId ?? null,
     cover_letter_id:   job.coverLetterId   ?? null,
   }
 }
@@ -89,7 +89,7 @@ export function writeCache(userId: string, jobs: Job[]): void {
 export async function fetchJobs(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,curated_resume_id,cover_letter_id')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,tailored_resume_id,cover_letter_id')
     .eq('user_id', userId)
     .order('applied_at', { ascending: false })
 
@@ -209,10 +209,10 @@ export async function fetchJobsForExport(userId: string): Promise<Job[]> {
 // ── Detail-card lazy load / save ──────────────────────────────────────────────
 
 /** Fetches only the detail columns for a single job. Returns null on error. */
-export async function fetchJobDetails(jobId: string): Promise<{ description: string | null; notes: string | null; curated_resume_id: string | null; cover_letter_id: string | null } | null> {
+export async function fetchJobDetails(jobId: string): Promise<{ description: string | null; notes: string | null; tailored_resume_id: string | null; cover_letter_id: string | null } | null> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('description,notes,curated_resume_id,cover_letter_id')
+    .select('description,notes,tailored_resume_id,cover_letter_id')
     .eq('id', jobId)
     .single()
 
@@ -220,7 +220,7 @@ export async function fetchJobDetails(jobId: string): Promise<{ description: str
     console.error('[jobService] fetchJobDetails:', error.message, jobId)
     return null
   }
-  return data as { description: string | null; notes: string | null; curated_resume_id: string | null; cover_letter_id: string | null }
+  return data as { description: string | null; notes: string | null; tailored_resume_id: string | null; cover_letter_id: string | null }
 }
 
 /** Persists only the detail columns for a single job. */
@@ -237,14 +237,14 @@ export async function updateJobDetails(jobId: string, details: { description: st
   return { error: error?.message ?? null }
 }
 
-/** Sets or clears the curated_resume_id FK on a job. */
-export async function linkCuratedResumeToJob(jobId: string, curatedResumeId: string | null): Promise<{ error: string | null }> {
+/** Sets or clears the tailored_resume_id FK on a job. */
+export async function linkTailoredResumeToJob(jobId: string, tailoredResumeId: string | null): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from('jobs')
-    .update({ curated_resume_id: curatedResumeId })
+    .update({ tailored_resume_id: tailoredResumeId })
     .eq('id', jobId)
 
-  if (error) console.error('[jobService] linkCuratedResumeToJob:', error.message, jobId)
+  if (error) console.error('[jobService] linkTailoredResumeToJob:', error.message, jobId)
   return { error: error?.message ?? null }
 }
 

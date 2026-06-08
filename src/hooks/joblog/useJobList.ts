@@ -4,7 +4,7 @@ import {
   readCache, writeCache,
   fetchJobs, insertJob, updateJob, updateJobDetails as svcUpdateJobDetails,
   deleteJobs as svcDeleteJobs,
-  linkCuratedResumeToJob,
+  linkTailoredResumeToJob,
   linkCoverLetterToJob,
   runAutoGhost,
   JOB_CAP,
@@ -152,11 +152,11 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
     svcUpdateJobDetails(jobId, details)
   }, [])
 
-  // ── patchJobCuratedResume ───────────────────────────────────────────────────
+  // ── patchJobTailoredResume ──────────────────────────────────────────────────
 
-  const patchJobCuratedResume = useCallback((jobId: string, resumeId: string) => {
-    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, curatedResumeId: resumeId } : j))
-    linkCuratedResumeToJob(jobId, resumeId)
+  const patchJobTailoredResume = useCallback((jobId: string, resumeId: string) => {
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, tailoredResumeId: resumeId } : j))
+    linkTailoredResumeToJob(jobId, resumeId)
   }, [])
 
   // ── patchJobCoverLetter ─────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
     onDraftChange,
     onCommit,
     updateJobDetails,
-    patchJobCuratedResume,
+    patchJobTailoredResume,
     patchJobCoverLetter,
     deleteJobs,
     addJob,

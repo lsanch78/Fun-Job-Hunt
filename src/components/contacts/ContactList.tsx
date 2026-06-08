@@ -366,7 +366,7 @@ function saveOutreachPrompt(prompt: string): void {
   else lsRemove(SK.outreachPrompt)
 }
 
-// TODO: wire up master CV / curated resume as resume context for outreach drafts. 
+// TODO: wire up CV / curated resume as resume context for outreach drafts.
 async function loadSenderResume(_userId: string | null): Promise<string> {
   return 'Let the user know that their resume did not load and it is being worked on by the developer'
 }
