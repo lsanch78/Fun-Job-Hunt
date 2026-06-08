@@ -6,7 +6,7 @@ import { playPingBlip } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
-import type { Contact } from '@/types'
+import type { Contact, ExpInfo, ContactJobLink } from '@/types'
 import { useAI } from '@/hooks/useAI'
 import type { AiPhase } from '@/types'
 import AiButton from '@/components/ai/AiButton'
@@ -16,15 +16,6 @@ export type { Contact }
 export type SortBy = 'exp' | 'name' | 'company' | 'date' | 'recent'
 
 // ── Exp helpers ───────────────────────────────────────────────────────────────
-
-type ExpTier = 'excellent' | 'good' | 'fair' | 'low' | 'dead'
-
-interface ExpInfo {
-  pct: number
-  tier: ExpTier
-  daysAgo: number | null
-  barColor: string
-}
 
 function computeExp(lastInteractionAt: string | null): ExpInfo {
   if (!lastInteractionAt) return { pct: 0,   tier: 'dead',      daysAgo: null, barColor: '#555555' }
@@ -286,8 +277,6 @@ function sortContacts(contacts: Contact[], sortBy: SortBy): Contact[] {
 
 // ── AppsDropdown ──────────────────────────────────────────────────────────────
 
-interface AppLink { id: string; title: string; company: string }
-
 function abbrevTitle(title: string): string {
   return title
     .split(/\s+/)
@@ -296,7 +285,7 @@ function abbrevTitle(title: string): string {
     .slice(0, 4)
 }
 
-function AppsDropdown({ apps, onOpenJob }: { apps?: AppLink[]; onOpenJob?: (jobId: string) => void }) {
+function AppsDropdown({ apps, onOpenJob }: { apps?: ContactJobLink[]; onOpenJob?: (jobId: string) => void }) {
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -371,7 +360,7 @@ async function loadSenderResume(_userId: string | null): Promise<string> {
   return 'Let the user know that their resume did not load and it is being worked on by the developer'
 }
 
-function buildOutreachPrompt(contact: Contact, apps: AppLink[], senderResume: string): string {
+function buildOutreachPrompt(contact: Contact, apps: ContactJobLink[], senderResume: string): string {
   const lines: string[] = []
 
   lines.push('--- RECIPIENT (the contact you are writing TO) ---')
@@ -494,7 +483,7 @@ interface ContactXpPopup { id: number; x: number; y: number }
 
 function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode, checked, onToggle, onExpChange, cooldownHours, aiPhase, aiDots, isAiActive, isAiEditing, aiDraft, aiLimitHit, onAiClick, onAiRightClick, onStopEditing, onUpgrade }: {
   contact: Contact
-  apps?: AppLink[]
+  apps?: ContactJobLink[]
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenJob?: (jobId: string) => void
@@ -665,7 +654,7 @@ function ContactRow({ contact, apps, onPing, onOpenDetail, onOpenJob, deleteMode
 
 function ContactCard({ contact, apps, onPing, onOpenDetail, onOpenJob }: {
   contact: Contact
-  apps?: AppLink[]
+  apps?: ContactJobLink[]
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenJob?: (jobId: string) => void
@@ -710,7 +699,7 @@ interface ContactListProps {
   search?: string
   onPing: (id: string) => void
   onOpenDetail: (id: string) => void
-  jobsByContact?: Record<string, AppLink[]>
+  jobsByContact?: Record<string, ContactJobLink[]>
   onOpenJob?: (jobId: string) => void
   mobile?: boolean
   deleteMode?: boolean
@@ -754,7 +743,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
     loadSenderResume(userId).then((text) => { senderResumeRef.current = text })
   }, [userId])
 
-  function handleAiClick(contact: Contact, apps: AppLink[]) {
+  function handleAiClick(contact: Contact, apps: ContactJobLink[]) {
     if (activeAiContactId === contact.id) {
       setActiveAiContactId(null)
       setEditingAiContactId(null)

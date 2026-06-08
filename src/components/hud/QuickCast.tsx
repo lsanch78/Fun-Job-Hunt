@@ -21,6 +21,7 @@ import { AtSign } from 'pixelarticons/react'
 import { Heart } from 'pixelarticons/react'
 import { Send } from 'pixelarticons/react'
 import { useAuth } from '@/contexts/AuthContext'
+import type { QuickCastLink } from '@/types'
 import {
   fetchLinks as dbFetchLinks,
   createLink as dbCreateLink,
@@ -33,13 +34,6 @@ import {
 const MAX_SLOTS  = 8
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface QuickCastSlot {
-  id: string
-  label: string
-  url: string
-  icon: string
-}
 
 type SvgIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>
 
@@ -92,12 +86,12 @@ function renderIcon(key: string, size: number) {
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
-function loadLinks(userId: string): QuickCastSlot[] {
-  const parsed = lsGet<QuickCastSlot[]>(SK.quickcastLinks(userId), [])
+function loadLinks(userId: string): QuickCastLink[] {
+  const parsed = lsGet<QuickCastLink[]>(SK.quickcastLinks(userId), [])
   return Array.isArray(parsed) ? parsed.slice(0, MAX_SLOTS) : []
 }
 
-function saveLinks(userId: string, links: QuickCastSlot[]): void {
+function saveLinks(userId: string, links: QuickCastLink[]): void {
   lsSet(SK.quickcastLinks(userId), links)
 }
 
@@ -136,7 +130,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (key: string
 
 export default function QuickCast() {
   // Link slots
-  const [links,        setLinks]        = useState<QuickCastSlot[]>([])
+  const [links,        setLinks]        = useState<QuickCastLink[]>([])
   const { userId } = useAuth()
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
@@ -189,7 +183,7 @@ export default function QuickCast() {
 
   // ── Link handlers ─────────────────────────────────────────────────────────
 
-  function handleCopy(slot: QuickCastSlot) {
+  function handleCopy(slot: QuickCastLink) {
     playSpellCast()
     navigator.clipboard.writeText(slot.url).catch(() => {
       try {
@@ -214,7 +208,7 @@ export default function QuickCast() {
     setAddFormOpen(true)
   }
 
-  function openEditSlot(slot: QuickCastSlot) {
+  function openEditSlot(slot: QuickCastLink) {
     setEditingId(slot.id)
     setDraftLabel(slot.label)
     setDraftUrl(slot.url)

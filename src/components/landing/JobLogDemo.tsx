@@ -2,33 +2,34 @@ import { useEffect, useRef, useState } from 'react'
 import { getRankInfo } from '@/services/xpService'
 import { XP } from '@/config/game'
 import { playThud, playLevelUp } from '@/lib/sfx'
-
-type DemoStatus = 'APPLIED' | 'PHONE_SCREEN' | 'INTERVIEW' | 'OFFER' | 'REJECTED' | 'GHOSTED'
+import type { JobStatus } from '@/types'
 
 interface DemoJob {
   id: number
   company: string
   title: string
-  status: DemoStatus
+  status: JobStatus
   date: string
 }
 
-const STATUS_COLORS: Record<DemoStatus, string> = {
+const STATUS_COLORS: Record<JobStatus, string> = {
   APPLIED:      'text-dim',
   PHONE_SCREEN: 'text-secondary',
   INTERVIEW:    'text-secondary',
   OFFER:        'text-secondary',
   REJECTED:     'text-warning',
   GHOSTED:      'text-warning',
+  WITHDRAWN:    'text-muted',
 }
 
-const STATUS_LABELS: Record<DemoStatus, string> = {
+const STATUS_LABELS: Record<JobStatus, string> = {
   APPLIED:      'APPLIED',
   PHONE_SCREEN: 'PHONE',
   INTERVIEW:    'INTERVIEW',
   OFFER:        'OFFER',
   REJECTED:     'REJECTED',
   GHOSTED:      'GHOSTED',
+  WITHDRAWN:    'WITHDRAWN',
 }
 
 const SEED_JOBS: DemoJob[] = [
@@ -45,7 +46,7 @@ const SEED_JOBS: DemoJob[] = [
   { id: 11, company: 'Massive Dynamic',   title: 'Software Engineer',    status: 'APPLIED',      date: '2026-05-09' },
 ]
 
-const CLICK_JOBS: Array<{ company: string; title: string; status: DemoStatus }> = [
+const CLICK_JOBS: Array<{ company: string; title: string; status: JobStatus }> = [
   { company: 'Cyberdyne Systems', title: 'Systems Engineer',     status: 'APPLIED'      },
   { company: 'Soylent Corp',      title: 'Product Engineer',     status: 'PHONE_SCREEN' },
   { company: 'Oscorp',            title: 'React Developer',      status: 'INTERVIEW'    },

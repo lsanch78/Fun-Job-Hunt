@@ -14,3 +14,12 @@ export interface Contact {
   lastCommAt: string | null
   createdAt: string
 }
+
+type ExpTier = 'excellent' | 'good' | 'fair' | 'low' | 'dead'
+
+export interface ExpInfo {
+  pct: number
+  tier: ExpTier
+  daysAgo: number | null
+  barColor: string
+}
