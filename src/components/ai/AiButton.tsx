@@ -70,6 +70,9 @@ interface AiButtonProps {
   onContextMenu?: (e: React.MouseEvent) => void
   disabled?: boolean
   title?: string
+  style?: React.CSSProperties
+  labelStyle?: React.CSSProperties
+  className?: string
 }
 
 const PHASE_STYLE: Record<AiPhase, React.CSSProperties> = {
@@ -90,7 +93,7 @@ const PHASE_STYLE: Record<AiPhase, React.CSSProperties> = {
   },
 }
 
-export default function AiButton({ label, phase, dots, onClick, onContextMenu, disabled, title }: AiButtonProps) {
+export default function AiButton({ label, phase, dots, onClick, onContextMenu, disabled, title, style, labelStyle, className }: AiButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -99,11 +102,12 @@ export default function AiButton({ label, phase, dots, onClick, onContextMenu, d
       className={[
         'px-3 py-1 transition-none hover:opacity-90 disabled:cursor-not-allowed',
         phase === 'generating' ? 'ai-btn-generating' : phase === 'ready' ? 'ai-btn-ready' : 'ai-btn-idle',
+        className ?? '',
       ].join(' ')}
-      style={{ ...PHASE_STYLE[phase], minWidth: '5rem', textAlign: 'center' }}
+      style={{ ...PHASE_STYLE[phase], minWidth: '5rem', textAlign: 'center', ...style }}
       title={title}
     >
-      <span className="ai-btn-label" style={{ fontSize: CRT_FONT.btn, fontFamily: '"VT323", monospace' }}>
+      <span className="ai-btn-label" style={{ fontSize: CRT_FONT.btn, fontFamily: '"VT323", monospace', ...labelStyle }}>
         {phase === 'generating' ? `GEN${'.'.repeat(dots + 1)}` : label}
       </span>
     </button>
