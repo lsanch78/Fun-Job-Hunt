@@ -19,6 +19,10 @@ interface Props {
   panelRect: { left: number; width: number; top: number; height: number } | null
   overflowLines: number
   liveMatchScore: number
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
   onClose: () => void
   onScanToggle: (next: boolean) => void
   onQuickWins: () => void
@@ -40,6 +44,10 @@ export default function TailoringResultPanel({
   panelRect,
   overflowLines,
   liveMatchScore,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   onClose,
   onScanToggle,
   onQuickWins,
@@ -123,6 +131,26 @@ export default function TailoringResultPanel({
         )}
       </>}
       footer={<>
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: canUndo ? P.textMuted : P.border, background: 'none', border: `1px solid ${canUndo ? P.border : P.border + '55'}`, borderRadius: 3, padding: '7px 16px', cursor: canUndo ? 'pointer' : 'default' }}
+          onMouseEnter={(e) => { if (canUndo) { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted } }}
+          onMouseLeave={(e) => { if (canUndo) { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border } }}
+        >
+          Undo
+        </button>
+        <button
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: canRedo ? P.textMuted : P.border, background: 'none', border: `1px solid ${canRedo ? P.border : P.border + '55'}`, borderRadius: 3, padding: '7px 16px', cursor: canRedo ? 'pointer' : 'default' }}
+          onMouseEnter={(e) => { if (canRedo) { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted } }}
+          onMouseLeave={(e) => { if (canRedo) { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border } }}
+        >
+          Redo
+        </button>
         <button
           onClick={() => { playCloseBlip(); onClose() }}
           style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '7px 20px', cursor: 'pointer' }}
