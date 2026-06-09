@@ -260,10 +260,11 @@ function SalaryCell({ value, onChange, onEnter }: {
 // ── Editable detail cell (JD / Contacts / Notes) ─────────────────────────────
 const PREVIEW_LIMIT = 200
 
-function DetailCell({ value, onChange, onBlur, placeholder, onOpenDetail, isNewRow }: {
+function DetailCell({ value, onChange, onBlur, onEnter, placeholder, onOpenDetail, isNewRow }: {
   value?: string
   onChange: (v: string) => void
   onBlur: () => void
+  onEnter?: () => void
   placeholder: string
   onOpenDetail?: () => void
   isNewRow?: boolean
@@ -295,6 +296,7 @@ function DetailCell({ value, onChange, onBlur, placeholder, onOpenDetail, isNewR
           maxLength={JOB_LIMITS.description}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
+          onKeyDown={(e) => e.key === 'Enter' && onEnter?.()}
         />
       </td>
     )
@@ -483,9 +485,9 @@ export const JobRow = forwardRef<JobRowHandle, {
       case 'status':
         return <StatusCell key="status" status={draft.status} onStatusChange={handleStatusChange} />
       case 'jd':
-        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? (onOpenDetailPage2 ?? onOpenDetail) : undefined} isNewRow={!committed} />
+        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onEnter={committed ? undefined : tryCommit} onOpenDetail={committed ? (onOpenDetailPage2 ?? onOpenDetail) : undefined} isNewRow={!committed} />
       case 'notes':
-        return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
+        return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onEnter={committed ? undefined : tryCommit} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
       default:
         return null
     }
