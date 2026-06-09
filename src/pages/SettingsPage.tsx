@@ -1,4 +1,5 @@
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/contexts/ThemeContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { THEMES, type Theme } from '@/config/game'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { AI_MONTHLY_LIMIT } from '@/services/aiService'
@@ -28,6 +29,7 @@ const COLOR_LABELS: Record<keyof CustomColors, string> = {
 
 export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
+  const { loading: subscriptionLoading } = useSubscription()
 
   const {
     username,
@@ -294,10 +296,9 @@ export default function SettingsPage() {
 
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">SUBSCRIPTION</h2>
-        {checkoutPending && !isSubscribed && (
-          <p className="text-xs text-secondary px-1 mb-3">Confirming payment...</p>
-        )}
-        {isSubscribed ? (
+        {(subscriptionLoading || checkoutPending) && !isSubscribed ? (
+          <span className="text-secondary text-[8px] leading-none animate-pixel-spin inline-block">▪</span>
+        ) : isSubscribed ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-primary px-1">
               {'> '}Pro —{' '}
@@ -311,7 +312,7 @@ export default function SettingsPage() {
                 Your plan will not renew. You keep Pro access until the date above.
               </p>
             )}
-            <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
+            <p className="text-[10px] text-muted px-1">Unlimited AI requests</p>
             <button
               onClick={handleManageSubscription}
               className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
@@ -322,10 +323,10 @@ export default function SettingsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Free tier: {AI_MONTHLY_LIMIT}/mo
+              Free tier: {AI_MONTHLY_LIMIT} AI requests/month
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Pro: Unlimited AI generations
+              Pro: Unlimited AI requests
             </p>
             <button
               onClick={handleUpgrade}
