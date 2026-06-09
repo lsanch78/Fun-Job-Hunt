@@ -4,13 +4,14 @@ import type { Job, Contact } from '@/types'
 
 const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
 
-const JOB_HEADERS     = ['ID', 'Company', 'Title', 'Status', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Notes']
+const JOB_HEADERS     = ['ID', 'Company', 'Title', 'Status', 'Location', 'Date Applied', 'Salary (K)', 'Rating', 'Posting URL', 'Description', 'Notes']
 const CONTACT_HEADERS = ['ID', 'Name', 'Company', 'Email', 'LinkedIn', 'GitHub', 'Twitter', 'Discord', 'Comm XP', 'Last Interaction', 'Last Comm', 'Notes', 'Created At']
 
 function jobsSection(jobs: Job[]): string {
   const rows = jobs.map((j) => [
     j.id, j.company, j.title,
     j.status.replace(/_/g, ' '),
+    j.location ?? '',
     j.applicationDate,
     j.salary ? `${j.salary}K` : '',
     j.rating > 0 ? String(j.rating) : '',
