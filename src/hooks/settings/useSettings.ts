@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { deleteAllTailoredResumes } from '@/services/tailoredResumeService'
-import { deleteAllWorkdays } from '@/services/workdayService'
+import { deleteAllHeartbeats } from '@/services/activityTimerService'
 import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours } from '@/lib/commSettings'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
@@ -122,11 +122,9 @@ export function useSettings() {
   async function handleDeleteJobs() {
     if (!userId) return
     setResetting(true)
-    await Promise.all([deleteAllJobs(userId), deleteAllWorkdays(userId)])
+    await Promise.all([deleteAllJobs(userId), deleteAllHeartbeats(userId)])
     lsRemove(SK.jobs(userId))
-    lsRemove(SK.workdays(userId))
-    lsRemove(SK.workdayPunchIn)
-    lsRemove(SK.workdayId)
+    lsRemove(SK.activityHeartbeats(userId))
     setResetting(false)
     setConfirmTarget(null)
     setResetDone('jobs')
@@ -146,7 +144,7 @@ export function useSettings() {
     setResetting(true)
     await Promise.all([
       deleteAllJobs(userId),
-      deleteAllWorkdays(userId),
+      deleteAllHeartbeats(userId),
       deleteAllContacts(userId),
       deleteAllTailoredResumes(userId),
       deleteAllTracks(userId),
@@ -157,11 +155,7 @@ export function useSettings() {
     ])
     const keys = [
       SK.jobs(userId),
-      SK.workdays(userId),
-      SK.workdayPunchIn,
-      'workday_punch_in',
-      SK.workdayId,
-      'workday_id',
+      SK.activityHeartbeats(userId),
       SK.journal(userId),
       SK.journalList(userId),
       SK.xp(userId),

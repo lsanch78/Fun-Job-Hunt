@@ -238,8 +238,7 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
   const jobInputDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleDraftChange(draft: Job) {
-    // Debounce the activity signal — one event per 300ms burst of keystrokes is
-    // enough to keep the workday timer alive without hammering resetActivity.
+    // Debounce the activity signal — one event per 300ms burst of keystrokes.
     if (jobInputDebounceRef.current) clearTimeout(jobInputDebounceRef.current)
     jobInputDebounceRef.current = setTimeout(() => {
       window.dispatchEvent(new Event('fjobhunt:job-input'))

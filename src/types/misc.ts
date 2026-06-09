@@ -52,22 +52,17 @@ export interface Subscription {
   updated_at: string
 }
 
-// ── Workday ───────────────────────────────────────────────────────────────────
+// ── Activity Timer ────────────────────────────────────────────────────────────
 
-export interface WorkdayRow {
+export interface ActivityHeartbeat {
   id: string
   user_id: string
-  punch_in: string
-  punch_out: string | null
-  date: string
+  ts: string
 }
 
-export interface WorkdayTrackingState {
-  punchIn: Date | null
-  isPunchedIn: boolean
-  lastActivityRef: React.RefObject<number>
-  resetActivity: () => void
-  doPunchOut: (at?: Date) => void
+export interface ActivityTimerState {
+  sessionStart: Date | null
+  isActive: boolean
 }
 
 // ── XP / Rank ─────────────────────────────────────────────────────────────────

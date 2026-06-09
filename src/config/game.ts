@@ -42,12 +42,6 @@ export const RANK_TITLES: string[] = [
   'Employed',
 ]
 
-// --- WORKDAY ---
-export const WORKDAY = {
-  DEFAULT_SHIFT_HOURS: 8,
-  AUTO_PUNCH_OUT_IDLE_MS: 15 * 60 * 1000, // 15 minutes
-} as const
-
 // --- STREAKS ---
 export const STREAK = {
   GRACE_DAYS_PER_WEEK: 1,
