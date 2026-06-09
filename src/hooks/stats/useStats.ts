@@ -1,33 +1,33 @@
 import { useState, useEffect, useMemo } from 'react'
-import { fetchWorkdays, readWorkdayCache } from '@/services/workdayService'
-import type { WorkdayRow } from '@/types'
+import { fetchHeartbeats, readHeartbeatCache } from '@/services/activityTimerService'
+import type { ActivityHeartbeat } from '@/types'
 import { fetchJobs, readCache } from '@/services/jobService'
 import { fetchContacts } from '@/services/contactService'
 import type { Job, Contact } from '@/types'
 
 export function useStats(userId: string | null) {
-  const [workdays, setWorkdays] = useState<WorkdayRow[]>(() =>
-    userId ? readWorkdayCache(userId) : []
+  const [heartbeats, setHeartbeats] = useState<ActivityHeartbeat[]>(() =>
+    userId ? readHeartbeatCache(userId) : []
   )
   const [jobs, setJobs] = useState<Job[]>(() =>
     userId ? readCache(userId) : []
   )
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(() =>
-    userId ? readCache(userId).length === 0 && readWorkdayCache(userId).length === 0 : true
+    userId ? readCache(userId).length === 0 && readHeartbeatCache(userId).length === 0 : true
   )
 
   useEffect(() => {
     if (!userId) { setLoading(false); return }
     let cancelled = false
     async function load() {
-      const [rows, jobRows, contactRows] = await Promise.all([
-        fetchWorkdays(userId!),
+      const [hbRows, jobRows, contactRows] = await Promise.all([
+        fetchHeartbeats(userId!),
         fetchJobs(userId!),
         fetchContacts(userId!),
       ])
       if (!cancelled) {
-        setWorkdays(rows)
+        setHeartbeats(hbRows)
         setJobs(jobRows)
         setContacts(contactRows)
         setLoading(false)
@@ -130,7 +130,7 @@ export function useStats(userId: string | null) {
 
   return {
     loading,
-    workdays,
+    heartbeats,
     jobs,
     contacts,
     huntStartDate,

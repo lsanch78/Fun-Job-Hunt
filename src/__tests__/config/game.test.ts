@@ -1,4 +1,4 @@
-import { XP, RANK_THRESHOLDS, RANK_TITLES, WORKDAY, STREAK, THEMES } from '@/config/game'
+import { XP, RANK_THRESHOLDS, RANK_TITLES, STREAK, THEMES } from '@/config/game'
 
 describe('XP constants', () => {
   it('PUNCH_IN is 10', () => expect(XP.PUNCH_IN).toBe(10))
@@ -38,13 +38,6 @@ describe('RANK_TITLES', () => {
       expect(typeof RANK_TITLES[i]).toBe('string')
       expect(RANK_TITLES[i].length).toBeGreaterThan(0)
     }
-  })
-})
-
-describe('WORKDAY constants', () => {
-  it('DEFAULT_SHIFT_HOURS is 8', () => expect(WORKDAY.DEFAULT_SHIFT_HOURS).toBe(8))
-  it('AUTO_PUNCH_OUT_IDLE_MS is 15 minutes in ms', () => {
-    expect(WORKDAY.AUTO_PUNCH_OUT_IDLE_MS).toBe(15 * 60 * 1000)
   })
 })
 

@@ -4,13 +4,11 @@
 export type { AiMode } from '@/types'
 
 export const SK = {
-  // ── Workday tracking ─────────────────────────────────────────────────────────
-  workdayPunchIn: 'fjobhunt:workday:punch-in',
-  workdayId:      'fjobhunt:workday:id',
+  // ── Activity timer ────────────────────────────────────────────────────────────
+  activityHeartbeats: (uid: string) => `fjobhunt:activity-heartbeats:${uid}`,
 
   // ── Jobs & progress ──────────────────────────────────────────────────────────
   jobs:      (uid: string) => `fjobhunt:jobs:${uid}`,
-  workdays:  (uid: string) => `fjobhunt:workdays:${uid}`,
   xp:        (uid: string) => `fjobhunt:xp:${uid}`,
   autoGhost: 'fjobhunt:autoghost',
 
