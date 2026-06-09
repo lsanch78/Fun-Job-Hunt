@@ -45,3 +45,12 @@ export async function upsertCV(
     )
   if (error) console.error('[cvService] upsert:', error.message)
 }
+
+export async function deleteCV(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('cv')
+    .delete()
+    .eq('user_id', userId)
+  if (error) console.error('[cvService] deleteCV:', error.message)
+  return { error: error?.message ?? null }
+}

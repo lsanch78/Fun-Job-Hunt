@@ -68,3 +68,12 @@ export async function updateCoverLetter(
   return { error: error?.message ?? null }
 }
 
+export async function deleteAllCoverLetters(userId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('cover_letters')
+    .delete()
+    .eq('user_id', userId)
+  if (error) console.error('[coverLetterService] deleteAllCoverLetters:', error.message)
+  return { error: error?.message ?? null }
+}
+

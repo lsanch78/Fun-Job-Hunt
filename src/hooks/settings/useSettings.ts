@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { deleteAllTailoredResumes } from '@/services/tailoredResumeService'
+import { deleteAllCoverLetters } from '@/services/coverLetterService'
+import { deleteCV } from '@/services/cvService'
 import { deleteAllHeartbeats } from '@/services/activityTimerService'
 import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours } from '@/lib/commSettings'
@@ -147,6 +149,8 @@ export function useSettings() {
       deleteAllHeartbeats(userId),
       deleteAllContacts(userId),
       deleteAllTailoredResumes(userId),
+      deleteAllCoverLetters(userId),
+      deleteCV(userId),
       deleteAllTracks(userId),
       deleteAllLinks(userId),
       resetProfileXp(userId),
@@ -163,12 +167,6 @@ export function useSettings() {
       SK.musicTracks,
       SK.musicResume,
       SK.aiMode(userId),
-      SK.aiModalSlots(userId),
-      `ai_panel_slots_${userId}`,
-      `fjobhunt:ai-panel-slots:${userId}`,
-      SK.aiModalText(userId),
-      `ai_panel_resume_text_${userId}`,
-      `fjobhunt:ai-panel-text:${userId}`,
       SK.commCooldown(userId),
       `fjobhunt:${userId}:comm-cooldown-hours`,
       SK.quickcastLinks(userId),
