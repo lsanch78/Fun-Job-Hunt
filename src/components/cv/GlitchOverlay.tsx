@@ -52,25 +52,6 @@ export default function GlitchOverlay({ width, height, words }: { width: number;
     // Pre-fill word slots if words are available
     const slots: WordSlot[] = []
 
-    // Gradient stops from AiButton ready palette: #200a40 → #5b0ea6 → #300a60 → #200a40
-    const GRAD: [number, number, number][] = [
-      [32,  10,  64],  // #200a40
-      [91,  14, 166],  // #5b0ea6
-      [48,  10,  96],  // #300a60
-      [32,  10,  64],  // #200a40
-    ]
-    function rowColor(t: number): [number, number, number] {
-      const scaled = t * (GRAD.length - 1)
-      const i = Math.min(Math.floor(scaled), GRAD.length - 2)
-      const f = scaled - i
-      const a = GRAD[i], b = GRAD[i + 1]
-      return [
-        Math.round(a[0] + (b[0] - a[0]) * f),
-        Math.round(a[1] + (b[1] - a[1]) * f),
-        Math.round(a[2] + (b[2] - a[2]) * f),
-      ]
-    }
-
     let frame: number
 
     function draw() {
@@ -99,14 +80,11 @@ export default function GlitchOverlay({ width, height, words }: { width: number;
       ctx.clearRect(0, 0, width, height)
       ctx.font = '11px monospace'
 
-      // Draw char grid — color interpolated per row top-to-bottom
-      // Top: deep green, middle: bright phosphor, bottom: blue-green
+      // Draw all chars in a single color
       for (let r = 0; r < rows; r++) {
-        const t = r / (rows - 1)
-        const [cr, cg, cb] = rowColor(t)
         for (let c = 0; c < cols; c++) {
           const cell = grid[r][c]
-          ctx.fillStyle = `rgba(${cr},${cg},${cb},${cell.alpha.toFixed(2)})`
+          ctx.fillStyle = `rgba(255,255,255,${cell.alpha.toFixed(2)})`
           ctx.fillText(cell.char, c * COL_W, r * ROW_H + 11)
         }
       }
@@ -117,11 +95,20 @@ export default function GlitchOverlay({ width, height, words }: { width: number;
         const fadeIn  = Math.min(1, age / 8)
         const fadeOut = Math.min(1, slot.ttl / 8)
         const alpha   = 0.75 * fadeIn * fadeOut
-        const t = slot.row / (rows - 1)
-        const [cr, cg, cb] = rowColor(t)
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha.toFixed(2)})`
+        ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(2)})`
         ctx.fillText(slot.word, slot.col * COL_W, slot.row * ROW_H + 11)
       }
+
+      // Tint all chars with the AiButton ready palette via destination-in
+      const colorGrad = ctx.createLinearGradient(0, 0, 0, height)
+      colorGrad.addColorStop(0,    '#200a40')
+      colorGrad.addColorStop(0.4,  '#5b0ea6')
+      colorGrad.addColorStop(0.7,  '#300a60')
+      colorGrad.addColorStop(1,    '#200a40')
+      ctx.globalCompositeOperation = 'source-atop'
+      ctx.fillStyle = colorGrad
+      ctx.fillRect(0, 0, width, height)
+      ctx.globalCompositeOperation = 'source-over'
 
       // Scan bar
       const barY = (Date.now() % 1800) / 1800 * height
