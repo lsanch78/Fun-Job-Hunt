@@ -3,6 +3,7 @@ import { useAI } from '@/hooks/useAI'
 import { PROMPT_CURATE_RESUME } from '@/config/aiPrompts'
 import { fetchTailoredResume } from '@/services/tailoredResumeService'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
+import { useUndoRedo } from '@/lib/useUndoRedo'
 import type { CVContent, Experience, Project, Summary, Education, Certification, Award, MainInfo } from '@/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,10 +68,20 @@ export function useTailoring({
 }: TailoringDeps) {
   const { run: runAI } = useAI()
 
-  const [tailorPhase, setTailorPhase]       = useState<'idle' | 'thinking' | 'error'>('idle')
-  const [tailorResult, setTailorResult]     = useState<TailorResult | null>(null)
-  const [tailoredContent, setTailoredContent] = useState<CVContent | null>(null)
-  const [tailoredOrder, setTailoredOrder]   = useState<string[]>([])
+  const [tailorPhase, setTailorPhase]     = useState<'idle' | 'thinking' | 'error'>('idle')
+  const [tailorResult, setTailorResult]   = useState<TailorResult | null>(null)
+  const [tailoredOrder, setTailoredOrder] = useState<string[]>([])
+
+  const {
+    state:    tailoredContent,
+    push:     pushTailoredContent,
+    debouncedPush: debouncedPushTailoredContent,
+    undo:     undoTailoredContent,
+    redo:     redoTailoredContent,
+    canUndo:  canUndoTailoredContent,
+    canRedo:  canRedoTailoredContent,
+    reset:    resetTailoredContent,
+  } = useUndoRedo<CVContent | null>(null)
   const [savePhase, setSavePhase]           = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [quickWinsPhase, setQuickWinsPhase] = useState<'idle' | 'thinking' | 'error'>('idle')
   const [scanOpen, setScanOpen]             = useState(() => localStorage.getItem('cv-scan-open') === 'true')
@@ -116,7 +127,7 @@ export function useTailoring({
             ? { evergreen: resume.content.skills.evergreen, modular: resume.content.skills.modular.map((g: { id: string; label: string; skills: string[] }) => ({ id: g.id, label: g.label, skills: g.skills })) }
             : { evergreen: [], modular: [] },
         })
-        setTailoredContent(resume.content)
+        resetTailoredContent(resume.content)
         setTailoredOrder(resume.sectionOrder)
         setTailorPhase('idle')
         onInitialTailorConsumed?.()
@@ -157,11 +168,13 @@ export function useTailoring({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tailoredContent, tailoredOrder])
 
-  // ── Esc closes the result panel ───────────────────────────────────────────
+  // ── Keyboard shortcuts for the result panel ───────────────────────────────
   useEffect(() => {
     if (!tailorResult) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { playCloseBlip(); closeTailorResult() }
+      if (e.key === 'Escape') { playCloseBlip(); closeTailorResult(); return }
+      if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); undoTailoredContent(); return }
+      if (e.ctrlKey && e.shiftKey  && e.key === 'z') { e.preventDefault(); redoTailoredContent(); return }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -206,7 +219,7 @@ export function useTailoring({
           certifications.forEach((c) => cOrder.push(c.id))
           awards.forEach((a) => cOrder.push(a.id))
 
-          setTailoredContent({ mainInfo, summaries: cSummaries, experiences: cExperiences, educations, projects: cProjects, skills: cSkills, certifications, awards })
+          resetTailoredContent({ mainInfo, summaries: cSummaries, experiences: cExperiences, educations, projects: cProjects, skills: cSkills, certifications, awards })
           setTailoredOrder(cOrder)
           freshTailoredRef.current = true
           setTailorPhase('idle')
@@ -249,7 +262,7 @@ export function useTailoring({
 
   function closeTailorResult() {
     setTailorResult(null)
-    setTailoredContent(null)
+    resetTailoredContent(null)
     setTailoredOrder([])
     setSavePhase('idle')
   }
@@ -355,37 +368,35 @@ export function useTailoring({
           const edits = JSON.parse(cleaned) as QuickWinEdit[]
           if (edits.length === 0) { setQuickWinsPhase('idle'); return }
 
-          setTailoredContent((prev) => {
-            if (!prev) return prev
-            let next = { ...prev }
-            for (const edit of edits) {
-              if (edit.type === 'experience') {
-                next = { ...next, experiences: next.experiences.map((e) => {
-                  if (e.id !== edit.id) return e
-                  const bullets = [...e.bullets]
-                  bullets[edit.bulletIndex] = edit.revised
-                  return { ...e, bullets }
-                })}
-              } else if (edit.type === 'project') {
-                next = { ...next, projects: next.projects.map((p) => {
-                  if (p.id !== edit.id) return p
-                  const bullets = [...p.bullets]
-                  bullets[edit.bulletIndex] = edit.revised
-                  return { ...p, bullets }
-                })}
-              } else if (edit.type === 'skill') {
-                const existing = next.skills ?? { evergreen: [], modular: [] }
-                if (!existing.evergreen.includes(edit.value)) {
-                  next = { ...next, skills: { ...existing, evergreen: [...existing.evergreen, edit.value] } }
-                }
-              } else if (edit.type === 'summary') {
-                next = { ...next, summaries: next.summaries.map((s) =>
-                  s.id === edit.id ? { ...s, text: edit.revised } : s
-                )}
+          if (!tailoredContent) { setQuickWinsPhase('idle'); return }
+          let next = { ...tailoredContent }
+          for (const edit of edits) {
+            if (edit.type === 'experience') {
+              next = { ...next, experiences: next.experiences.map((e) => {
+                if (e.id !== edit.id) return e
+                const bullets = [...e.bullets]
+                bullets[edit.bulletIndex] = edit.revised
+                return { ...e, bullets }
+              })}
+            } else if (edit.type === 'project') {
+              next = { ...next, projects: next.projects.map((p) => {
+                if (p.id !== edit.id) return p
+                const bullets = [...p.bullets]
+                bullets[edit.bulletIndex] = edit.revised
+                return { ...p, bullets }
+              })}
+            } else if (edit.type === 'skill') {
+              const existing = next.skills ?? { evergreen: [], modular: [] }
+              if (!existing.evergreen.includes(edit.value)) {
+                next = { ...next, skills: { ...existing, evergreen: [...existing.evergreen, edit.value] } }
               }
+            } else if (edit.type === 'summary') {
+              next = { ...next, summaries: next.summaries.map((s) =>
+                s.id === edit.id ? { ...s, text: edit.revised } : s
+              )}
             }
-            return next
-          })
+          }
+          pushTailoredContent(next)
 
           setTailoredOrder((prevOrder) => {
             if (!tailorResult) return prevOrder
@@ -451,7 +462,12 @@ export function useTailoring({
   return {
     tailorPhase,
     tailorResult,
-    tailoredContent, setTailoredContent,
+    tailoredContent,
+    setTailoredContent: debouncedPushTailoredContent,
+    undoTailoredContent,
+    redoTailoredContent,
+    canUndoTailoredContent,
+    canRedoTailoredContent,
     tailoredOrder, setTailoredOrder,
     savePhase,
     quickWinsPhase,

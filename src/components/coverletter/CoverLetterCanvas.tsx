@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { useUndoRedo } from '@/lib/useUndoRedo'
 import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
@@ -48,7 +49,16 @@ export default function CoverLetterCanvas({
   const [phase, setPhase] = useState<'idle' | 'thinking' | 'error'>('idle')
 
   // ── Result state ─────────────────────────────────────────────────────────────
-  const [body, setBody]     = useState<string | null>(null)
+  const {
+    state:         body,
+    debouncedPush: debouncedPushBody,
+    undo:          undoBody,
+    redo:          redoBody,
+    canUndo:       canUndoBody,
+    canRedo:       canRedoBody,
+    reset:         resetBody,
+  } = useUndoRedo<string | null>(null)
+  const setBody = resetBody
   const [jdText, setJdText] = useState('')
 
   // ── Keywords (extracted from JD by the AI, same pattern as CVCanvas) ─────────
@@ -130,7 +140,7 @@ export default function CoverLetterCanvas({
       prompt,
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
-        setBody(result.trim())
+        resetBody(result.trim())
         freshGeneratedRef.current = true
         setPhase('idle')
         const kws = Array.from(
@@ -312,15 +322,18 @@ export default function CoverLetterCanvas({
     window.print()
   }
 
-  // Esc closes the result view
+  // Esc closes; Ctrl+Z undoes; Ctrl+Shift+Z redoes
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') { playCloseBlip(); setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.(); return }
+    if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); undoBody(); return }
+    if (e.ctrlKey && e.shiftKey  && e.key === 'z') { e.preventDefault(); redoBody(); return }
+  }, [undoBody, redoBody, onClose]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!body) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { playCloseBlip(); setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.() }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [body, onClose])
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [body, handleKeyDown])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -473,6 +486,26 @@ export default function CoverLetterCanvas({
           </>}
           footer={<>
             <button
+              onClick={undoBody}
+              disabled={!canUndoBody}
+              title="Undo (Ctrl+Z)"
+              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: canUndoBody ? T.greenDim : T.border, background: 'none', border: `1px solid ${canUndoBody ? T.border : T.border + '55'}`, padding: '7px 16px', cursor: canUndoBody ? 'pointer' : 'default' }}
+              onMouseEnter={(e) => { if (canUndoBody) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+              onMouseLeave={(e) => { if (canUndoBody) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              UNDO
+            </button>
+            <button
+              onClick={redoBody}
+              disabled={!canRedoBody}
+              title="Redo (Ctrl+Shift+Z)"
+              style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: canRedoBody ? T.greenDim : T.border, background: 'none', border: `1px solid ${canRedoBody ? T.border : T.border + '55'}`, padding: '7px 16px', cursor: canRedoBody ? 'pointer' : 'default' }}
+              onMouseEnter={(e) => { if (canRedoBody) { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green } }}
+              onMouseLeave={(e) => { if (canRedoBody) { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border } }}
+            >
+              REDO
+            </button>
+            <button
               onClick={() => { playCloseBlip(); setBody(null); setKeywords([]); setAngleResult(null); setAnglePhase('idle'); onClose?.() }}
               style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', color: T.greenDim, background: 'none', border: `1px solid ${T.border}`, padding: '7px 20px', cursor: 'pointer' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.warn; (e.currentTarget as HTMLElement).style.borderColor = T.warn }}
@@ -537,7 +570,8 @@ export default function CoverLetterCanvas({
             }}
               contentEditable
               suppressContentEditableWarning
-              onBlur={(e) => setBody(e.currentTarget.textContent ?? '')}
+              onInput={(e) => debouncedPushBody(e.currentTarget.textContent ?? '')}
+              onBlur={(e) => debouncedPushBody(e.currentTarget.textContent ?? '')}
             >
               {body}
             </div>
