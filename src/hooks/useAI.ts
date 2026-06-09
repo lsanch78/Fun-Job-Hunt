@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { streamCompletion, fetchModels } from '@/services/aiService'
-import { playAiConsume, playAiDing } from '@/lib/sfx'
+import { playAiConsume } from '@/lib/sfx'
 import type { AiPhase, RunParams } from '@/types'
 
 export function useAI() {
@@ -41,7 +41,6 @@ export function useAI() {
       onToken: (token) => { accumulated += token },
       onDone: () => {
         setPhase('ready')
-        playAiDing()
         onComplete(accumulated)
         setTimeout(() => setPhase('idle'), 2500)
       },

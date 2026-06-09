@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import MusicPlayer from '@/components/shell/MusicPlayer'
 import FeedbackModal from '@/components/modals/FeedbackModal'
 import { fireTutorial, hasTutorialTrigger, registerTutorialActiveListener, unregisterTutorialActiveListener } from '@/lib/tutorialBus'
-import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip, playMultiplayerBlip } from '@/lib/sfx'
+import { isSfxMuted, toggleSfxMuted, onSfxMutedChange, playJobsBoot, playProfileBlip, playSignOutBlip, playCreditsBlip, playStatsBlip, playExitBlip, playMultiplayerBlip, playPageFlip } from '@/lib/sfx'
 
 const DEV_EMAIL = 'luis.sanchez01994@gmail.com'
 
@@ -203,7 +203,7 @@ export default function NavBar() {
             <NavLink
               key={to}
               to={to}
-              onClick={to === '/jobs' ? playJobsBoot : to === '/network' ? playMultiplayerBlip : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : undefined}
+              onClick={to === '/jobs' ? playJobsBoot : to === '/network' ? playMultiplayerBlip : to === '/stats' ? playStatsBlip : to === '/credits' ? playCreditsBlip : to === '/cv' ? playPageFlip : undefined}
               className={({ isActive }) =>
                 `whitespace-nowrap transition-none ${
                   isActive
