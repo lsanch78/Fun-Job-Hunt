@@ -55,7 +55,7 @@ export default function FeedbackModal({ userId, onClose }: FeedbackModalProps) {
       <div
         className="crt-card flex flex-col w-[500px] max-w-[90vw]"
         style={{
-          animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1, end) 0.35s infinite',
+          animation: 'console-boot 0.35s ease-out forwards',
           fontFamily: '"VT323", monospace',
           background: '#000',
           border: `1px solid ${T.border}`,

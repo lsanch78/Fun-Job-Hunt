@@ -247,6 +247,7 @@ const CVCanvas = forwardRef<CVCanvasHandle, Props>(function CVCanvas({
             }}
           />
           <div
+            data-tutorial="cv-dropzone"
             className="mb-6 w-full"
             onClick={() => { if (organizer.importPhase === 'idle') dropZoneInputRef.current?.click() }}
             onDragOver={(e) => { e.preventDefault(); if (organizer.importPhase === 'idle') setDropActive(true) }}

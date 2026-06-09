@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { lsGet } from '@/lib/storage'
-import { SK } from '@/lib/storageKeys'
 import TutorialModal from '@/components/modals/TutorialModal'
 import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
 import { NETWORK_STEPS } from '@/lib/tutorialSteps'
@@ -96,14 +94,8 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
-    if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'network'), false)
-    if (!seen) {
-      const id = setTimeout(() => setShowTutorial(true), 800)
-      return () => { clearTimeout(id); unregisterTutorialTrigger() }
-    }
     return () => { unregisterTutorialTrigger() }
-  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addAndOpen() {
     const blank = handleAddContact()

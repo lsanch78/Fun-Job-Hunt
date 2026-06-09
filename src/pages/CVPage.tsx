@@ -1,9 +1,12 @@
-import { useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useRef, useState, useEffect } from 'react'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import CVCanvas from '@/components/cv/CVCanvas'
 import { linkTailoredResumeToJob } from '@/services/jobService'
 import { playNetworkMapClose } from '@/lib/sfx'
+import { registerTutorialTrigger, unregisterTutorialTrigger, broadcastTutorialActive } from '@/lib/tutorialBus'
+import TutorialModal from '@/components/modals/TutorialModal'
+import { CV_STEPS } from '@/lib/tutorialSteps'
 import type { CVCanvasHandle } from '@/types'
 
 interface CVPageLocationState {
@@ -16,18 +19,34 @@ interface CVPageLocationState {
 export default function CVPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { userId, username } = useAuth()
   const canvasRef = useRef<CVCanvasHandle>(null)
 
   const [previewActive, setPreviewActive] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
 
   const state = (location.state as CVPageLocationState | null) ?? {}
+
+  useEffect(() => {
+    registerTutorialTrigger(() => setShowTutorial(true))
+    return () => { unregisterTutorialTrigger() }
+  }, [])
+
+  useEffect(() => { broadcastTutorialActive(showTutorial) }, [showTutorial])
+
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setShowTutorial(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
+      <div data-tutorial="cv-header" className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
         <div>
           <h1 className="text-sm tracking-widest">CV</h1>
           <p className="text-muted text-xs mt-1">your master resume</p>
@@ -53,6 +72,9 @@ export default function CVPage() {
           </button>
         </div>
       </div>
+
+      {/* Tutorial overlay */}
+      {showTutorial && userId && <TutorialModal steps={CV_STEPS} screen="cv" userId={userId} onDone={() => setShowTutorial(false)} />}
 
       {/* Canvas */}
       <div className="flex-1 relative overflow-hidden">

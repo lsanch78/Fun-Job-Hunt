@@ -445,7 +445,7 @@ export default function ContactDetailModal({
       <div
         className="crt-card fixed inset-0 z-[200] flex flex-col"
         style={{
-          animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1, end) 0.35s infinite',
+          animation: 'console-boot 0.35s ease-out forwards',
           fontFamily: '"VT323", monospace',
           background: '#000',
           border: '1px solid #2a2a2a',
@@ -472,7 +472,7 @@ export default function ContactDetailModal({
         className="crt-card flex flex-col w-[620px] max-w-[90vw]"
         style={{
           height: 'min(92vh, 680px)',
-          animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1, end) 0.35s infinite',
+          animation: 'console-boot 0.35s ease-out forwards',
           fontFamily: '"VT323", monospace',
           background: '#000',
           border: '1px solid #2a2a2a',

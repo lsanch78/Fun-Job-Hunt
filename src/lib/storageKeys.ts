@@ -47,5 +47,6 @@ export const SK = {
   timeRange:      'fjobhunt:time_range',
   networkTimeRange: 'fjobhunt:network_time_range',
   tutorialSeen:   (uid: string, screen: string) => `fjobhunt:tutorial_seen:${screen}:${uid}`,
+  cvNudgeDismissed: (uid: string) => `fjobhunt:cv_nudge_dismissed:${uid}`,
   globalStats:    'fjobhunt:global_stats',
 } as const

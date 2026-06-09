@@ -1,13 +1,12 @@
-import { PRO_PRICE_LABEL } from '@/config/pricing'
 import type { TutorialStep } from '@/types'
 
 export const JOB_LOG_STEPS: TutorialStep[] = [
   {
     id: 'navbar',
     title: 'WELCOME',
-    subtitle: 'new user detected',
+    subtitle: 'fun job hunt',
     body: [
-      "Welcome to Fun Job Hunt! Press Space Bar to go through this short tutorial. It's designed to get you up to speed quickly, so you can start tracking your job applications and career progress with ease. Let's dive in!",
+      'Press Space to step through. Press ? anytime to replay.',
     ],
   },
   {
@@ -15,35 +14,7 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     title: 'QUICK LINKS',
     subtitle: 'one click · instant copy',
     body: [
-      'Add anything you paste constantly into job applications — LinkedIn profile, GitHub, portfolio, personal site, cover letter doc, references sheet. Click a slot to instantly copy its URL. Never hunt for the same link twice.',
-      'Right-click any slot to edit or delete it. You can add up to 8 links. Hit the + button to get started.',
-    ],
-  },
-  {
-    id: 'ai-assistant',
-    title: 'AI ASSISTANT',
-    subtitle: 'the most powerful time saver',
-    body: [
-      'Once your resume is uploaded, the AI will always reference your skills and experience — writing cover letters, first reach outs, and more. Right-click the AI button to instantly paste a job description and quickly generate common deliverables while you continue filling out applications.',
-      `Everyone gets 30 uses a month. Pro users unlock unlimited usage for ${PRO_PRICE_LABEL}. Tech savvy? Bring your own API key in Settings.`,
-    ],
-  },
-  {
-    id: 'music-player',
-    title: 'MUSIC',
-    subtitle: 'youtube player',
-    body: [
-      'Built-in YouTube player to stay in the zone. Hover to open the panel, paste any YouTube URL to queue it up.',
-      'NOTE: Playlist URLs are stored in the database. Remove them anytime if you prefer.',
-    ],
-  },
-  {
-    id: 'workday-bar',
-    title: 'WORKDAY',
-    subtitle: 'application time tracking',
-    body: [
-      'Workday only tracks time spent submitting job applications — nothing else on the app counts. Each time you log a new application, active time is recorded toward your workday.',
-      'The bar shows TRACKING while active and IDLE after 15 minutes without a new submission. No punching in or out required.',
+      'Save links you paste constantly — LinkedIn, GitHub, portfolio. Click to copy. Right-click to edit.',
     ],
   },
   {
@@ -51,26 +22,52 @@ export const JOB_LOG_STEPS: TutorialStep[] = [
     title: 'JOB LOG',
     subtitle: 'tracking rows',
     body: [
-      'Tab through fields fast. Only Company + Title are required to submit — URL, Salary, Rating, Date, and Status are all optional. Columns are fully customizable — show, hide, and reorder them to match exactly how you like to track jobs.',
-      'Use the [■] console icon on a row to open the full detail view. Enable DELETE MODE in the toolbar to remove entries.',
+      'Tab through fields. Only Company + Title required.',
     ],
   },
   {
-    id: 'journal',
-    title: 'JOURNAL',
-    subtitle: 'notes · daily checklist',
+    id: 'job-row-context',
+    title: 'RIGHT-CLICK ANY ROW',
+    subtitle: 'ai · details · jd',
     body: [
-      'A persistent workspace at the bottom of the screen. The NOTES tab is a free-form journal for thoughts, prep notes, and reminders. The CHECKLIST tab is a drag-to-reorder daily task list — add items, check them off, and clear completed ones anytime.',
-      'NOTE: Drag the handle to resize the panel. Your notes and checklist sync automatically to your account.',
+      'Once you have your CV filled out, right-clicking a job row lets you tailor your resume and generate a cover letter for that specific role — instantly.',
     ],
   },
   {
-    id: 'navbar',
-    title: 'NAVIGATION',
-    subtitle: 'pages · settings',
+    id: 'music-player',
+    title: 'MUSIC',
+    subtitle: 'youtube player',
     body: [
-      'JOBS = The page you\'re on now, track all of your job applications\nNETWORK = Where all of your contacts live\nSTATS = Well... stats!\nCREDITS = Developer information and note',
-      'Theme switcher and account settings are in the avatar menu (top right). Press ? anytime to replay this tutorial.',
+      'Hover to open. Paste any YouTube URL to queue it up.',
+    ],
+  },
+]
+
+export const CV_STEPS: TutorialStep[] = [
+  {
+    id: 'cv-header',
+    title: 'YOUR CV',
+    subtitle: 'the engine behind everything',
+    body: [
+      'Every AI feature reads your CV. Aim for 2-3 pages — the more detail you put in, the smarter your tailored resumes and cover letters will be.',
+      'Think of this as your full career dump. Multiple bullet points per role, every skill, every project. When you tailor for a job, the AI automatically trims it to one page — so don\'t worry about length here.',
+    ],
+  },
+  {
+    id: 'cv-dropzone',
+    title: 'IMPORT',
+    subtitle: 'drag · drop · done',
+    body: [
+      'Drop multiple versions of your resume here — PDF, DOCX, or TXT. The AI will parse each one and help you combine all your bullet points into a single master CV.',
+      'Have an old resume, a LinkedIn export, and a skills doc? Drop them all in. The more material you give it, the more complete your CV will be.',
+    ],
+  },
+  {
+    id: 'cv-header',
+    title: 'BUILD MANUALLY',
+    subtitle: 'add section · drag to reorder',
+    body: [
+      'No resume to import? Use ADD SECTION to build from scratch. Drag the handle on any section to reorder. Hit PREVIEW to see the final output.',
     ],
   },
 ]

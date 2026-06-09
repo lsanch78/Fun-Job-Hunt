@@ -56,7 +56,7 @@ export default function NavBar() {
   }, [drawerOpen])
 
   // Pages that support ?tutorial=1 deep-link; others fall back to /jobs
-  const TUTORIAL_PAGES = ['/jobs', '/network']
+  const TUTORIAL_PAGES = ['/cv', '/jobs', '/network']
   function handleTutorial() {
     playProfileBlip()
     if (hasTutorialTrigger()) { fireTutorial(); return }

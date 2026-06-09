@@ -21,6 +21,7 @@ import { JobRow, type JobRowHandle } from '@/components/joblog/JobRow'
 import { useJobLogColumns } from '@/hooks/joblog/useJobLogColumns'
 import { ColumnHeader } from '@/components/joblog/ColumnHeader'
 import { ColumnContextMenu } from '@/components/joblog/ColumnContextMenu'
+import CvNudge from '@/components/hud/CvNudge'
 
 // Inject keyframes once into the document head
 const XP_POP_STYLE = `
@@ -301,17 +302,11 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tutorial: register re-trigger bus + auto-show for first-time visitors
+  // Tutorial: register re-trigger bus (manual ? trigger only)
   useEffect(() => {
     registerTutorialTrigger(() => setShowTutorial(true))
-    if (!userId) return () => { unregisterTutorialTrigger() }
-    const seen = lsGet<boolean>(SK.tutorialSeen(userId, 'job-log'), false)
-    if (!seen) {
-      const id = setTimeout(() => setShowTutorial(true), 800)
-      return () => { clearTimeout(id); unregisterTutorialTrigger() }
-    }
     return () => { unregisterTutorialTrigger() }
-  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -402,6 +397,9 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
           <XpTracker xp={xp} />
         </div>
       </div>
+
+      {/* CV nudge — visible until user has CV content */}
+      {userId && <CvNudge userId={userId} />}
 
       {/* Filter / sort toolbar */}
       <div className="px-4 py-2 border-b border-border flex flex-col gap-y-2">
