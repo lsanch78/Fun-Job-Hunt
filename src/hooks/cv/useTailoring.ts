@@ -187,7 +187,6 @@ export function useTailoring({
           const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
           const parsed = JSON.parse(cleaned) as TailorResult
           setTailorResult(parsed)
-          playAiDing()
 
           const cExperiences = parsed.experiences
             .map((entry) => { const exp = experiences.find((e) => e.id === entry.id); return exp ? { ...exp, bullets: entry.bullets } : null })
@@ -211,6 +210,7 @@ export function useTailoring({
           setTailoredOrder(cOrder)
           freshTailoredRef.current = true
           setTailorPhase('idle')
+          requestAnimationFrame(playAiDing)
         } catch {
           setTailorPhase('error')
           setTimeout(() => setTailorPhase('idle'), 4000)

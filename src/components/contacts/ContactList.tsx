@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { PRO_UPGRADE_CTA_SHORT } from '@/config/pricing'
 import { createPortal } from 'react-dom'
 import { Terminal } from 'pixelarticons/react'
-import { playPingBlip } from '@/lib/sfx'
+import { playPingBlip, playAiDing } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK, type AiMode } from '@/lib/storageKeys'
 import { commCooldownRemaining, formatCooldown } from '@/lib/commSettings'
@@ -760,7 +760,7 @@ export default function ContactList({ contacts, sortBy, sortDir = 'asc', search 
     ai.run({
       system: loadOutreachPrompt(),
       prompt: buildOutreachPrompt(contact, apps ?? [], senderResumeRef.current),
-      onComplete: (result) => setAiDraft(result),
+      onComplete: (result) => { setAiDraft(result); requestAnimationFrame(playAiDing) },
       onError: (msg) => {
         const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
         setAiLimitHit(isLimit)

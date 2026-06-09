@@ -11,7 +11,7 @@ import {
   fetchContactsForJob, fetchContacts, linkContactToJob,
   unlinkContactFromJob, insertContact, updateContact,
 } from '@/services/contactService'
-import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip } from '@/lib/sfx'
+import { playBootBlip, playExitBlip, startTerminalHum, playConsoleBlip, playSaveBlip, playAiDing } from '@/lib/sfx'
 import { T, labelClass, inputClass, textareaClass, ensureCrtStyles, crtTextShadow, crtBoxShadow, CRT_FONT } from '@/lib/crtTheme'
 import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import AiButton from '@/components/ai/AiButton'
@@ -610,7 +610,7 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       model: 'claude-haiku-4-5',
       system: PROMPT_CLEAN_JD,
       prompt: raw,
-      onComplete: (cleaned) => update('description', cleaned),
+      onComplete: (cleaned) => { update('description', cleaned); requestAnimationFrame(playAiDing) },
       onError: (msg) => {
         const isLimit = msg.includes('Monthly limit') || msg.includes('limit reached')
         setAiLimitHit(isLimit)

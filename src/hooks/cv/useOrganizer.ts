@@ -2,6 +2,7 @@ import { useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import { useAI } from '@/hooks/useAI'
+import { playAiDing } from '@/lib/sfx'
 import { PROMPT_CV_ORGANIZE } from '@/config/aiPrompts'
 import type { CVContent, Experience, Education, Project, Summary, Certification, Award, SkillsBucket, MainInfo } from '@/types'
 
@@ -123,6 +124,7 @@ export function useOrganizer({
           setStagingResult(parsed)
           initAcceptedKeys(parsed)
           setImportPhase('idle')
+          requestAnimationFrame(playAiDing)
         } catch {
           setImportPhase('error')
           setImportError('AI returned invalid data.')

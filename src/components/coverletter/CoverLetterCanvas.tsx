@@ -131,7 +131,6 @@ export default function CoverLetterCanvas({
       model: 'claude-haiku-4-5',
       onComplete: (result) => {
         setBody(result.trim())
-        playAiDing()
         freshGeneratedRef.current = true
         setPhase('idle')
         const kws = Array.from(
@@ -166,6 +165,7 @@ export default function CoverLetterCanvas({
             return merged.slice(0, 40)
           })
           setAnglePhase('idle')
+          requestAnimationFrame(playAiDing)
         } catch {
           setAnglePhase('error')
           setTimeout(() => setAnglePhase('idle'), 3000)
