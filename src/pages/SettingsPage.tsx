@@ -354,7 +354,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT} requests/month`
+                  {p === 'proxy'   ? 'Anthropic managed by Fun Job Hunt'
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>
