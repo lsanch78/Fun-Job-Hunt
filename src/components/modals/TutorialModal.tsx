@@ -211,7 +211,7 @@ export default function TutorialModal({ steps, screen, userId, onDone, compact =
             color: T.green,
             borderRadius: '8px',
             textShadow: crtTextShadow,
-            animation: 'console-boot 0.35s ease-out forwards, crt-flicker 8s steps(1,end) 0.35s infinite',
+            animation: 'console-boot 0.35s ease-out forwards',
             boxShadow: crtBoxShadow,
           }}
         >

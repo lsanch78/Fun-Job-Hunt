@@ -16,6 +16,22 @@ export async function fetchCV(
   }
 }
 
+export async function fetchCvIsEmpty(userId: string): Promise<boolean> {
+  const result = await fetchCV(userId)
+  if (!result) return true
+  const { content: c } = result
+  return (
+    !c.mainInfo.fullName?.trim() &&
+    c.experiences.length    === 0 &&
+    c.educations.length     === 0 &&
+    c.projects.length       === 0 &&
+    c.summaries.length      === 0 &&
+    c.certifications.length === 0 &&
+    c.awards.length         === 0 &&
+    c.skills                === null
+  )
+}
+
 export async function upsertCV(
   userId: string,
   content: CVContent,

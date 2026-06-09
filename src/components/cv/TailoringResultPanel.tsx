@@ -1,10 +1,10 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import CVRenderer from './CVRenderer'
 import GlitchOverlay from './GlitchOverlay'
 import CanvasShell from '@/components/canvas/CanvasShell'
 import { T } from '@/lib/crtTheme'
 import { P, CV_FONT } from '@/lib/CVCardTheme'
-import { playCloseBlip } from '@/lib/sfx'
+import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import type { CVContent, ContentChangeEvent, CVRendererHandle } from '@/types'
 import type { TailorResult } from '@/hooks/cv/useTailoring'
 
@@ -58,6 +58,14 @@ export default function TailoringResultPanel({
   onContentChange,
 }: Props) {
   const rendererRef = useRef<CVRendererHandle>(null)
+  const prevQuickWinsPhase = useRef(quickWinsPhase)
+
+  useEffect(() => {
+    if (prevQuickWinsPhase.current === 'thinking' && quickWinsPhase === 'idle') {
+      requestAnimationFrame(playAiDing)
+    }
+    prevQuickWinsPhase.current = quickWinsPhase
+  }, [quickWinsPhase])
 
   // Keep panelRect in sync with the paper element when scan is open
   const updatePanelRect = () => {

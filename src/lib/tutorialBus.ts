@@ -10,3 +10,4 @@ let _activeListener: ((active: boolean) => void) | null = null
 export function registerTutorialActiveListener(fn: (active: boolean) => void) { _activeListener = fn }
 export function unregisterTutorialActiveListener() { _activeListener = null }
 export function broadcastTutorialActive(active: boolean) { _activeListener?.(active) }
+
