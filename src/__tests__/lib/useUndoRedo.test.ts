@@ -94,6 +94,23 @@ describe('useUndoRedo', () => {
     })
   })
 
+  describe('deduplication', () => {
+    it('does not push a history entry when value is identical to current state', () => {
+      const { result } = renderHook(() => useUndoRedo('a'))
+      act(() => result.current.push('a'))
+      expect(result.current.canUndo).toBe(false)
+    })
+
+    it('does not commit debounce entry when value is unchanged after 2s', () => {
+      jest.useFakeTimers()
+      const { result } = renderHook(() => useUndoRedo('a'))
+      act(() => result.current.debouncedPush('a'))
+      act(() => jest.advanceTimersByTime(2000))
+      expect(result.current.canUndo).toBe(false)
+      jest.useRealTimers()
+    })
+  })
+
   describe('reset', () => {
     it('clears all history and sets new initial value', () => {
       const { result } = renderHook(() => useUndoRedo('a'))

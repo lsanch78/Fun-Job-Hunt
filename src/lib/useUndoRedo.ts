@@ -2,6 +2,10 @@ import { useState, useRef, useCallback } from 'react'
 
 const DEFAULT_CAP = 50
 
+function serialize(value: unknown): string {
+  return JSON.stringify(value) ?? ''
+}
+
 interface UndoRedoState<T> {
   state:    T
   canUndo:  boolean
@@ -26,6 +30,7 @@ export function useUndoRedo<T>(initial: T, cap = DEFAULT_CAP): UndoRedoState<T> 
 
   const push = useCallback((value: T) => {
     setState((prev) => {
+      if (serialize(value) === serialize(prev)) return prev
       setPast((p) => {
         const next = [...p, prev]
         return next.length > cap ? next.slice(next.length - cap) : next
@@ -48,9 +53,13 @@ export function useUndoRedo<T>(initial: T, cap = DEFAULT_CAP): UndoRedoState<T> 
 
     debounceTimer.current = setTimeout(() => {
       debounceTimer.current = null
-      setPast((p) => {
-        const next = [...p, snapshotRef.current]
-        return next.length > cap ? next.slice(next.length - cap) : next
+      setState((current) => {
+        if (serialize(current) === serialize(snapshotRef.current)) return current
+        setPast((p) => {
+          const next = [...p, snapshotRef.current]
+          return next.length > cap ? next.slice(next.length - cap) : next
+        })
+        return current
       })
     }, 2000)
   }, [state, cap])
