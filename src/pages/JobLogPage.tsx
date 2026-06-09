@@ -235,10 +235,15 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     setClOpen(true)
   }
 
+  const jobInputDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function handleDraftChange(draft: Job) {
-    // Signal WorkdayBar that the user is actively typing in a job row.
-    // This is a rendering/interaction concern; mobile intentionally omits it.
-    window.dispatchEvent(new Event('fjobhunt:job-input'))
+    // Debounce the activity signal — one event per 300ms burst of keystrokes is
+    // enough to keep the workday timer alive without hammering resetActivity.
+    if (jobInputDebounceRef.current) clearTimeout(jobInputDebounceRef.current)
+    jobInputDebounceRef.current = setTimeout(() => {
+      window.dispatchEvent(new Event('fjobhunt:job-input'))
+    }, 300)
     onDraftChange(draft)
   }
 
