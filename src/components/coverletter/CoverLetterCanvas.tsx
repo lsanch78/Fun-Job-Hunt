@@ -370,7 +370,7 @@ export default function CoverLetterCanvas({
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}>
           <div className="crt-glitch-wrap" style={{ position: 'relative', width: 816, maxWidth: '90%', aspectRatio: '816/1056', border: `1px solid ${T.border}`, overflow: 'hidden', flexShrink: 0 }}>
-            <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 0.04 }} />
+            <div style={{ position: 'absolute', inset: 0, background: '#fff' }} />
             <GlitchOverlay width={816} height={1056} words={glitchWords} />
           </div>
           <div style={{ marginTop: 24, fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.2em', color: T.green }}>
