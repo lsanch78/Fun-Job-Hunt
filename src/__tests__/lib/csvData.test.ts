@@ -53,6 +53,11 @@ describe('buildCombinedCSV', () => {
     expect(csv).toContain('PHONE SCREEN')
   })
 
+  it('includes location in job row', () => {
+    const csv = buildCombinedCSV([makeJob({ location: 'San Francisco, CA' })], [])
+    expect(csv).toContain('San Francisco, CA')
+  })
+
   it('includes contact name and email', () => {
     const csv = buildCombinedCSV([], [makeContact()])
     expect(csv).toContain('Ada Lovelace')

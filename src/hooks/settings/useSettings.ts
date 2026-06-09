@@ -2,16 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchJobsForExport, deleteAllJobs, readAutoGhostSetting, writeAutoGhostSetting } from '@/services/jobService'
 import { fetchContacts, deleteAllContacts } from '@/services/contactService'
 import { deleteAllTailoredResumes } from '@/services/tailoredResumeService'
+import { deleteAllCoverLetters } from '@/services/coverLetterService'
+import { deleteCV } from '@/services/cvService'
 import { deleteAllHeartbeats } from '@/services/activityTimerService'
 import { buildCombinedCSV } from '@/lib/csvData'
 import { COMM_COOLDOWN_OPTIONS, getCommCooldownHours, setCommCooldownHours } from '@/lib/commSettings'
-import { lsGet, lsSet, lsRemove } from '@/lib/storage'
+import { lsRemove } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateUsername } from '@/services/authService'
 import { resetEmployed, resetProfileXp } from '@/services/xpService'
 import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage } from '@/services/aiService'
-import type { AiProvider, AiMode, CommCooldownHours } from '@/types'
+import type { AiProvider, CommCooldownHours } from '@/types'
 import { upsertJournal } from '@/services/journalService'
 import { deleteAllTracks } from '@/services/musicService'
 import { deleteAllLinks } from '@/services/quickCastService'
@@ -37,7 +39,6 @@ export function useSettings() {
   const [editingName,    setEditingName]    = useState(false)
   const [nameSaving,     setNameSaving]     = useState(false)
   const [commCooldown,   setCommCooldown]   = useState<CommCooldownHours>(168)
-  const [aiMode,         setAiModeState]    = useState<AiMode>('ai-first')
   const [aiProvider,     setAiProviderState] = useState<AiProvider>(() => getAiProvider())
   const [aiApiKey,       setAiApiKeyState]  = useState<string>(() => getAiApiKey())
   const [apiKeyVisible,  setApiKeyVisible]  = useState(false)
@@ -48,7 +49,6 @@ export function useSettings() {
 
   useEffect(() => {
     if (!userId) return
-    setAiModeState(lsGet<AiMode>(SK.aiMode(userId), 'ai-first'))
     setCommCooldown(getCommCooldownHours(userId))
     setNameInput(username)
     if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
@@ -97,15 +97,6 @@ export function useSettings() {
     writeAutoGhostSetting({ enabled: ghostEnabled, days: parsed })
   }
 
-  function handleAiModeChange(mode: AiMode) {
-    if (!userId) return
-    const wasOff = aiMode === 'off'
-    const willBeOff = mode === 'off'
-    setAiModeState(mode)
-    lsSet(SK.aiMode(userId), mode)
-    if (wasOff !== willBeOff) window.location.reload()
-  }
-
   function handleProviderChange(p: AiProvider) {
     setAiProviderState(p)
     setAiProvider(p)
@@ -147,6 +138,8 @@ export function useSettings() {
       deleteAllHeartbeats(userId),
       deleteAllContacts(userId),
       deleteAllTailoredResumes(userId),
+      deleteAllCoverLetters(userId),
+      deleteCV(userId),
       deleteAllTracks(userId),
       deleteAllLinks(userId),
       resetProfileXp(userId),
@@ -162,13 +155,6 @@ export function useSettings() {
       `xp:${userId}`,
       SK.musicTracks,
       SK.musicResume,
-      SK.aiMode(userId),
-      SK.aiModalSlots(userId),
-      `ai_panel_slots_${userId}`,
-      `fjobhunt:ai-panel-slots:${userId}`,
-      SK.aiModalText(userId),
-      `ai_panel_resume_text_${userId}`,
-      `fjobhunt:ai-panel-text:${userId}`,
       SK.commCooldown(userId),
       `fjobhunt:${userId}:comm-cooldown-hours`,
       SK.quickcastLinks(userId),
@@ -219,7 +205,6 @@ export function useSettings() {
     editingName, setEditingName,
     nameSaving,
     commCooldown,
-    aiMode,
     aiProvider,
     aiApiKey, setAiApiKeyState,
     apiKeyVisible, setApiKeyVisible,
@@ -229,7 +214,6 @@ export function useSettings() {
     handleSaveName,
     handleGhostToggle,
     handleGhostDaysBlur,
-    handleAiModeChange,
     handleProviderChange,
     handleSaveApiKey,
     handleDeleteJobs,

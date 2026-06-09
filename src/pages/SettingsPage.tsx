@@ -1,4 +1,5 @@
 import { useTheme, type CustomColors, DEFAULT_CUSTOM_COLORS } from '@/contexts/ThemeContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { THEMES, type Theme } from '@/config/game'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 import { AI_MONTHLY_LIMIT } from '@/services/aiService'
@@ -28,6 +29,7 @@ const COLOR_LABELS: Record<keyof CustomColors, string> = {
 
 export default function SettingsPage() {
   const { theme, setTheme, customColors, setCustomColors } = useTheme()
+  const { loading: subscriptionLoading } = useSubscription()
 
   const {
     username,
@@ -43,7 +45,6 @@ export default function SettingsPage() {
     editingName, setEditingName,
     nameSaving,
     commCooldown,
-    aiMode,
     aiProvider,
     aiApiKey, setAiApiKeyState,
     apiKeyVisible, setApiKeyVisible,
@@ -53,7 +54,6 @@ export default function SettingsPage() {
     handleSaveName,
     handleGhostToggle,
     handleGhostDaysBlur,
-    handleAiModeChange,
     handleProviderChange,
     handleSaveApiKey,
     handleDeleteJobs,
@@ -294,10 +294,9 @@ export default function SettingsPage() {
 
       <section className="mt-12">
         <h2 className="text-sm mb-6 text-secondary">SUBSCRIPTION</h2>
-        {checkoutPending && !isSubscribed && (
-          <p className="text-xs text-secondary px-1 mb-3">Confirming payment...</p>
-        )}
-        {isSubscribed ? (
+        {(subscriptionLoading || checkoutPending) && !isSubscribed ? (
+          <span className="text-secondary text-[8px] leading-none animate-pixel-spin inline-block">▪</span>
+        ) : isSubscribed ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-primary px-1">
               {'> '}Pro —{' '}
@@ -311,7 +310,7 @@ export default function SettingsPage() {
                 Your plan will not renew. You keep Pro access until the date above.
               </p>
             )}
-            <p className="text-[10px] text-muted px-1">Unlimited AI generations</p>
+            <p className="text-[10px] text-muted px-1">Unlimited AI requests</p>
             <button
               onClick={handleManageSubscription}
               className="text-left text-xs px-4 py-3 border-2 border-muted text-muted hover:border-red-500 hover:text-red-500 transition-none w-fit"
@@ -322,10 +321,10 @@ export default function SettingsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Free tier: {AI_MONTHLY_LIMIT}/mo
+              Free tier: {AI_MONTHLY_LIMIT} AI requests/month
             </p>
             <p className="text-[10px] text-muted px-1 leading-relaxed">
-              Pro: Unlimited AI generations
+              Pro: Unlimited AI requests
             </p>
             <button
               onClick={handleUpgrade}
@@ -342,29 +341,6 @@ export default function SettingsPage() {
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <label className="text-muted text-[10px] tracking-widest">AI MODE</label>
-            {([
-              ['ai-first',    'AI-First',    'AI writes for you — cover letters, responses, drafts'],
-              ['human-first', 'Human-First', 'AI coaches you — talking points and questions, you write it'],
-              ['off',         'Off',         'Hide all AI buttons'],
-            ] as const).map(([mode, title, desc]) => (
-              <button
-                key={mode}
-                onClick={() => handleAiModeChange(mode)}
-                className={`text-left text-xs px-4 py-3 border-2 transition-none ${
-                  aiMode === mode
-                    ? 'border-primary text-primary'
-                    : 'border-muted text-muted hover:border-secondary hover:text-secondary'
-                }`}
-              >
-                {aiMode === mode ? '> ' : '  '}{title}
-                <span className="block text-[10px] text-muted mt-0.5 font-pixel">{desc}</span>
-              </button>
-            ))}
-          </div>
-
-          {aiMode !== 'off' && <>
-          <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
             <div className="flex flex-col gap-2">
               {(['proxy', 'openai', 'anthropic'] as const).map((p) => (
@@ -378,7 +354,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
+                  {p === 'proxy'   ? 'Anthropic managed by Fun Job Hunt'
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>
@@ -386,7 +362,7 @@ export default function SettingsPage() {
             </div>
             {aiProvider === 'proxy' && aiUsage && (
               <p className="text-[10px] text-muted px-1">
-                {aiUsage.count}/{aiUsage.limit} generations used this month
+                {aiUsage.count}/{aiUsage.limit} requests used this month
               </p>
             )}
           </div>
@@ -420,7 +396,6 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
-          </>}
         </div>
       </section>
 
@@ -430,7 +405,7 @@ export default function SettingsPage() {
           <div className="bg-bg border-2 border-red-500 p-8 flex flex-col gap-5 w-full max-w-md font-pixel">
             <h2 className="text-sm text-red-500">FULL RESET</h2>
             <p className="text-xs text-red-400 leading-relaxed">
-              This permanently deletes ALL jobs, contacts, activity logs, resumes, music playlists, and journal, and resets your XP to 0. This cannot be undone.
+              This permanently deletes ALL jobs, contacts, activity logs, CV, tailored resumes, cover letters, music playlists, and journal, and resets your XP to 0. This cannot be undone.
             </p>
             <div className="flex flex-col gap-2">
               <label className="text-[10px] text-muted tracking-widest">TYPE TO CONFIRM</label>

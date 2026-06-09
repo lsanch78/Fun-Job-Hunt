@@ -1,7 +1,5 @@
 export type AiProvider = 'proxy' | 'openai' | 'anthropic'
 
-export type AiMode = 'ai-first' | 'human-first' | 'off'
-
 export type AiPhase = 'idle' | 'generating' | 'ready'
 
 

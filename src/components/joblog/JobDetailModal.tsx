@@ -17,8 +17,6 @@ import ContactDetailModal from '@/components/contacts/ContactDetailModal'
 import AiButton from '@/components/ai/AiButton'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { useSubscription } from '@/contexts/SubscriptionContext'
-import { lsGet } from '@/lib/storage'
-import { SK, type AiMode } from '@/lib/storageKeys'
 import { PROMPT_CLEAN_JD } from '@/config/aiPrompts'
 import { useJobDetail } from '@/hooks/joblog/useJobDetail'
 
@@ -437,7 +435,6 @@ export function TailoredResumePreviewModal({ resumeId, onClose }: { resumeId: st
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 
 export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange, fullScreen = false, initialPage = 1 }: JobDetailModalProps) {
-  const aiMode = lsGet<AiMode>(SK.aiMode(userId ?? ''), 'ai-first')
   const [page, setPage] = useState<1 | 2>(initialPage)
   const [salaryRaw, setSalaryRaw] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
@@ -627,14 +624,14 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-0.5">
           <div className={labelClass} style={{ color: T.greenDim }}>Job Description</div>
-          {aiMode !== 'off' && <AiButton
+          <AiButton
             label="CLEAN JD"
             phase={ai.phase}
             dots={ai.dots}
             onClick={handleCleanJD}
             disabled={ai.phase !== 'idle' || !job.description?.trim()}
             title={ai.phase === 'generating' ? 'Generating…' : ai.phase === 'ready' ? 'Done!' : 'Use AI to clean up formatting'}
-          />}
+          />
         </div>
         {aiLimitHit && (
           <div className="mb-1 flex items-center gap-2" style={{ fontSize: CRT_FONT.chrome }}>

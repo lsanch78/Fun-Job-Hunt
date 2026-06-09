@@ -1,8 +1,6 @@
 // Single source of truth for every localStorage key used in the app.
 // Import SK from here — never hard-code key strings anywhere else.
 
-export type { AiMode } from '@/types'
-
 export const SK = {
   // ── Activity timer ────────────────────────────────────────────────────────────
   activityHeartbeats: (uid: string) => `fjobhunt:activity-heartbeats:${uid}`,
@@ -25,11 +23,9 @@ export const SK = {
   outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 
   // ── AI assistant ─────────────────────────────────────────────────────────────
-  aiMode:       (uid: string) => `fjobhunt:ai:mode:${uid}`,
-  aiProvider:   'fjobhunt:ai:provider',
-  aiApiKey:     'fjobhunt:ai:apikey',
-  aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,
-  aiModalText:  (uid: string) => `fjobhunt:ai-modal-text:${uid}`,
+  aiProvider: 'fjobhunt:ai:provider',
+  aiApiKey:   'fjobhunt:ai:apikey',
+
   // ── Theme & display ──────────────────────────────────────────────────────────
   theme:        'fjobhunt:theme',
   customColors: 'fjobhunt:custom-colors',
