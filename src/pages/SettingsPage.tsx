@@ -45,7 +45,6 @@ export default function SettingsPage() {
     editingName, setEditingName,
     nameSaving,
     commCooldown,
-    aiMode,
     aiProvider,
     aiApiKey, setAiApiKeyState,
     apiKeyVisible, setApiKeyVisible,
@@ -55,7 +54,6 @@ export default function SettingsPage() {
     handleSaveName,
     handleGhostToggle,
     handleGhostDaysBlur,
-    handleAiModeChange,
     handleProviderChange,
     handleSaveApiKey,
     handleDeleteJobs,
@@ -343,29 +341,6 @@ export default function SettingsPage() {
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <label className="text-muted text-[10px] tracking-widest">AI MODE</label>
-            {([
-              ['ai-first',    'AI-First',    'AI writes for you — cover letters, responses, drafts'],
-              ['human-first', 'Human-First', 'AI coaches you — talking points and questions, you write it'],
-              ['off',         'Off',         'Hide all AI buttons'],
-            ] as const).map(([mode, title, desc]) => (
-              <button
-                key={mode}
-                onClick={() => handleAiModeChange(mode)}
-                className={`text-left text-xs px-4 py-3 border-2 transition-none ${
-                  aiMode === mode
-                    ? 'border-primary text-primary'
-                    : 'border-muted text-muted hover:border-secondary hover:text-secondary'
-                }`}
-              >
-                {aiMode === mode ? '> ' : '  '}{title}
-                <span className="block text-[10px] text-muted mt-0.5 font-pixel">{desc}</span>
-              </button>
-            ))}
-          </div>
-
-          {aiMode !== 'off' && <>
-          <div className="flex flex-col gap-2">
             <label className="text-muted text-[10px] tracking-widest">AI PROVIDER</label>
             <div className="flex flex-col gap-2">
               {(['proxy', 'openai', 'anthropic'] as const).map((p) => (
@@ -379,7 +354,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   {aiProvider === p ? '> ' : '  '}
-                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT}/month`
+                  {p === 'proxy'   ? `Claude managed by F Jobhunt — free, ${AI_MONTHLY_LIMIT} requests/month`
                     : p === 'openai' ? 'OpenAI (your key)'
                     :                  'Anthropic (your key)'}
                 </button>
@@ -387,7 +362,7 @@ export default function SettingsPage() {
             </div>
             {aiProvider === 'proxy' && aiUsage && (
               <p className="text-[10px] text-muted px-1">
-                {aiUsage.count}/{aiUsage.limit} generations used this month
+                {aiUsage.count}/{aiUsage.limit} requests used this month
               </p>
             )}
           </div>
@@ -421,7 +396,6 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
-          </>}
         </div>
       </section>
 

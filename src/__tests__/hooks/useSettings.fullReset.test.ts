@@ -204,12 +204,6 @@ describe('handleFullReset', () => {
     expect(localStorage.getItem(SK.xp(USER_ID))).toBeNull()
   })
 
-  it('clears AI mode localStorage key', async () => {
-    localStorage.setItem(SK.aiMode(USER_ID), 'off')
-    await runFullReset()
-    expect(localStorage.getItem(SK.aiMode(USER_ID))).toBeNull()
-  })
-
   it('clears journal localStorage keys', async () => {
     localStorage.setItem(SK.journal(USER_ID), 'notes')
     localStorage.setItem(SK.journalList(USER_ID), '[]')
