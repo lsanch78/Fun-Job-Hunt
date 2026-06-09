@@ -38,6 +38,7 @@ function dbJobToJob(row: DbJob): Job {
     location:        row.location ?? '',
     committed:       true,
     saving:          false,
+    hasDescription:  row.has_description,
     tailoredResumeId: row.tailored_resume_id ?? undefined,
     coverLetterId:   row.cover_letter_id   ?? undefined,
     // Description and notes are intentionally omitted here — they're lazy-loaded
@@ -56,6 +57,7 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     rating:       job.rating,
     salary:       job.salary || null,
     location:     job.location || null,
+    has_description:   !!(job.description),
     description:       job.description ?? null,
     notes:             job.notes ?? null,
     tailored_resume_id: job.tailoredResumeId ?? null,
@@ -91,7 +93,7 @@ export function writeCache(userId: string, jobs: Job[]): void {
 export async function fetchJobs(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,location,tailored_resume_id,cover_letter_id')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,location,has_description,tailored_resume_id,cover_letter_id')
     .eq('user_id', userId)
     .order('applied_at', { ascending: false })
 

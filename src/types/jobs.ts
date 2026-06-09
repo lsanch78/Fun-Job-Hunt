@@ -18,6 +18,7 @@ export interface DbJob {
   rating: number
   salary: string | null
   location: string | null
+  has_description: boolean
   description: string | null
   notes: string | null
   tailored_resume_id: string | null
@@ -36,6 +37,7 @@ export interface Job {
   location: string
   committed: boolean
   saving?: boolean
+  hasDescription?: boolean
   description?: string
   notes?: string
   tailoredResumeId?: string

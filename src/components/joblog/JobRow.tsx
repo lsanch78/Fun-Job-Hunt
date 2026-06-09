@@ -260,8 +260,9 @@ function SalaryCell({ value, onChange, onEnter }: {
 // ── Editable detail cell (JD / Contacts / Notes) ─────────────────────────────
 const PREVIEW_LIMIT = 200
 
-function DetailCell({ value, onChange, onBlur, onEnter, placeholder, onOpenDetail, isNewRow }: {
+function DetailCell({ value, hasContent, onChange, onBlur, onEnter, placeholder, onOpenDetail, isNewRow }: {
   value?: string
+  hasContent?: boolean
   onChange: (v: string) => void
   onBlur: () => void
   onEnter?: () => void
@@ -310,7 +311,7 @@ function DetailCell({ value, onChange, onBlur, onEnter, placeholder, onOpenDetai
         onClick={onOpenDetail}
         onMouseEnter={startHoverTimer}
         onMouseLeave={clearHoverTimer}
-        className={`font-pixel text-[9px] leading-none transition-colors ${value ? 'text-yellow-400 hover:text-yellow-200' : 'text-muted opacity-30 hover:opacity-60'}`}
+        className={`font-pixel text-[9px] leading-none transition-colors ${(value || hasContent) ? 'text-yellow-400 hover:text-yellow-200' : 'text-muted opacity-30 hover:opacity-60'}`}
         title="Open detail view"
       >
         {'<>'}
@@ -485,7 +486,7 @@ export const JobRow = forwardRef<JobRowHandle, {
       case 'status':
         return <StatusCell key="status" status={draft.status} onStatusChange={handleStatusChange} />
       case 'jd':
-        return <DetailCell key="jd" value={draft.description} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onEnter={committed ? undefined : tryCommit} onOpenDetail={committed ? (onOpenDetailPage2 ?? onOpenDetail) : undefined} isNewRow={!committed} />
+        return <DetailCell key="jd" value={draft.description} hasContent={draft.hasDescription} placeholder="Description" onChange={(v) => update('description', v)} onBlur={() => onDetailBlur?.(draft)} onEnter={committed ? undefined : tryCommit} onOpenDetail={committed ? (onOpenDetailPage2 ?? onOpenDetail) : undefined} isNewRow={!committed} />
       case 'notes':
         return <DetailCell key="notes" value={draft.notes} placeholder="Notes" onChange={(v) => update('notes', v)} onBlur={() => onDetailBlur?.(draft)} onEnter={committed ? undefined : tryCommit} onOpenDetail={committed ? onOpenDetail : undefined} isNewRow={!committed} />
       default:
