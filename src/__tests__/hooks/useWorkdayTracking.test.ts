@@ -176,6 +176,28 @@ describe('doPunchOut', () => {
   })
 })
 
+// ── page reload with stale session (regression) ───────────────────────────────
+
+describe('stale session recovery after page reload', () => {
+  // Regression: lastActivityRef was initialised to Date.now() on every mount,
+  // so reloading the page gave a stale session a fresh 15-minute lease indefinitely.
+  // Fix: initialise lastActivityRef from the stored punch-in timestamp instead.
+  it('auto-punches-out a session that was already idle before the page loaded', async () => {
+    // Simulate a punch-in that happened 7 days ago by writing directly to localStorage
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    localStorage.setItem('fjobhunt:workday:punch-in', sevenDaysAgo.toISOString())
+    localStorage.setItem('fjobhunt:workday:id', 'wd-stale')
+
+    // Mount the hook — this simulates a page reload with a stale session in storage
+    renderHook(() => useWorkdayTracking(USER_ID))
+
+    // One interval tick is enough — idleMs will be 7 days, far past the 15-minute threshold
+    await act(async () => { jest.advanceTimersByTime(30_000) })
+
+    expect(endWorkday).toHaveBeenCalledWith('wd-stale', expect.any(Date))
+  })
+})
+
 // ── fjobhunt:job-input event ──────────────────────────────────────────────────
 
 describe('fjobhunt:job-input window event', () => {

@@ -38,7 +38,9 @@ import type { WorkdayTrackingState } from '@/types'
  */
 export function useWorkdayTracking(userId: string | null): WorkdayTrackingState {
   const [punchIn, setPunchIn] = useState<Date | null>(() => loadPunchIn())
-  const lastActivityRef = useRef<number>(Date.now())
+  // Initialise from the stored punch-in time, not Date.now() — otherwise a page
+  // reload resets the idle clock and stale sessions never auto-close.
+  const lastActivityRef = useRef<number>(loadPunchIn()?.getTime() ?? Date.now())
 
   // ── Punch-out ───────────────────────────────────────────────────────────────
 
