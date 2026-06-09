@@ -4,6 +4,7 @@ import { useCVState } from '@/hooks/cv/useCVState'
 import { useTailoredResume } from '@/hooks/cv/useTailoredResume'
 import { useTailoring } from '@/hooks/cv/useTailoring'
 import { useOrganizer } from '@/hooks/cv/useOrganizer'
+import { ensureCrtStyles } from '@/lib/crtTheme'
 import type { CVCanvasHandle, Experience, Education, Project, SkillsBucket, Summary, Certification, Award } from '@/types'
 import MainInfoCard from './MainInfoCard'
 import ExperienceCard from './ExperienceCard'
@@ -23,34 +24,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString()
 
-// ── Animation keyframes (used by TailoringResultPanel's thinking screen) ──────
-const TITLE_STYLE_ID = 'cv-title-styles'
-if (typeof document !== 'undefined' && !document.getElementById(TITLE_STYLE_ID)) {
-  const el = document.createElement('style')
-  el.id = TITLE_STYLE_ID
-  el.textContent = `
-@keyframes crt-glitch-h {
-  0%,100% { transform: translateX(0); }
-  20%     { transform: translateX(-4px); }
-  40%     { transform: translateX(3px); }
-  60%     { transform: translateX(-2px); }
-  80%     { transform: translateX(1px); }
-}
-@keyframes crt-flicker2 {
-  0%,100% { opacity: 1; }
-  50%     { opacity: 0.85; }
-}
-.crt-glitch-wrap {
-  animation: crt-glitch-h 0.18s steps(1) infinite, crt-flicker2 0.6s ease-in-out infinite;
-  filter: saturate(0) contrast(1.4) brightness(0.7) hue-rotate(80deg);
-  pointer-events: none;
-  user-select: none;
-}
-@keyframes crt-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
-.crt-blink { animation: crt-blink 1s step-start infinite; }
-`
-  document.head.appendChild(el)
-}
+ensureCrtStyles()
 
 // ── id helper ─────────────────────────────────────────────────────────────────
 let _seq = 0

@@ -35,6 +35,25 @@ export const inputClass    = 'bg-transparent outline-none w-full px-1 py-0.5 lea
 export const textareaClass = `${inputClass} resize-none`
 
 const CRT_CSS = `
+@keyframes crt-glitch-h {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-4px); }
+  40%     { transform: translateX(3px); }
+  60%     { transform: translateX(-2px); }
+  80%     { transform: translateX(1px); }
+}
+@keyframes crt-flicker2 {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.85; }
+}
+.crt-glitch-wrap {
+  animation: crt-glitch-h 0.18s steps(1) infinite, crt-flicker2 0.6s ease-in-out infinite;
+  filter: saturate(0) contrast(1.4) brightness(0.7) hue-rotate(80deg);
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes crt-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+.crt-blink { animation: crt-blink 1s step-start infinite; }
 @keyframes console-boot {
   0%   { opacity: 0; transform: scaleY(0.04) scaleX(0.98); filter: brightness(4); }
   40%  { opacity: 1; transform: scaleY(1.08) scaleX(1);    filter: brightness(1.2); }
