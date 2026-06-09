@@ -35,6 +35,7 @@ function dbJobToJob(row: DbJob): Job {
     applicationDate: row.applied_at,
     rating:          row.rating ?? 0,
     salary:          row.salary ?? '',
+    location:        row.location ?? '',
     committed:       true,
     saving:          false,
     tailoredResumeId: row.tailored_resume_id ?? undefined,
@@ -54,6 +55,7 @@ function jobToDbInsert(job: Job, userId: string): DbJob {
     applied_at:   job.applicationDate,
     rating:       job.rating,
     salary:       job.salary || null,
+    location:     job.location || null,
     description:       job.description ?? null,
     notes:             job.notes ?? null,
     tailored_resume_id: job.tailoredResumeId ?? null,
@@ -70,6 +72,7 @@ function jobToDbUpdate(job: Job): Partial<Omit<DbJob, 'id' | 'user_id'>> {
     applied_at:   job.applicationDate,
     rating:       job.rating,
     salary:       job.salary || null,
+    location:     job.location || null,
   }
 }
 
@@ -88,7 +91,7 @@ export function writeCache(userId: string, jobs: Job[]): void {
 export async function fetchJobs(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,tailored_resume_id,cover_letter_id')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,location,tailored_resume_id,cover_letter_id')
     .eq('user_id', userId)
     .order('applied_at', { ascending: false })
 
@@ -147,6 +150,7 @@ function validateCoreFields(job: Job): string | null {
   if (job.title.length     > JOB_LIMITS.title)      return `Job title must be ${JOB_LIMITS.title} characters or less`
   if (job.postingUrl.length > JOB_LIMITS.postingUrl) return `Posting URL must be ${JOB_LIMITS.postingUrl} characters or less`
   if (job.salary.length    > JOB_LIMITS.salary)     return `Salary must be ${JOB_LIMITS.salary} characters or less`
+  if (job.location.length  > JOB_LIMITS.location)   return `Location must be ${JOB_LIMITS.location} characters or less`
   return null
 }
 
@@ -189,7 +193,7 @@ export async function updateJob(job: Job): Promise<{ error: string | null }> {
 export async function fetchJobsForExport(userId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,description,notes')
+    .select('id,user_id,title,company,status,posting_url,applied_at,rating,salary,location,description,notes')
     .eq('user_id', userId)
     .order('applied_at', { ascending: false })
 

@@ -45,6 +45,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     applicationDate: '2025-01-01T00:00:00.000Z',
     rating: 0,
     salary: '',
+    location: '',
     committed: true,
     saving: false,
     ...overrides,
