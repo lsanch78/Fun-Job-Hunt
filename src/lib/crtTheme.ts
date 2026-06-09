@@ -47,8 +47,7 @@ const CRT_CSS = `
   50%     { opacity: 0.85; }
 }
 .crt-glitch-wrap {
-  animation: crt-glitch-h 0.18s steps(1) infinite, crt-flicker2 0.6s ease-in-out infinite;
-  filter: saturate(0) contrast(1.4) brightness(0.7) hue-rotate(80deg);
+  filter: contrast(1.4) brightness(0.7);
   pointer-events: none;
   user-select: none;
 }
