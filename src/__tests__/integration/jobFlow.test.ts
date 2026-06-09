@@ -60,6 +60,7 @@ function makeCommittedJob(overrides = {}) {
     applicationDate: new Date().toISOString(),
     rating: 0,
     salary: '',
+    location: '',
     committed: true,
     saving: false,
     ...overrides,

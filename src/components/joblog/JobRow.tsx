@@ -459,6 +459,19 @@ export const JobRow = forwardRef<JobRowHandle, {
         )
       case 'salary':
         return <SalaryCell key="salary" value={draft.salary} onChange={(v) => update('salary', v)} onEnter={tryCommit} />
+      case 'location':
+        return (
+          <td key="location" className="px-2 py-1 min-w-[100px]">
+            <input
+              className={cellInput}
+              placeholder="Location"
+              value={draft.location}
+              maxLength={JOB_LIMITS.location}
+              onChange={(e) => update('location', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && tryCommit()}
+            />
+          </td>
+        )
       case 'rating':
         return (
           <td key="rating" className="px-2 py-1 min-w-[90px]">

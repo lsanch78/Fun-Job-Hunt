@@ -539,6 +539,10 @@ export default function JobDetailModal({ jobs, jobId, userId, onClose, onChange,
         <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.postingUrl} maxLength={JOB_LIMITS.postingUrl} onChange={(e) => update('postingUrl', e.target.value)} placeholder="https://…" />
       </div>
       <div>
+        <div className={labelClass} style={{ color: T.greenDim }}>Location</div>
+        <input className={inputClass} style={{ color: T.green, borderColor: T.border, caretColor: T.green, fontSize: CRT_FONT.body }} value={job.location} maxLength={JOB_LIMITS.location} onChange={(e) => update('location', e.target.value)} placeholder="City, Remote, Hybrid…" />
+      </div>
+      <div>
         <div className={labelClass} style={{ color: T.greenDim }}>Salary</div>
         <input
           className={inputClass}

@@ -27,6 +27,7 @@ function emptyJob(): Job {
     applicationDate: today(),
     rating: 0,
     salary: '',
+    location: '',
     committed: false,
     saving: false,
   }
@@ -193,6 +194,7 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
       applicationDate: today(),
       rating: 0,
       salary: '',
+      location: '',
       committed: true,
       saving: false,
     }
