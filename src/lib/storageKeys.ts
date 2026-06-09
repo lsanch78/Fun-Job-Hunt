@@ -25,11 +25,10 @@ export const SK = {
   outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 
   // ── AI assistant ─────────────────────────────────────────────────────────────
-  aiMode:       (uid: string) => `fjobhunt:ai:mode:${uid}`,
-  aiProvider:   'fjobhunt:ai:provider',
-  aiApiKey:     'fjobhunt:ai:apikey',
-  aiModalSlots: (uid: string) => `fjobhunt:ai-modal-slots:${uid}`,
-  aiModalText:  (uid: string) => `fjobhunt:ai-modal-text:${uid}`,
+  aiMode:     (uid: string) => `fjobhunt:ai:mode:${uid}`,
+  aiProvider: 'fjobhunt:ai:provider',
+  aiApiKey:   'fjobhunt:ai:apikey',
+
   // ── Theme & display ──────────────────────────────────────────────────────────
   theme:        'fjobhunt:theme',
   customColors: 'fjobhunt:custom-colors',
