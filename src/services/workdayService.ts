@@ -54,6 +54,34 @@ export async function deleteAllWorkdays(userId: string): Promise<{ error: string
   return { error: error?.message ?? null }
 }
 
+// Closes any open sessions (punch_out IS NULL) whose punch_in is older than
+// IDLE_MS. Sets punch_out = punch_in + IDLE_MS as a conservative close time.
+// Called on mount to self-heal sessions that were never closed (e.g. tab crash,
+// pre-fix stale sessions).
+export async function closeAbandonedSessions(userId: string, idleMs: number): Promise<void> {
+  const cutoff = new Date(Date.now() - idleMs).toISOString()
+
+  const { data, error } = await supabase
+    .from('workdays')
+    .select('id,punch_in')
+    .eq('user_id', userId)
+    .is('punch_out', null)
+    .lt('punch_in', cutoff)
+
+  if (error) {
+    console.error('[workdayService] closeAbandonedSessions:', error.message)
+    return
+  }
+
+  const rows = (data ?? []) as { id: string; punch_in: string }[]
+  await Promise.all(
+    rows.map((row) => {
+      const punch_out = new Date(new Date(row.punch_in).getTime() + idleMs).toISOString()
+      return supabase.from('workdays').update({ punch_out }).eq('id', row.id)
+    })
+  )
+}
+
 // Fetch all workday rows for a user, newest first.
 export async function fetchWorkdays(userId: string): Promise<WorkdayRow[]> {
   const { data, error } = await supabase
