@@ -23,7 +23,6 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import MobileUnsupported from '@/components/shell/MobileUnsupported'
 import LandingPage from '@/pages/LandingPage'
 import CVPage from '@/pages/CVPage'
-import DevGlitchPage from '@/pages/DevGlitchPage'
 
 const DEV_BYPASS = import.meta.env['VITE_DEV_BYPASS'] === 'true'
 
@@ -110,7 +109,6 @@ function AppRoutes() {
         <Route path="/settings" element={<ProtectedRoute><MobileGatedRoute><SettingsPage /></MobileGatedRoute></ProtectedRoute>} />
         <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
         <Route path="/dev" element={<ProtectedRoute><MobileGatedRoute><DevPortalPage /></MobileGatedRoute></ProtectedRoute>} />
-        <Route path="/devglitch" element={<DevGlitchPage />} />
         <Route path="/cv" element={<ProtectedRoute><MobileGatedRoute><CVPage /></MobileGatedRoute></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
