@@ -218,6 +218,51 @@ describe('stale session recovery after page reload', () => {
   })
 })
 
+// ── duplicate session guard ───────────────────────────────────────────────────
+
+describe('duplicate session guard', () => {
+  // Two resetActivity calls in the same tick — only one startWorkday must fire.
+  // The 'pending' sentinel written to localStorage before the async insert
+  // resolves is what blocks the second call.
+  it('calling resetActivity twice rapidly only starts one workday', async () => {
+    const { result } = renderHook(() => useWorkdayTracking(USER_ID))
+
+    await act(async () => {
+      result.current.resetActivity()
+      result.current.resetActivity()
+    })
+
+    expect(startWorkday).toHaveBeenCalledTimes(1)
+  })
+
+  // If startWorkday returns null (DB constraint violation — a duplicate was
+  // rejected), the workdayId must be cleared so the next session can start fresh.
+  it('clears workdayId when startWorkday returns null (constraint violation)', async () => {
+    ;(startWorkday as jest.Mock).mockResolvedValueOnce(null)
+    const { result } = renderHook(() => useWorkdayTracking(USER_ID))
+
+    await act(async () => { result.current.resetActivity() })
+    await act(async () => {}) // let the promise resolve
+
+    // workdayId must not be 'pending' or a stale value — punch-out must not
+    // attempt to call endWorkday with a bad id
+    act(() => { result.current.doPunchOut() })
+    expect(endWorkday).not.toHaveBeenCalled()
+  })
+
+  // If a workdayId is already stored (session already open from a prior mount),
+  // resetActivity must not start a second one even if punchIn state is null.
+  it('does not call startWorkday if workdayId is already in localStorage', async () => {
+    localStorage.setItem('fjobhunt:workday:id', 'wd-existing')
+    const { result } = renderHook(() => useWorkdayTracking(USER_ID))
+
+    await act(async () => { result.current.resetActivity() })
+    await act(async () => {})
+
+    expect(startWorkday).not.toHaveBeenCalled()
+  })
+})
+
 // ── fjobhunt:job-input event ──────────────────────────────────────────────────
 
 describe('fjobhunt:job-input window event', () => {
@@ -232,5 +277,20 @@ describe('fjobhunt:job-input window event', () => {
 
     expect(result.current.isPunchedIn).toBe(true)
     expect(startWorkday).toHaveBeenCalled()
+  })
+
+  // Multiple rapid events must only result in one startWorkday call —
+  // guards against a burst of keystrokes opening duplicate sessions.
+  it('multiple rapid events only start one workday session', async () => {
+    const { result } = renderHook(() => useWorkdayTracking(USER_ID))
+
+    await act(async () => {
+      window.dispatchEvent(new Event('fjobhunt:job-input'))
+      window.dispatchEvent(new Event('fjobhunt:job-input'))
+      window.dispatchEvent(new Event('fjobhunt:job-input'))
+    })
+
+    expect(startWorkday).toHaveBeenCalledTimes(1)
+    expect(result.current.isPunchedIn).toBe(true)
   })
 })
