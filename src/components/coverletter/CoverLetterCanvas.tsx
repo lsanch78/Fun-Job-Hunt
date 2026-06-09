@@ -2,7 +2,8 @@ import { useRef, useState, useEffect } from 'react'
 import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
-import { T } from '@/lib/crtTheme'
+import { T, ensureCrtStyles } from '@/lib/crtTheme'
+import GlitchOverlay from '@/components/cv/GlitchOverlay'
 import CanvasShell from '@/components/canvas/CanvasShell'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import { insertCoverLetter, fetchCoverLetter, updateCoverLetter } from '@/services/coverLetterService'
@@ -11,56 +12,7 @@ import { fetchUsage, getAiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 
-// ── Glitch overlay (reused from CVCanvas) ────────────────────────────────────
-
-function GlitchOverlay({ width, height, words }: { width: number; height: number; words: string[] }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const wordsRef  = useRef(words)
-  useEffect(() => { wordsRef.current = words }, [words])
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')!
-    const CHARS = '01█▓▒░10110100'
-    let frame: number
-    function draw() {
-      ctx.clearRect(0, 0, width, height)
-      ctx.font = '11px monospace'
-      for (let y = 0; y < height; y += 14) {
-        for (let x = 0; x < width; x += 9) {
-          const alpha = Math.random() * 0.55 + 0.1
-          ctx.fillStyle = `rgba(57,255,20,${alpha.toFixed(2)})`
-          const pool = wordsRef.current
-          if (pool.length > 0 && Math.random() < 0.08) {
-            const word = pool[Math.floor(Math.random() * pool.length)]
-            ctx.fillText(word, x, y + 11)
-            x += ctx.measureText(word).width
-          } else {
-            ctx.fillText(CHARS[Math.floor(Math.random() * CHARS.length)], x, y + 11)
-          }
-        }
-      }
-      const barY = (Date.now() % 1800) / 1800 * height
-      const grad = ctx.createLinearGradient(0, barY - 30, 0, barY + 30)
-      grad.addColorStop(0, 'rgba(57,255,20,0)')
-      grad.addColorStop(0.5, 'rgba(57,255,20,0.18)')
-      grad.addColorStop(1, 'rgba(57,255,20,0)')
-      ctx.fillStyle = grad
-      ctx.fillRect(0, barY - 30, width, 60)
-      frame = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => cancelAnimationFrame(frame)
-  }, [width, height])
-  return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-    />
-  )
-}
+ensureCrtStyles()
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -417,12 +369,12 @@ export default function CoverLetterCanvas({
           position: 'absolute', inset: 0, zIndex: 50, background: T.bg,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}>
-          <div style={{ position: 'relative', width: 816, maxWidth: '90%', aspectRatio: '816/1056', border: `1px solid ${T.border}`, overflow: 'hidden', flexShrink: 0 }}>
-            <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 0.04 }} />
+          <div className="crt-glitch-wrap" style={{ position: 'relative', width: 816, maxWidth: '90%', aspectRatio: '816/1056', border: `1px solid ${T.border}`, overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', inset: 0, background: '#fff' }} />
             <GlitchOverlay width={816} height={1056} words={glitchWords} />
           </div>
           <div style={{ marginTop: 24, fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.2em', color: T.green }}>
-            WRITING COVER LETTER<span style={{ animation: 'crt-blink 1s step-start infinite' }}>…</span>
+            WRITING COVER LETTER<span className="crt-blink">…</span>
           </div>
           <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em', color: T.greenDim }}>
             HAIKU IS CRAFTING YOUR LETTER FROM THE JOB DESCRIPTION
@@ -480,7 +432,7 @@ export default function CoverLetterCanvas({
               <div style={{ borderTop: `1px solid ${T.border}33`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {anglePhase === 'thinking' && (
                   <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.green, letterSpacing: '0.14em' }}>
-                    ANALYZING ANGLE<span style={{ animation: 'crt-blink 1s step-start infinite' }}>…</span>
+                    ANALYZING ANGLE<span className="crt-blink">…</span>
                   </span>
                 )}
                 {anglePhase === 'error' && (
