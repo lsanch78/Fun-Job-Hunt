@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { WORKDAY } from '@/config/game'
-import { startWorkday, endWorkday } from '@/services/workdayService'
+import { startWorkday, endWorkday, closeAbandonedSessions } from '@/services/workdayService'
 import { playPunchIn, playPunchOut } from '@/lib/sfx'
 import { lsGet, lsSet, lsRemove } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
@@ -77,6 +77,13 @@ export function useWorkdayTracking(userId: string | null): WorkdayTrackingState 
       }
       return t
     })
+  }, [userId])
+
+  // ── Close abandoned sessions on mount ──────────────────────────────────────
+
+  useEffect(() => {
+    if (!userId) return
+    closeAbandonedSessions(userId, WORKDAY.AUTO_PUNCH_OUT_IDLE_MS)
   }, [userId])
 
   // ── Listen for job-input activity events ───────────────────────────────────

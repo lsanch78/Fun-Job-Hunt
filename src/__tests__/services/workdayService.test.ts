@@ -4,6 +4,7 @@ import {
   endWorkday,
   fetchWorkdays,
   deleteAllWorkdays,
+  closeAbandonedSessions,
 } from '@/services/workdayService'
 import type { WorkdayRow } from '@/types'
 
@@ -173,5 +174,82 @@ describe('deleteAllWorkdays', () => {
 
     const { error } = await deleteAllWorkdays(USER_ID)
     expect(error).toBe('permission denied')
+  })
+})
+
+// ── closeAbandonedSessions ────────────────────────────────────────────────────
+
+describe('closeAbandonedSessions', () => {
+  const IDLE_MS = 15 * 60 * 1000
+
+  function mockSelectAndUpdates(rows: { id: string; punch_in: string }[]) {
+    // First call: select open sessions older than cutoff
+    const selectChain: Record<string, jest.Mock> = {}
+    const selectMethods = ['select', 'eq', 'is', 'lt']
+    selectMethods.forEach((m) => { selectChain[m] = jest.fn(() => selectChain) })
+    selectChain['lt'] = jest.fn().mockResolvedValue({ data: rows, error: null })
+    mockFrom.mockReturnValueOnce(selectChain)
+
+    // Subsequent calls: one update per abandoned row
+    rows.forEach(() => {
+      const updateChain: Record<string, jest.Mock> = {}
+      updateChain['update'] = jest.fn(() => updateChain)
+      updateChain['eq'] = jest.fn().mockResolvedValue({ error: null })
+      mockFrom.mockReturnValueOnce(updateChain)
+    })
+  }
+
+  // Any row with punch_out IS NULL and punch_in older than idleMs gets closed.
+  it('closes abandoned sessions by setting punch_out to punch_in + idleMs', async () => {
+    const punchIn = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    mockSelectAndUpdates([{ id: 'wd-stale', punch_in: punchIn }])
+
+    await closeAbandonedSessions(USER_ID, IDLE_MS)
+
+    // Two from() calls: one select, one update
+    expect(mockFrom).toHaveBeenCalledTimes(2)
+    expect(mockFrom).toHaveBeenNthCalledWith(1, 'workdays')
+    expect(mockFrom).toHaveBeenNthCalledWith(2, 'workdays')
+  })
+
+  // punch_out is set to punch_in + idleMs — not the current time — so the
+  // record reflects a plausible session length rather than days of "work".
+  it('sets punch_out to punch_in + idleMs, not the current time', async () => {
+    const punchInDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const expectedPunchOut = new Date(punchInDate.getTime() + IDLE_MS).toISOString()
+
+    const selectChain: Record<string, jest.Mock> = {}
+    ;['select', 'eq', 'is', 'lt'].forEach((m) => { selectChain[m] = jest.fn(() => selectChain) })
+    selectChain['lt'] = jest.fn().mockResolvedValue({ data: [{ id: 'wd-stale', punch_in: punchInDate.toISOString() }], error: null })
+    mockFrom.mockReturnValueOnce(selectChain)
+
+    let capturedUpdate: Record<string, unknown> | null = null
+    const updateChain: Record<string, jest.Mock> = {}
+    updateChain['update'] = jest.fn((payload) => { capturedUpdate = payload; return updateChain })
+    updateChain['eq'] = jest.fn().mockResolvedValue({ error: null })
+    mockFrom.mockReturnValueOnce(updateChain)
+
+    await closeAbandonedSessions(USER_ID, IDLE_MS)
+
+    expect(capturedUpdate).toEqual({ punch_out: expectedPunchOut })
+  })
+
+  // No open sessions means no update calls — must not error on empty result.
+  it('does nothing when there are no abandoned sessions', async () => {
+    mockSelectAndUpdates([])
+    await closeAbandonedSessions(USER_ID, IDLE_MS)
+    // Only the select call fires, no updates
+    expect(mockFrom).toHaveBeenCalledTimes(1)
+  })
+
+  // DB error on the select must be swallowed — self-healing is best-effort.
+  it('does not throw when the select fails', async () => {
+    const selectChain: Record<string, jest.Mock> = {}
+    ;['select', 'eq', 'is', 'lt'].forEach((m) => { selectChain[m] = jest.fn(() => selectChain) })
+    selectChain['lt'] = jest.fn().mockResolvedValue({ data: null, error: { message: 'network error' } })
+    mockFrom.mockReturnValueOnce(selectChain)
+
+    await expect(closeAbandonedSessions(USER_ID, IDLE_MS)).resolves.toBeUndefined()
+    expect(mockFrom).toHaveBeenCalledTimes(1)
   })
 })

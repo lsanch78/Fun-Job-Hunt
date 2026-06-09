@@ -5,8 +5,9 @@ import { WORKDAY } from '@/config/game'
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('@/services/workdayService', () => ({
-  startWorkday: jest.fn(async () => 'wd-new'),
-  endWorkday:   jest.fn(async () => {}),
+  startWorkday:            jest.fn(async () => 'wd-new'),
+  endWorkday:              jest.fn(async () => {}),
+  closeAbandonedSessions:  jest.fn(async () => {}),
 }))
 
 // sfx must be mocked — it tries to use the Web Audio API which isn't in jsdom
@@ -15,7 +16,7 @@ jest.mock('@/lib/sfx', () => ({
   playPunchOut: jest.fn(),
 }))
 
-import { startWorkday, endWorkday } from '@/services/workdayService'
+import { startWorkday, endWorkday, closeAbandonedSessions } from '@/services/workdayService'
 import { playPunchIn, playPunchOut } from '@/lib/sfx'
 
 const IDLE_MS = WORKDAY.AUTO_PUNCH_OUT_IDLE_MS // 15 minutes
@@ -29,6 +30,25 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers()
+})
+
+// ── closeAbandonedSessions on mount ──────────────────────────────────────────
+
+describe('closeAbandonedSessions on mount', () => {
+  // Self-healing runs once on mount so pre-fix stale sessions in the DB are closed
+  // without requiring any user action.
+  it('calls closeAbandonedSessions on mount when userId is present', async () => {
+    renderHook(() => useWorkdayTracking(USER_ID))
+    await act(async () => {})
+    expect(closeAbandonedSessions).toHaveBeenCalledWith(USER_ID, IDLE_MS)
+  })
+
+  // Must not fire before auth resolves — no userId means no DB call.
+  it('does not call closeAbandonedSessions when userId is null', async () => {
+    renderHook(() => useWorkdayTracking(null))
+    await act(async () => {})
+    expect(closeAbandonedSessions).not.toHaveBeenCalled()
+  })
 })
 
 // ── resetActivity — punch-in ──────────────────────────────────────────────────
