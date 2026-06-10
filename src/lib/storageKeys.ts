@@ -19,6 +19,7 @@ export const SK = {
 
   // ── Contacts & comms ─────────────────────────────────────────────────────────
   quickcastLinks: (uid: string) => `fjobhunt:quickcast:links:${uid}`,
+  quickcastOpen:  'fjobhunt:quickcastopen',
   commCooldown:   (uid: string) => `fjobhunt:comm-cooldown:${uid}`,
   outreachPrompt: 'fjobhunt:outreach_custom_prompt',
 
