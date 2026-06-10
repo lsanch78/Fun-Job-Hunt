@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { PRO_PRICE_MONTHLY } from '@/config/pricing'
+import { PRO_PRICE_WEEKLY } from '@/config/pricing'
+import { weeklyToMonthlyIncome } from '@/lib/pricing'
 import type { UsageRow, CostRow, ModelSummary, MonthlySnapshot, CostData } from '@/types'
 
 const DEV_COSTS_URL = `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/dev-costs`
@@ -14,7 +15,7 @@ const PRICING: Record<string, { input: number; output: number; cacheRead: number
 }
 const FALLBACK_PRICING = { input: 3.00, output: 15.00, cacheRead: 0.30, cacheWrite: 3.75 }
 
-export const SUBSCRIPTION_PRICE_USD = PRO_PRICE_MONTHLY
+export const SUBSCRIPTION_PRICE_USD_WEEKLY = PRO_PRICE_WEEKLY
 
 export async function fetchCostData(): Promise<CostData> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -56,7 +57,7 @@ export async function fetchCostData(): Promise<CostData> {
     : 0
 
   const totalCallsThisMonth = usageRows.reduce((s, r) => s + r.count, 0)
-  const estimatedMonthlyIncome = activeSubCount * SUBSCRIPTION_PRICE_USD
+  const estimatedMonthlyIncome = weeklyToMonthlyIncome(activeSubCount, SUBSCRIPTION_PRICE_USD_WEEKLY)
 
   // Aggregate cost rows by model
   const byModel = new Map<string, ModelSummary>()

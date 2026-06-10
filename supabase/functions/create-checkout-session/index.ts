@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     // ── Stripe setup ──────────────────────────────────────────────────────────
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    const priceId = Deno.env.get('STRIPE_PRICE_ID')
+    const priceId = Deno.env.get('STRIPE_WEEKLY_PRICE_ID')
 
     if (!stripeKey) {
       return new Response(JSON.stringify({ error: 'Stripe not configured' }), {

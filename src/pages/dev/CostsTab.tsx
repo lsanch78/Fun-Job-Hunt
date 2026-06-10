@@ -1,5 +1,5 @@
 import { useCosts } from '@/hooks/dev/useCosts'
-import { SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import { SUBSCRIPTION_PRICE_USD_WEEKLY } from '@/services/dev/costService'
 import type { MonthlySnapshot } from '@/types'
 import type { StatCardProps, SliderRowProps } from '@/types'
 
@@ -73,7 +73,7 @@ export default function CostsTab() {
           OVERVIEW — {new Date().toLocaleString(undefined, { month: 'long', year: 'numeric' }).toUpperCase()}
         </span>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Income (est.)"    value={`$${fmt(data.estimatedMonthlyIncome)}`} sub={`${data.activeSubCount} active subs × $${SUBSCRIPTION_PRICE_USD}`} accent="green" />
+          <StatCard label="Income (est.)"    value={`$${fmt(data.estimatedMonthlyIncome)}`} sub={`${data.activeSubCount} active subs × $${SUBSCRIPTION_PRICE_USD_WEEKLY}/wk`} accent="green" />
           <StatCard label="Claude Cost"      value={hasTokenData ? `$${fmt(data.totalAnthropicCostUsd)}` : '—'} sub={hasTokenData ? 'from token logs' : 'no calls logged yet'} accent={hasTokenData ? 'red' : 'muted'} />
           <StatCard label="Supabase Cost"    value="$0.00" sub="free tier" accent="muted" />
           <StatCard label="Net Profit (est.)" value={hasTokenData ? `$${fmt(profit)}` : '—'} sub="income − claude − supabase" accent={hasTokenData ? (profit >= 0 ? 'green' : 'red') : 'muted'} />
@@ -156,7 +156,7 @@ export default function CostsTab() {
           <SliderRow label="TOTAL USERS"    value={simTotalUsers}    min={0} max={50000} onChange={setSimTotalUsers}    />
           <SliderRow label="CONVERSION %"   value={simConversionPct} min={0} max={100}  onChange={setSimConversionPct} />
           <div className="flex items-center gap-4">
-            <span className="font-pixel text-[8px] text-muted w-28 shrink-0">SUB PRICE $</span>
+            <span className="font-pixel text-[8px] text-muted w-28 shrink-0">SUB PRICE $/WK</span>
             <input
               type="number"
               min={1}
@@ -200,7 +200,7 @@ export default function CostsTab() {
               ASSUMES {simFreeCallsPerUser} CALLS/FREE USER · {simPaidCallsPerUser} CALLS/PAID USER · AVG COST/CALL FROM LOGGED DATA
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard label="Proj. Income"      value={`$${fmt(simIncome)}`}     sub={`${simPaidUsers.toLocaleString()} paid × $${simSubPrice}`} accent="green" />
+              <StatCard label="Proj. Income"      value={`$${fmt(simIncome)}`}     sub={`${simPaidUsers.toLocaleString()} paid × $${simSubPrice}/wk`} accent="green" />
               <StatCard label="Proj. Claude Cost" value={`$${fmt(simClaudeCost)}`} sub={`${simTotalCalls.toLocaleString()} calls`}    accent="red"   />
               <StatCard label="Proj. Supabase"    value="$0.00"                     sub="free tier"                                    accent="muted" />
               <StatCard label="Proj. Profit"      value={`$${fmt(simProfit)}`}      sub="income − claude − supabase"                   accent={simProfit >= 0 ? 'green' : 'red'} />

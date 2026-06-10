@@ -18,7 +18,10 @@ const PRICING: Record<string, { input: number; output: number; cacheRead: number
 }
 const FALLBACK_PRICING = { input: 3.00, output: 15.00, cacheRead: 0.30, cacheWrite: 3.75 }
 
-const PRO_PRICE_MONTHLY = 14.99
+// Pro plan is billed weekly at $8/wk. Monthly-income estimates annualize: weekly × 52 / 12.
+const PRO_PRICE_WEEKLY = 8
+const WEEKS_PER_YEAR = 52
+const MONTHS_PER_YEAR = 12
 
 function computeCost(costRows: { model: string; input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }[]) {
   let totalInputTokens = 0, totalOutputTokens = 0, totalCacheReadTokens = 0, totalCacheWriteTokens = 0, totalCost = 0
@@ -105,7 +108,7 @@ Deno.serve(async (req) => {
     const avgCallsPaid = paidUserCount > 0 ? paidRows.reduce((s: number, r: { count: number }) => s + r.count, 0) / paidUserCount : 0
     const avgCallsFree = freeUserCount > 0 ? freeRows.reduce((s: number, r: { count: number }) => s + r.count, 0) / freeUserCount : 0
     const { totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheWriteTokens, totalCost } = computeCost(costRows ?? [])
-    const estimatedIncome = (activeSubCount ?? 0) * PRO_PRICE_MONTHLY
+    const estimatedIncome = (activeSubCount ?? 0) * PRO_PRICE_WEEKLY * (WEEKS_PER_YEAR / MONTHS_PER_YEAR)
 
     // ── Upsert current month's snapshot ──────────────────────────────────
     await supabase.from('monthly_cost_snapshots').upsert({
