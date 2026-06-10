@@ -199,11 +199,27 @@ export default function LandingPage() {
       </section>
 
       {/* ── User Data ────────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto text-center">
-        <SectionHeader title="YOUR HUNT IS PRIVATE" sub="USER DATA" />
-        <p className="body-text text-primary leading-relaxed text-base">
-          Your data stays yours. We don't sell it, share it, or train models on it. Your resumes, applications, and contacts live in your account and you can export or delete them anytime.
-        </p>
+      <section className="px-6 py-20 max-w-3xl mx-auto">
+        <div className="border border-border px-8 py-7 max-w-2xl mx-auto">
+          <p className="text-[8px] text-secondary tracking-widest mb-3">[ USER DATA ]</p>
+          <p className="text-xs text-primary mb-4">YOUR HUNT IS PRIVATE</p>
+          <div className="h-px bg-border mb-5" />
+          <p className="body-text text-muted text-sm leading-relaxed mb-4">
+            Your resumes, applications, and contacts are stored in our database so you can access them from anywhere. We never look at them, never sell them, and never train models on them. You own your data — export or delete it anytime.
+          </p>
+          <p className="body-text text-muted text-sm leading-relaxed mb-6">
+            Fun Job Hunt is fully <span className="text-primary">open source</span>. You can read every line of code, self-host it, or fork it.
+          </p>
+          <a
+            href="https://github.com/lsanch78/effjobhunt"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={playLinkBlip}
+            className="inline-block px-6 py-2 border border-border text-secondary text-[10px] tracking-widest hover:border-secondary hover:text-primary transition-colors"
+          >
+            VIEW SOURCE CODE ON GITHUB
+          </a>
+        </div>
       </section>
 
       {/* ── Final CTA ───────────────────────────────────────────────────── */}

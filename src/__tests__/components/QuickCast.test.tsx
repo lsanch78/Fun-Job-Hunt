@@ -80,17 +80,29 @@ beforeEach(() => {
   ;(fetchLinks as jest.Mock).mockResolvedValue([])
 })
 
+// QuickCast renders collapsed by default; expand it through the real toggle
+async function renderOpen(user: ReturnType<typeof userEvent.setup>) {
+  await act(async () => { render(<QuickCast />) })
+  await user.click(screen.getByTitle(/open quick cast/i))
+}
+
 describe('QuickCast — smoke test', () => {
   it('renders without crashing', async () => {
     await act(async () => { render(<QuickCast />) })
     // Component renders some UI
     expect(document.body).not.toBeEmptyDOMElement()
   })
+
+  it('starts collapsed, showing only the toggle', async () => {
+    await act(async () => { render(<QuickCast />) })
+    expect(screen.getByTitle(/open quick cast/i)).toBeInTheDocument()
+    expect(screen.queryByTitle(/add link/i)).not.toBeInTheDocument()
+  })
 })
 
 describe('QuickCast — empty link slots', () => {
   it('shows 8 add-slot buttons when no links are loaded', async () => {
-    await act(async () => { render(<QuickCast />) })
+    await renderOpen(userEvent.setup())
     // Each empty slot renders a "+" button
     const addButtons = screen.getAllByTitle(/add link/i)
     expect(addButtons.length).toBeGreaterThanOrEqual(1)
@@ -100,7 +112,7 @@ describe('QuickCast — empty link slots', () => {
 describe('QuickCast — add link flow', () => {
   it('opens the add form when an empty slot is clicked', async () => {
     const user = userEvent.setup()
-    await act(async () => { render(<QuickCast />) })
+    await renderOpen(user)
 
     const addBtn = screen.getAllByTitle(/add link/i)[0]
     await user.click(addBtn)
@@ -111,7 +123,7 @@ describe('QuickCast — add link flow', () => {
 
   it('calls createLink when the form is submitted with valid data', async () => {
     const user = userEvent.setup()
-    await act(async () => { render(<QuickCast />) })
+    await renderOpen(user)
 
     const addBtn = screen.getAllByTitle(/add link/i)[0]
     await user.click(addBtn)
@@ -143,7 +155,7 @@ describe('QuickCast — existing links', () => {
   })
 
   it('renders a link button with the link label', async () => {
-    await act(async () => { render(<QuickCast />) })
+    await renderOpen(userEvent.setup())
     expect(screen.getByTitle(/GitHub/i)).toBeInTheDocument()
   })
 
@@ -154,7 +166,7 @@ describe('QuickCast — existing links', () => {
       configurable: true,
     })
 
-    await act(async () => { render(<QuickCast />) })
+    await renderOpen(user)
 
     const linkBtn = screen.getByTitle(/GitHub/i)
     await user.click(linkBtn)
