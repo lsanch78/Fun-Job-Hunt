@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { fetchCostData, SUBSCRIPTION_PRICE_USD } from '@/services/dev/costService'
+import { fetchCostData, SUBSCRIPTION_PRICE_USD_WEEKLY } from '@/services/dev/costService'
+import { weeklyToMonthlyIncome } from '@/lib/pricing'
 import type { CostData } from '@/types'
 
 const DEFAULT_FREE_CALLS_PER_USER = 8
@@ -12,7 +13,7 @@ export function useCosts() {
 
   const [simTotalUsers,       setSimTotalUsers]       = useState(0)
   const [simConversionPct,    setSimConversionPct]    = useState(3)
-  const [simSubPrice,         setSimSubPrice]         = useState(SUBSCRIPTION_PRICE_USD)
+  const [simSubPrice,         setSimSubPrice]         = useState(SUBSCRIPTION_PRICE_USD_WEEKLY)
   const [simFreeCallsPerUser, setSimFreeCallsPerUser] = useState(DEFAULT_FREE_CALLS_PER_USER)
   const [simPaidCallsPerUser, setSimPaidCallsPerUser] = useState(DEFAULT_PAID_CALLS_PER_USER)
   const [simDirty,            setSimDirty]            = useState(false)
@@ -33,7 +34,7 @@ export function useCosts() {
     if (!data) return
     setSimTotalUsers(data.usageRows.length)
     setSimConversionPct(3)
-    setSimSubPrice(SUBSCRIPTION_PRICE_USD)
+    setSimSubPrice(SUBSCRIPTION_PRICE_USD_WEEKLY)
     setSimFreeCallsPerUser(Math.round(data.avgCallsFreeUser) || DEFAULT_FREE_CALLS_PER_USER)
     setSimPaidCallsPerUser(Math.round(data.avgCallsPaidUser) || DEFAULT_PAID_CALLS_PER_USER)
     setSimDirty(false)
@@ -46,7 +47,7 @@ export function useCosts() {
   const simPaidUsers  = Math.round(simTotalUsers * simConversionPct / 100)
   const simFreeUsers  = simTotalUsers - simPaidUsers
   const simTotalCalls = simFreeUsers * simFreeCallsPerUser + simPaidUsers * simPaidCallsPerUser
-  const simIncome     = simPaidUsers * simSubPrice
+  const simIncome     = weeklyToMonthlyIncome(simPaidUsers, simSubPrice)
   const simClaudeCost = data && data.avgCostPerCall > 0 ? data.avgCostPerCall * simTotalCalls : 0
   const simProfit     = simIncome - simClaudeCost
 
