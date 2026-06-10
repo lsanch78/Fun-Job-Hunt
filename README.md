@@ -1,10 +1,28 @@
 # Fun Job Hunt
 
-**Track your job applications like a video game.** Log applications, earn XP, generate AI-tailored resumes and cover letters, and level up your job hunt in retro style.
+**Track your job applications like a video game.** Log applications, and earn XP. Human-first resumes with AI curation assistance. Use AI to grab the best of your experiences and bring whats important to each job description. This started off as a personal tool, but quickly gained traction with my freinds. Make job hunting fun with Fun Job Hunt!
 
 **Live app:** [fjobhunt.com](https://www.fjobhunt.com/)
 
-<!-- TODO: add screenshots/GIF of the Job Log, CV builder, and Stats dashboard -->
+## Quick Start
+
+**1. Build your CV** — drag and drop your existing resumes onto the CV page. The more detail you add here, the better your AI curated results for each job will be. Try to write your bullet points from many different angles and job titles.
+
+<img src="docs/screenshots/CV-editing.gif" width="33%" />
+
+**2. Log a job** — add a row with the company, title, and job description to get started with curating resumes. Resumes are saved for your reference. No more "Oh frick! What resume did I use for this job!?" moments.
+
+<img src="docs/screenshots/Job-tracker.gif" width="33%" />
+
+**3. Tailor your resume** — right-click any job row and select **Tailor Resume**. AI rewrites your bullets using your own voice to match the job description. Edit inline and export to PDF without ever leaving the view. No need to save this permutation of your CV, it is all saved on the database for you.
+
+<img src="docs/screenshots/Resume-tailoring.gif" width="33%" />
+
+**4. Work your network** — find connections, link them to jobs, and draft outreach messages using genuine connection hints. *(Future Feature)*
+
+<img src="docs/screenshots/Network-showcase.gif" width="33%" />
+
+---
 
 ## Features
 
