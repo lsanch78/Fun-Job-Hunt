@@ -248,7 +248,7 @@ export default function StatsPage({ userId }: { userId: string | null }) {
     <div className="h-full overflow-y-auto bg-bg text-primary scanlines pb-20">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
+      <div className="px-6 py-4 short:py-2 border-b border-border flex items-center justify-between gap-4 min-h-[100px] short:min-h-[48px]">
         <div>
           <h1 className="font-pixel text-sm tracking-widest">STATS</h1>
           <p className="text-muted text-xs mt-1">

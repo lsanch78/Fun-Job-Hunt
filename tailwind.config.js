@@ -3,6 +3,9 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        short: { raw: '(max-height: 800px)' },
+      },
       fontFamily: {
         pixel:    ['"Press Start 2P"', 'monospace'],
         terminal: ['"VT323"', 'monospace'],

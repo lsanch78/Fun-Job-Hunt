@@ -157,7 +157,7 @@ export default function NetworkPage({ userId }: { userId: string | null }) {
     <div className="h-full bg-bg font-pixel text-primary scanlines flex flex-col overflow-hidden">
 
       {/* Header */}
-      <div data-tutorial="network-header" className="px-6 py-4 border-b border-border flex items-center justify-between gap-4 min-h-[100px]">
+      <div data-tutorial="network-header" className="px-6 py-4 short:py-2 border-b border-border flex items-center justify-between gap-4 min-h-[100px] short:min-h-[48px]">
         <div>
           <h1 className="text-sm tracking-widest">NETWORK</h1>
           <p className="text-muted text-xs mt-1">
