@@ -1,7 +1,7 @@
-export const PRO_PRICE_MONTHLY = 8
+export const PRO_PRICE_WEEKLY = 8
 
-export const PRO_UPGRADE_CTA       = `UPGRADE — $${PRO_PRICE_MONTHLY}/month`
-export const PRO_UPGRADE_CTA_SHORT = `UPGRADE — $${PRO_PRICE_MONTHLY}/mo`
+export const PRO_UPGRADE_CTA       = `UPGRADE — $${PRO_PRICE_WEEKLY}/week`
+export const PRO_UPGRADE_CTA_SHORT = `UPGRADE — $${PRO_PRICE_WEEKLY}/wk`
 
 export interface ProFeatureRow {
   feature: string
