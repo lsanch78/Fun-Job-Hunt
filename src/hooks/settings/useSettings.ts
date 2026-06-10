@@ -12,7 +12,8 @@ import { SK } from '@/lib/storageKeys'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateUsername } from '@/services/authService'
 import { resetEmployed, resetProfileXp } from '@/services/xpService'
-import { getAiProvider, setAiProvider, getAiApiKey, setAiApiKey, fetchUsage } from '@/services/aiService'
+import { getAiApiKey, setAiApiKey } from '@/services/aiService'
+import { useAI } from '@/contexts/AiContext'
 import type { AiProvider, CommCooldownHours } from '@/types'
 import { upsertJournal } from '@/services/journalService'
 import { deleteAllTracks } from '@/services/musicService'
@@ -23,6 +24,7 @@ import { createCheckoutSession, openPortalSession } from '@/services/subscriptio
 export function useSettings() {
   const { userId, username } = useAuth()
   const { isSubscribed, subscription, refresh } = useSubscription()
+  const { aiProvider, setProvider, usage: aiUsage, refreshUsage } = useAI()
 
   const [exporting,        setExporting]        = useState(false)
   const [confirmTarget,    setConfirmTarget]    = useState<'jobs' | 'contacts' | 'full' | null>(null)
@@ -39,11 +41,9 @@ export function useSettings() {
   const [editingName,    setEditingName]    = useState(false)
   const [nameSaving,     setNameSaving]     = useState(false)
   const [commCooldown,   setCommCooldown]   = useState<CommCooldownHours>(168)
-  const [aiProvider,     setAiProviderState] = useState<AiProvider>(() => getAiProvider())
   const [aiApiKey,       setAiApiKeyState]  = useState<string>(() => getAiApiKey())
   const [apiKeyVisible,  setApiKeyVisible]  = useState(false)
   const [apiKeySaved,    setApiKeySaved]    = useState(false)
-  const [aiUsage,        setAiUsage]        = useState<{ count: number; limit: number } | null>(null)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -51,8 +51,8 @@ export function useSettings() {
     if (!userId) return
     setCommCooldown(getCommCooldownHours(userId))
     setNameInput(username)
-    if (getAiProvider() === 'proxy') fetchUsage().then(setAiUsage)
-  }, [userId, username])
+    refreshUsage()
+  }, [userId, username, refreshUsage])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -98,10 +98,7 @@ export function useSettings() {
   }
 
   function handleProviderChange(p: AiProvider) {
-    setAiProviderState(p)
-    setAiProvider(p)
-    if (p === 'proxy') fetchUsage().then(setAiUsage)
-    else setAiUsage(null)
+    setProvider(p)
   }
 
   function handleSaveApiKey() {

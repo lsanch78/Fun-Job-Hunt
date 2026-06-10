@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import CVRenderer from './CVRenderer'
 import GlitchOverlay from './GlitchOverlay'
 import CanvasShell from '@/components/canvas/CanvasShell'
@@ -7,6 +7,7 @@ import { P, CV_FONT } from '@/lib/CVCardTheme'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import type { CVContent, ContentChangeEvent, CVRendererHandle } from '@/types'
 import type { TailorResult } from '@/hooks/cv/useTailoring'
+import AiButton from '@/components/ai/AiButton'
 
 interface Props {
   tailorPhase: 'idle' | 'thinking' | 'error'
@@ -59,6 +60,13 @@ export default function TailoringResultPanel({
 }: Props) {
   const rendererRef = useRef<CVRendererHandle>(null)
   const prevQuickWinsPhase = useRef(quickWinsPhase)
+  const [quickWinsDots, setQuickWinsDots] = useState(0)
+
+  useEffect(() => {
+    if (quickWinsPhase !== 'thinking') return
+    const id = setInterval(() => setQuickWinsDots((d) => (d + 1) % 3), 500)
+    return () => clearInterval(id)
+  }, [quickWinsPhase])
 
   useEffect(() => {
     if (prevQuickWinsPhase.current === 'thinking' && quickWinsPhase === 'idle') {
@@ -180,20 +188,14 @@ export default function TailoringResultPanel({
         >
           6-Sec Scan
         </button>
-        <button
+        <AiButton
+          label={quickWinsPhase === 'error' ? 'ERROR' : 'Quick Wins'}
+          phase={quickWinsPhase === 'thinking' ? 'generating' : 'idle'}
+          dots={quickWinsDots}
           onClick={onQuickWins}
           disabled={quickWinsPhase === 'thinking'}
-          style={{
-            fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px', cursor: quickWinsPhase === 'thinking' ? 'default' : 'pointer',
-            color: quickWinsPhase === 'error' ? '#ef4444' : P.textMuted,
-            border: `1px solid ${quickWinsPhase === 'error' ? '#ef4444' : P.border}`,
-            borderRadius: 3, background: 'none',
-          }}
-          onMouseEnter={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = P.text; (e.currentTarget as HTMLElement).style.borderColor = P.textMuted } }}
-          onMouseLeave={(e) => { if (quickWinsPhase === 'idle') { (e.currentTarget as HTMLElement).style.color = P.textMuted; (e.currentTarget as HTMLElement).style.borderColor = P.border } }}
-        >
-          {quickWinsPhase === 'thinking' ? 'Thinking…' : quickWinsPhase === 'error' ? 'Error' : 'Quick Wins ✦'}
-        </button>
+          labelStyle={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px'}}
+        />
         <button
           onClick={() => onPrint(rendererRef.current?.getPaperElement() ?? null)}
           style={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', color: P.textMuted, background: 'none', border: `1px solid ${P.border}`, borderRadius: 3, padding: '7px 20px', cursor: 'pointer' }}
