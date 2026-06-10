@@ -146,7 +146,7 @@ export default function Journal({ userId }: { userId: string | null }) {
       <button
         onClick={toggleOpen}
         className="w-full flex items-center gap-2 px-4 text-muted hover:text-primary transition-none group"
-        style={open ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' } : { height: 119 }}
+        style={open ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' } : { height: 48 }}
         title={open ? 'Close journal' : 'Open journal'}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
