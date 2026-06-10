@@ -10,14 +10,14 @@ export interface ProFeatureRow {
 }
 
 export const PRO_FEATURE_TABLE: ProFeatureRow[] = [
+  { feature: 'AI Cover Letter Generation', free: '30 requests/month', pro: 'Unlimited' },
+  { feature: 'AI Resume Tailoring',        free: '30 requests/month', pro: 'Unlimited' },
   { feature: 'Job Tracking',  free: '∞ applications',   pro: '∞ applications' },
   { feature: 'Network',       free: 'Up to 8 contacts',  pro: '∞ contacts' },
-  { feature: 'AI Assistant',  free: '30 requests/month',           pro: 'Unlimited' },
-  { feature: 'Cover Letter Exports',       free: '✗',                 pro: 'PDF + Docx Downloads' },
-  { feature: 'Time Tracking', free: '✓',                 pro: '✓' },
-  { feature: 'Stats',         free: '✓',                 pro: '✓' },
+  { feature: 'Cover Letter Exports',    free: 'PDF',               pro: 'PDF' },
+  { feature: 'Tailored Resume Exports', free: 'PDF',               pro: 'PDF' },
   { feature: 'Journal',       free: '✓',                 pro: '✓' },
   { feature: 'Themes',        free: 'Classic Terminal',  pro: 'All 5 themes + custom editor' },
   { feature: 'BYOK',          free: '✓',                 pro: '✓' },
-  { feature: 'No AI mode',    free: '✓',                 pro: '✓' },
+  { feature: 'Stats',         free: '✓',                 pro: '✓' },
 ]

@@ -5,7 +5,6 @@ import { playLinkBlip } from '@/lib/sfx'
 import { useAuth } from '@/contexts/AuthContext'
 import JobLogDemo from '@/components/landing/JobLogDemo'
 import NetworkDemo from '@/components/landing/NetworkDemo'
-import QuickCastDemo from '@/components/landing/QuickCastDemo'
 
 // ── Scanline animation keyframes injected once ─────────────────────────────
 const KEYFRAMES = `
@@ -16,10 +15,6 @@ const KEYFRAMES = `
   @keyframes scanlines-scroll {
     0%   { background-position: 0 0; }
     100% { background-position: 0 8px; }
-  }
-  @keyframes cursor-blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0; }
   }
   @keyframes glitch-x {
     0%, 90%, 100% { transform: translateX(0); }
@@ -116,14 +111,6 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* blinking cursor */}
-          <div className="mt-16 flex items-center justify-center gap-2">
-            <span className="text-[9px] text-muted tracking-widest">PRESS START</span>
-            <span
-              className="inline-block w-2 h-3 bg-primary"
-              style={{ animation: 'cursor-blink 1s step-end infinite' }}
-            />
-          </div>
         </div>
 
         {/* scroll hint chevron */}
@@ -173,25 +160,6 @@ export default function LandingPage() {
         </ul>
       </section>
 
-      {/* ── QuickCast Demo ───────────────────────────────────────────────── */}
-      <section className="px-6 py-20 max-w-3xl mx-auto" style={{ perspective: '400px' }}>
-        <SectionHeader title="SPELLS FOR ANY JOB" sub="POWERFUL MAGICS AWAIT YOU HUNTER" />
-        <QuickCastDemo mouse={mouse} index={3} />
-        <ul className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl mx-auto">
-          {[
-            'Add your most-used links for instant copy/paste into any job application',
-            'Save up to 3 resumes for quick reference as you apply',
-            'Copy a job description and right-click your AI assistant for cover letters, why you want to work there, and more',
-            'Every AI response is personalized against your resumes, the job description, and any tweaks you want to make — context caching keeps it fast',
-          ].map(b => (
-            <li key={b} className="body-text text-muted text-sm leading-relaxed flex gap-2">
-              <span className="text-secondary shrink-0">▸</span>
-              {b}
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {/* ── AI Stance ───────────────────────────────────────────────────── */}
       <section className="px-6 py-16 max-w-3xl mx-auto">
         <div className="border border-border px-8 py-7 max-w-2xl mx-auto">
@@ -205,9 +173,7 @@ export default function LandingPage() {
             We understand that not everyone likes AI. At Fun Job Hunt, however, we can't understate its efficiency for simple word-matching tasks that have engulfed job hunting.
           </p>
           <p className="body-text text-muted text-sm leading-relaxed">
-            <span className="text-primary">We created AI features in good-faith, but ultimately believe our users should be able to make their own decisions about how they want to use it. This is why we have given users a NO AI mode that hides all AI features. We understand.{
-              
-            }</span>
+            <span className="text-primary">This is why we only use AI to curate your voice per job application. This is how your resume will stand out, we do NOT generate resumes, we curate them. We order the content to highlight your most relevant experiences using keywords based on your CV, a mock ATS score, and "The 6 second scan". We believe it is important to maintain your authentic voice and let AI assist you through the "dumb" tasks.</span>
           </p>
         </div>
       </section>
@@ -232,28 +198,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Social proof / about ─────────────────────────────────────────── */}
+      {/* ── User Data ────────────────────────────────────────────────────── */}
       <section className="px-6 py-20 max-w-3xl mx-auto text-center">
-        <SectionHeader title="FROM THE DEV" sub="WHY A PRO TIER?" />
-        <p className="body-text text-primary leading-relaxed mb-4 text-base">
-          Real talk: I don't want you here. I wan't you out there, 
-          working the job that you deserve. I built this for myself and I hate dark UX patterns, 
-          I hate ads, and I especially hate subscription fees. ESPECIALLY when you're 
-          job hunting. Unfortunately my AI and hosting costs are not free, so I provided
-          the "pro" option for heavy AI users who want unlimited generations.
-        </p>
+        <SectionHeader title="YOUR HUNT IS PRIVATE" sub="USER DATA" />
         <p className="body-text text-primary leading-relaxed text-base">
-          The app is intended to be free to use with generous limits, 
-          and I will never put up a paywall for core features. If you 
-          want to support the project, the best way is to share it 
-          with a friend who needs it. If you want to support it financially, 
-          you can subscribe to pro or send me a tip on Ko-Fi. And hey, if it
-          helps you land a job, just share your win with me on LinkedIn or Email. 
-          That truly means the world to me.
-          <br></br>
-          Thank you,
-          <br></br>
-          Luis
+          Your data stays yours. We don't sell it, share it, or train models on it. Your resumes, applications, and contacts live in your account and you can export or delete them anytime.
         </p>
       </section>
 

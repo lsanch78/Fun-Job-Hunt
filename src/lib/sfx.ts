@@ -819,35 +819,6 @@ export function playNetworkMapClose(): void {
   } catch { /* AudioContext blocked */ }
 }
 
-
-/** Confirm / advance sound for DialogueScene — bright two-note sine chime. */
-export function playDialogueConfirm(): void {
-  if (isSfxMuted()) return
-  try {
-    const ctx = new AudioContext()
-    const t0 = ctx.currentTime
-
-    // Two ascending sine tones — clean, bright, airy
-    const notes = [
-      { freq: 220, start: 0,    dur: 0.20 },
-      { freq: 330, start: 0.09, dur: 0.26 },
-    ]
-    notes.forEach(({ freq, start, dur }) => {
-      const osc = ctx.createOscillator()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, t0 + start)
-      const gain = ctx.createGain()
-      gain.gain.setValueAtTime(0, t0 + start)
-      gain.gain.linearRampToValueAtTime(0.07, t0 + start + 0.012)
-      gain.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur)
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.start(t0 + start); osc.stop(t0 + start + dur + 0.01)
-    })
-
-    setTimeout(() => ctx.close(), 400)
-  } catch { /* AudioContext blocked */ }
-}
-
 // ── TutorialModal ─────────────────────────────────────────────────────────────
 
 /** Page-turn click for tutorial navigation. Same shape as playConsoleBlip. */
