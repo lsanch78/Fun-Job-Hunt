@@ -9,6 +9,8 @@ import {
   runAutoGhost,
   JOB_CAP,
 } from '@/services/jobService'
+import { deleteTailoredResume } from '@/services/tailoredResumeService'
+import { deleteCoverLetter } from '@/services/coverLetterService'
 import { awardXp, xpForJob } from '@/services/xpService'
 
 // ── Draft factory ─────────────────────────────────────────────────────────────
@@ -155,17 +157,39 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
 
   // ── patchJobTailoredResume ──────────────────────────────────────────────────
 
-  const patchJobTailoredResume = useCallback((jobId: string, resumeId: string) => {
-    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, tailoredResumeId: resumeId } : j))
+  const patchJobTailoredResume = useCallback((jobId: string, resumeId: string | null) => {
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, tailoredResumeId: resumeId ?? undefined } : j))
     linkTailoredResumeToJob(jobId, resumeId)
   }, [])
 
   // ── patchJobCoverLetter ─────────────────────────────────────────────────────
 
-  const patchJobCoverLetter = useCallback((jobId: string, coverLetterId: string) => {
-    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, coverLetterId } : j))
+  const patchJobCoverLetter = useCallback((jobId: string, coverLetterId: string | null) => {
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, coverLetterId: coverLetterId ?? undefined } : j))
     linkCoverLetterToJob(jobId, coverLetterId)
   }, [])
+
+  // ── deleteTailoredResumeForJob ──────────────────────────────────────────────
+
+  const deleteTailoredResumeForJob = useCallback(async (jobId: string, resumeId: string) => {
+    setJobs((prev) => {
+      const next = prev.map((j) => j.id === jobId ? { ...j, tailoredResumeId: undefined } : j)
+      if (userId) writeCache(userId, next)
+      return next
+    })
+    await deleteTailoredResume(resumeId)
+  }, [userId])
+
+  // ── deleteCoverLetterForJob ─────────────────────────────────────────────────
+
+  const deleteCoverLetterForJob = useCallback(async (jobId: string, coverLetterId: string) => {
+    setJobs((prev) => {
+      const next = prev.map((j) => j.id === jobId ? { ...j, coverLetterId: undefined } : j)
+      if (userId) writeCache(userId, next)
+      return next
+    })
+    await deleteCoverLetter(coverLetterId)
+  }, [userId])
 
   // ── deleteJobs ──────────────────────────────────────────────────────────────
 
@@ -225,6 +249,8 @@ export function useJobList(userId: string | null, onXpAward?: (delta: number) =>
     updateJobDetails,
     patchJobTailoredResume,
     patchJobCoverLetter,
+    deleteTailoredResumeForJob,
+    deleteCoverLetterForJob,
     deleteJobs,
     addJob,
     pendingFocusIdRef,

@@ -351,19 +351,23 @@ export const JobRow = forwardRef<JobRowHandle, {
   onDetailBlur?: (job: Job) => void
   onTailorResume?: (job: Job) => void
   onCoverLetter?: (job: Job) => void
-}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onTailorResume, onCoverLetter }, ref) {
+  onDeleteResume?: (jobId: string, resumeId: string) => Promise<void>
+  onDeleteLetter?: (jobId: string, coverLetterId: string) => Promise<void>
+}>(function JobRow({ job, visibleCols, onCommit, onDraftChange, onTabOut, deleteMode, checked, onToggle, onOpenDetail, onOpenDetailPage2, onDetailBlur, onTailorResume, onCoverLetter, onDeleteResume, onDeleteLetter }, ref) {
   const [draft, setDraft] = useState<Job>(job)
   const [focused, setFocused] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const ctxMenuRef = useRef<HTMLDivElement>(null)
   const [previewingResume, setPreviewingResume] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<'resume' | 'letter' | null>(null)
 
   useEffect(() => {
     if (!ctxMenu) return
     function onPointerDown(e: PointerEvent) {
       if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) {
         setCtxMenu(null)
+        setConfirmDelete(null)
       }
     }
     document.addEventListener('pointerdown', onPointerDown)
@@ -603,7 +607,7 @@ export const JobRow = forwardRef<JobRowHandle, {
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="text-[9px] tracking-widest text-muted truncate">{draft.company}</span>
           <button
-            onClick={() => setCtxMenu(null)}
+            onClick={() => { setCtxMenu(null); setConfirmDelete(null) }}
             className="text-muted hover:text-primary text-[9px] transition-none ml-2 flex-shrink-0"
           >
             ✕
@@ -665,6 +669,40 @@ export const JobRow = forwardRef<JobRowHandle, {
                 labelStyle={{ fontFamily: '"Press Start 2P", monospace', fontSize: 9 }}
               />
             )
+          )}
+          {onDeleteResume && draft.tailoredResumeId && (
+            <button
+              onClick={() => {
+                if (confirmDelete !== 'resume') { setConfirmDelete('resume'); return }
+                const resumeId = draft.tailoredResumeId!
+                onDeleteResume(draft.id, resumeId)
+                setCtxMenu(null)
+                setConfirmDelete(null)
+              }}
+              className="text-left border text-warning text-[9px] px-2 py-1 font-pixel transition-none"
+              style={{ borderColor: 'color-mix(in srgb, var(--color-warning) 60%, transparent)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-warning)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, var(--color-warning) 60%, transparent)' }}
+            >
+              {confirmDelete === 'resume' ? 'CONFIRM DELETE' : 'DELETE RESUME'}
+            </button>
+          )}
+          {onDeleteLetter && draft.coverLetterId && (
+            <button
+              onClick={() => {
+                if (confirmDelete !== 'letter') { setConfirmDelete('letter'); return }
+                const letterId = draft.coverLetterId!
+                onDeleteLetter(draft.id, letterId)
+                setCtxMenu(null)
+                setConfirmDelete(null)
+              }}
+              className="text-left border text-warning text-[9px] px-2 py-1 font-pixel transition-none"
+              style={{ borderColor: 'color-mix(in srgb, var(--color-warning) 60%, transparent)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-warning)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, var(--color-warning) 60%, transparent)' }}
+            >
+              {confirmDelete === 'letter' ? 'CONFIRM DELETE' : 'DELETE LETTER'}
+            </button>
           )}
         </div>
       </div>

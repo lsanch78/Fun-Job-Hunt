@@ -27,6 +27,16 @@ jest.mock('@/services/jobService', () => ({
   JOB_CAP:         1000,
 }))
 
+jest.mock('@/services/tailoredResumeService', () => ({
+  deleteTailoredResume:  jest.fn(async () => ({ error: null })),
+  deleteTailoredResumes: jest.fn(async () => ({ error: null })),
+}))
+
+jest.mock('@/services/coverLetterService', () => ({
+  deleteCoverLetter:  jest.fn(async () => ({ error: null })),
+  deleteCoverLetters: jest.fn(async () => ({ error: null })),
+}))
+
 jest.mock('@/services/xpService', () => ({
   awardXp:  jest.fn(),
   xpForJob: jest.fn(() => 10),
@@ -43,7 +53,11 @@ import {
   fetchJobs, insertJob,
   updateJob, updateJobDetails as svcUpdateJobDetails,
   fetchJobDetails,
+  linkTailoredResumeToJob,
+  linkCoverLetterToJob,
 } from '@/services/jobService'
+import { deleteTailoredResume } from '@/services/tailoredResumeService'
+import { deleteCoverLetter } from '@/services/coverLetterService'
 import { awardXp } from '@/services/xpService'
 
 const USER_ID = 'test-user-123'
@@ -364,3 +378,85 @@ describe('useJobDetail — edit flow', () => {
     act(() => { resolveSave({ error: null }) })
   })
 })
+
+// ── AI artifact lifecycle ─────────────────────────────────────────────────────
+
+describe('useJobList — AI artifact lifecycle', () => {
+  // patchJobTailoredResume sets the link AND updates local state so the row icon appears immediately.
+  it('patchJobTailoredResume links the resume and updates local state', async () => {
+    const job = makeCommittedJob({ id: 'job-1' })
+    ;(readCache as jest.Mock).mockReturnValueOnce([job])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    act(() => { result.current.patchJobTailoredResume('job-1', 'resume-99') })
+
+    expect(linkTailoredResumeToJob).toHaveBeenCalledWith('job-1', 'resume-99')
+    const updated = result.current.jobs.find((j) => j.id === 'job-1')
+    expect(updated?.tailoredResumeId).toBe('resume-99')
+  })
+
+  // patchJobCoverLetter mirrors the resume path.
+  it('patchJobCoverLetter links the letter and updates local state', () => {
+    const job = makeCommittedJob({ id: 'job-1' })
+    ;(readCache as jest.Mock).mockReturnValueOnce([job])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    act(() => { result.current.patchJobCoverLetter('job-1', 'cl-42') })
+
+    expect(linkCoverLetterToJob).toHaveBeenCalledWith('job-1', 'cl-42')
+    const updated = result.current.jobs.find((j) => j.id === 'job-1')
+    expect(updated?.coverLetterId).toBe('cl-42')
+  })
+
+  // Per-row delete: removes local FK immediately (optimistic) and deletes the artifact row.
+  // The DB FK is set to ON DELETE SET NULL, so deleting the artifact also clears the join automatically.
+  it('deleteTailoredResumeForJob clears local FK and deletes the artifact', async () => {
+    const job = makeCommittedJob({ id: 'job-1', tailoredResumeId: 'resume-99' })
+    ;(readCache as jest.Mock).mockReturnValueOnce([job])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    await act(async () => {
+      await result.current.deleteTailoredResumeForJob('job-1', 'resume-99')
+    })
+
+    expect(deleteTailoredResume).toHaveBeenCalledWith('resume-99')
+    const updated = result.current.jobs.find((j) => j.id === 'job-1')
+    expect(updated?.tailoredResumeId).toBeUndefined()
+  })
+
+  it('deleteCoverLetterForJob clears local FK and deletes the artifact', async () => {
+    const job = makeCommittedJob({ id: 'job-1', coverLetterId: 'cl-42' })
+    ;(readCache as jest.Mock).mockReturnValueOnce([job])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    await act(async () => {
+      await result.current.deleteCoverLetterForJob('job-1', 'cl-42')
+    })
+
+    expect(deleteCoverLetter).toHaveBeenCalledWith('cl-42')
+    const updated = result.current.jobs.find((j) => j.id === 'job-1')
+    expect(updated?.coverLetterId).toBeUndefined()
+  })
+
+  // Cache must reflect the cleared FK so a reload doesn't resurrect the dangling link.
+  it('deleteTailoredResumeForJob persists the cleared FK to cache', async () => {
+    const job = makeCommittedJob({ id: 'job-1', tailoredResumeId: 'resume-99' })
+    ;(readCache as jest.Mock).mockReturnValueOnce([job])
+
+    const { result } = renderHook(() => useJobList(USER_ID))
+
+    await act(async () => {
+      await result.current.deleteTailoredResumeForJob('job-1', 'resume-99')
+    })
+
+    const lastCacheCall = (writeCache as jest.Mock).mock.calls.slice(-1)[0]
+    const cachedJobs = lastCacheCall[1] as Array<{ id: string; tailoredResumeId?: string }>
+    const cached = cachedJobs.find((j) => j.id === 'job-1')
+    expect(cached?.tailoredResumeId).toBeUndefined()
+  })
+})
+

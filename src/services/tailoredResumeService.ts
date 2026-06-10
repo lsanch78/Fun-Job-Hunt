@@ -104,6 +104,19 @@ export async function updateTailoredResumeLabel(id: string, label: string): Prom
   return { error: error?.message ?? null }
 }
 
+export async function deleteTailoredResume(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('tailored_resumes').delete().eq('id', id)
+  if (error) console.error('[tailoredResumeService] deleteTailoredResume:', error.message, id)
+  return { error: error?.message ?? null }
+}
+
+export async function deleteTailoredResumes(ids: string[]): Promise<{ error: string | null }> {
+  if (ids.length === 0) return { error: null }
+  const { error } = await supabase.from('tailored_resumes').delete().in('id', ids)
+  if (error) console.error('[tailoredResumeService] deleteTailoredResumes:', error.message)
+  return { error: error?.message ?? null }
+}
+
 export async function deleteAllTailoredResumes(userId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.from('tailored_resumes').delete().eq('user_id', userId)
   if (error) console.error('[tailoredResumeService] deleteAllTailoredResumes:', error.message)

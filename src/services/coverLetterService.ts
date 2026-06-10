@@ -68,6 +68,19 @@ export async function updateCoverLetter(
   return { error: error?.message ?? null }
 }
 
+export async function deleteCoverLetter(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('cover_letters').delete().eq('id', id)
+  if (error) console.error('[coverLetterService] deleteCoverLetter:', error.message, id)
+  return { error: error?.message ?? null }
+}
+
+export async function deleteCoverLetters(ids: string[]): Promise<{ error: string | null }> {
+  if (ids.length === 0) return { error: null }
+  const { error } = await supabase.from('cover_letters').delete().in('id', ids)
+  if (error) console.error('[coverLetterService] deleteCoverLetters:', error.message)
+  return { error: error?.message ?? null }
+}
+
 export async function deleteAllCoverLetters(userId: string): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from('cover_letters')
