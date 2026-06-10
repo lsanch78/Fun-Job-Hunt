@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useActivityTimer } from '@/hooks/stats/useActivityTimer'
+import { useSubscription } from '@/contexts/SubscriptionContext'
+import { useAI } from '@/contexts/AiContext'
+import { createCheckoutSession } from '@/services/subscriptionService'
 
 function formatClock(date: Date): string {
   return date.toLocaleTimeString(undefined, {
@@ -69,6 +72,9 @@ export default function WorkdayBar({
           </>
         )}
 
+        {/* AI credits — pushed to the right end */}
+        <AiCredits />
+
       </div>
     </div>
   )
@@ -90,5 +96,41 @@ function ActivityStatus({ isActive }: { isActive: boolean }) {
         {isActive ? `TRACKING${'.'.repeat(dots)}` : 'IDLE'}
       </span>
     </div>
+  )
+}
+
+function AiCredits() {
+  const { isSubscribed, loading: subLoading } = useSubscription()
+  const { aiProvider, usage } = useAI()
+
+  if (aiProvider !== 'proxy') return null
+
+  return (
+    <>
+      <div className="h-8 w-px bg-border" />
+      <div className="flex flex-col gap-0.5 ml-auto">
+                {subLoading ? (
+          <span className="text-muted text-[9px]">--</span>
+        ) : isSubscribed ? (
+          <span className="text-secondary text-[9px]">Unlimited AI Credits</span>
+        ) : usage ? (
+          usage.count >= usage.limit ? (
+            <span className="text-warning text-[9px]">
+              No AI Credits Remaining,{' '}
+              <button
+                onClick={() => createCheckoutSession().catch(() => {})}
+                className="underline cursor-pointer bg-transparent border-none p-0 font-pixel text-warning text-[9px]"
+              >
+                Upgrade To Pro
+              </button>
+            </span>
+          ) : (
+            <span className="text-primary text-[9px]">{usage.limit - usage.count} AI Credits Remaining</span>
+          )
+        ) : (
+          <span className="text-muted text-[9px]">--</span>
+        )}
+      </div>
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { AiProvider } from '@/contexts/AiContext'
 import AuthPage from '@/pages/AuthPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
 import JobLogPage from '@/pages/JobLogPage'
@@ -123,7 +124,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <SubscriptionProvider>
-          <AppRoutes />
+          <AiProvider>
+            <AppRoutes />
+          </AiProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>

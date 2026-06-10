@@ -7,6 +7,7 @@ import { JOB_LIMITS } from '@/config/jobLimits'
 import { parseSalaryK } from '@/lib/salaryUtils'
 import type { ColConfig } from '@/types'
 import { TailoredResumePreviewModal } from './JobDetailModal'
+import AiButton from '@/components/ai/AiButton'
 
 export interface JobRowHandle {
   focusFirstInput(): void
@@ -622,24 +623,48 @@ export const JobRow = forwardRef<JobRowHandle, {
             VIEW JD
           </button>
           {onTailorResume && (
-            <button
-              onClick={() => { if (draft.tailoredResumeId) playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
-              className="text-left border text-[9px] px-2 py-1 font-pixel transition-none hover:border-secondary hover:text-secondary"
-              style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
-            >
-              {draft.tailoredResumeId ? 'VIEW RESUME' : 'TAILOR RESUME'}
-            </button>
+            draft.tailoredResumeId ? (
+              <button
+                onClick={() => { playPageFlip(); onTailorResume(draft); setCtxMenu(null) }}
+                className="text-left border text-[9px] px-2 py-1 font-pixel transition-none hover:border-secondary hover:text-secondary"
+                style={{ color: 'var(--color-secondary)', borderColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)' }}
+              >
+                VIEW RESUME
+              </button>
+            ) : (
+              <AiButton
+                label="TAILOR RESUME"
+                phase="idle"
+                dots={0}
+                onClick={() => { onTailorResume(draft); setCtxMenu(null) }}
+                className="!px-2"
+                style={{ textAlign: 'left' }}
+                labelStyle={{ fontFamily: '"Press Start 2P", monospace', fontSize: 9 }}
+              />
+            )
           )}
           {onCoverLetter && (
-            <button
-              onClick={() => { if (draft.coverLetterId) playPageFlip(); onCoverLetter(draft); setCtxMenu(null) }}
-              className="text-left border text-[9px] px-2 py-1 font-pixel transition-none"
-              style={{ color: 'var(--color-primary)', borderColor: 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
-            >
-              {draft.coverLetterId ? 'VIEW LETTER' : 'CREATE LETTER'}
-            </button>
+            draft.coverLetterId ? (
+              <button
+                onClick={() => { playPageFlip(); onCoverLetter(draft); setCtxMenu(null) }}
+                className="text-left border text-[9px] px-2 py-1 font-pixel transition-none"
+                style={{ color: 'var(--color-primary)', borderColor: 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
+              >
+                VIEW LETTER
+              </button>
+            ) : (
+              <AiButton
+                label="CREATE LETTER"
+                phase="idle"
+                dots={0}
+                onClick={() => { onCoverLetter(draft); setCtxMenu(null) }}
+                className="!px-2"
+                style={{ textAlign: 'left' }}
+                labelStyle={{ fontFamily: '"Press Start 2P", monospace', fontSize: 9 }}
+              />
+            )
           )}
         </div>
       </div>

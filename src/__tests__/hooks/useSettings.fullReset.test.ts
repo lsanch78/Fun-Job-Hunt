@@ -84,6 +84,15 @@ jest.mock('@/contexts/SubscriptionContext', () => ({
   })),
 }))
 
+jest.mock('@/contexts/AiContext', () => ({
+  useAI: jest.fn(() => ({
+    aiProvider:   'proxy',
+    setProvider:  jest.fn(),
+    usage:        { count: 0, limit: 30, period: '2026-06' },
+    refreshUsage: jest.fn(async () => {}),
+  })),
+}))
+
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
 import { deleteAllJobs }          from '@/services/jobService'

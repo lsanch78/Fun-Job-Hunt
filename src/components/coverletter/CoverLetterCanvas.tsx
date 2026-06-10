@@ -4,12 +4,12 @@ import { useCVState } from '@/hooks/cv/useCVState'
 import { useAI } from '@/hooks/useAI'
 import { PROMPT_COVER_LETTER_CANVAS, PROMPT_COVER_LETTER_ANGLE } from '@/config/aiPrompts'
 import { T, ensureCrtStyles } from '@/lib/crtTheme'
+import AiButton from '@/components/ai/AiButton'
 import GlitchOverlay from '@/components/cv/GlitchOverlay'
 import CanvasShell from '@/components/canvas/CanvasShell'
 import { playCloseBlip, playAiDing } from '@/lib/sfx'
 import { insertCoverLetter, fetchCoverLetter, updateCoverLetter } from '@/services/coverLetterService'
 import { useSubscription } from '@/contexts/SubscriptionContext'
-import { fetchUsage, getAiProvider } from '@/services/aiService'
 import { createCheckoutSession } from '@/services/subscriptionService'
 import { PRO_UPGRADE_CTA } from '@/config/pricing'
 
@@ -43,10 +43,17 @@ export default function CoverLetterCanvas({
   onClose,
 }: Props) {
   const { cvContent, loading: cvLoading } = useCVState(userId)
-  const { run: runAI } = useAI()
+  const { run: runAI, aiProvider, usage } = useAI()
 
   // ── Generate state ───────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<'idle' | 'thinking' | 'error'>('idle')
+  const [regenDots, setRegenDots] = useState(0)
+
+  useEffect(() => {
+    if (phase !== 'thinking') return
+    const id = setInterval(() => setRegenDots((d) => (d + 1) % 3), 500)
+    return () => clearInterval(id)
+  }, [phase])
 
   // ── Result state ─────────────────────────────────────────────────────────────
   const {
@@ -81,12 +88,6 @@ export default function CoverLetterCanvas({
   // ── AI limit / subscription ──────────────────────────────────────────────────
   const { isSubscribed } = useSubscription()
   const [limitHit, setLimitHit] = useState(false)
-  const [usage, setUsage]       = useState<{ count: number; limit: number } | null>(null)
-
-  useEffect(() => {
-    if (getAiProvider() !== 'proxy') return
-    fetchUsage().then((u) => { if (u) setUsage(u) })
-  }, [])
 
   // ── Auto-trigger on open ─────────────────────────────────────────────────────
   const initialHandledRef = useRef(false)
@@ -349,7 +350,7 @@ export default function CoverLetterCanvas({
       }}
     >
       {/* ── AI usage banner ───────────────────────────────────────────────── */}
-      {getAiProvider() === 'proxy' && (
+      {aiProvider === 'proxy' && (
         <div style={{ position: 'absolute', top: 16, left: 20, right: 20, zIndex: 19, display: 'flex', alignItems: 'center', gap: 16 }}>
           {limitHit ? (
             <>
@@ -513,18 +514,14 @@ export default function CoverLetterCanvas({
             >
               CLOSE
             </button>
-            <button
-              disabled={phase === 'thinking'}
+            <AiButton
+              label="REGENERATE"
+              phase={phase === 'thinking' ? 'generating' : 'idle'}
+              dots={regenDots}
               onClick={() => handleGenerate()}
-              style={{
-                fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em', padding: '7px 20px', cursor: 'pointer',
-                color: T.greenDim, border: `1px solid ${T.border}`, background: 'none',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = T.green; (e.currentTarget as HTMLElement).style.borderColor = T.green }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = T.greenDim; (e.currentTarget as HTMLElement).style.borderColor = T.border }}
-            >
-              REGENERATE
-            </button>
+              disabled={phase === 'thinking'}
+              labelStyle={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: '0.12em' }}
+            />
             <button
               onClick={handleCopy}
               style={{
