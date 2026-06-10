@@ -346,6 +346,47 @@ describe('deleteJobs', () => {
     await deleteJobs(['job-1', 'job-2'])
     expect(mockFrom).toHaveBeenCalledWith('jobs')
   })
+
+  // Closing the loop: when a job is deleted, its linked AI artifacts must be
+  // deleted too — otherwise they'd be orphaned, counting against storage with no
+  // way for the user to reach them through the UI.
+  it('cascades: deletes linked tailored_resumes and cover_letters before deleting jobs', async () => {
+    // The select-linked-artifacts call returns the FKs; subsequent calls just resolve.
+    const chain = makeChain({
+      in: jest.fn()
+        .mockResolvedValueOnce({
+          data: [
+            { tailored_resume_id: 'r-1', cover_letter_id: null },
+            { tailored_resume_id: null,  cover_letter_id: 'cl-1' },
+            { tailored_resume_id: 'r-2', cover_letter_id: 'cl-2' },
+          ],
+          error: null,
+        })
+        .mockResolvedValue({ error: null }),
+    })
+
+    await deleteJobs(['j-1', 'j-2', 'j-3'])
+
+    const tableCalls = mockFrom.mock.calls.map((c) => c[0])
+    expect(tableCalls).toEqual(expect.arrayContaining(['jobs', 'tailored_resumes', 'cover_letters']))
+    expect(chain.in).toHaveBeenCalledWith('id', expect.arrayContaining(['r-1', 'r-2']))
+    expect(chain.in).toHaveBeenCalledWith('id', expect.arrayContaining(['cl-1', 'cl-2']))
+  })
+
+  // Defensive: when there's nothing linked, only the jobs table is touched.
+  it('does not call artifact tables when no linked artifacts exist', async () => {
+    makeChain({
+      in: jest.fn()
+        .mockResolvedValueOnce({ data: [{ tailored_resume_id: null, cover_letter_id: null }], error: null })
+        .mockResolvedValue({ error: null }),
+    })
+
+    await deleteJobs(['j-1'])
+
+    const tableCalls = mockFrom.mock.calls.map((c) => c[0])
+    expect(tableCalls).not.toContain('tailored_resumes')
+    expect(tableCalls).not.toContain('cover_letters')
+  })
 })
 
 describe('deleteAllJobs', () => {

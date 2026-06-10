@@ -144,6 +144,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
     updateJobDetails,
     patchJobTailoredResume,
     patchJobCoverLetter,
+    deleteTailoredResumeForJob,
+    deleteCoverLetterForJob,
     deleteJobs,
     pendingFocusIdRef,
   } = useJobList(userId, bumpXp)
@@ -618,6 +620,8 @@ export default function JobLogPage({ userId, userName }: { userId: string | null
                   onOpenDetailPage2={job.committed ? () => { setDetailJobPage(2); setDetailJobId(job.id) } : undefined}
                   onTailorResume={job.committed ? handleTailorResume : undefined}
                   onCoverLetter={job.committed ? handleCoverLetter : undefined}
+                  onDeleteResume={job.committed ? deleteTailoredResumeForJob : undefined}
+                  onDeleteLetter={job.committed ? deleteCoverLetterForJob : undefined}
                   onDetailBlur={(j) => {
                     if (!j.committed) return
                     updateJobDetails(j.id, {

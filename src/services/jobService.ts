@@ -3,6 +3,8 @@ import { lsGet, lsSet } from '@/lib/storage'
 import { SK } from '@/lib/storageKeys'
 import type { Job, DbJob, AutoGhostSetting } from '@/types'
 import { JOB_LIMITS } from '@/config/jobLimits'
+import { deleteTailoredResumes } from './tailoredResumeService'
+import { deleteCoverLetters } from './coverLetterService'
 
 // ── Job cap (see docs/SCALABILITY.md) ────────────────────────────────────────
 export const JOB_CAP = 1000
@@ -265,6 +267,23 @@ export async function linkCoverLetterToJob(jobId: string, coverLetterId: string 
 
 export async function deleteJobs(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+
+  const { data: linked, error: fetchErr } = await supabase
+    .from('jobs')
+    .select('tailored_resume_id, cover_letter_id')
+    .in('id', ids)
+
+  if (fetchErr) {
+    console.error('[jobService] deleteJobs (fetch linked artifacts):', fetchErr.message)
+  } else if (linked) {
+    const resumeIds = linked.map((r) => r.tailored_resume_id).filter((v): v is string => !!v)
+    const letterIds = linked.map((r) => r.cover_letter_id).filter((v): v is string => !!v)
+    await Promise.all([
+      deleteTailoredResumes(resumeIds),
+      deleteCoverLetters(letterIds),
+    ])
+  }
+
   const { error } = await supabase.from('jobs').delete().in('id', ids)
   if (error) console.error('[jobService] deleteJobs:', error.message)
 }

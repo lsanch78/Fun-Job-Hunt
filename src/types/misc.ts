@@ -159,8 +159,10 @@ export interface JobListState {
   onDraftChange: (draft: Job) => void
   onCommit: (committed: Job, rowEl: HTMLTableRowElement | null) => number | null
   updateJobDetails: (jobId: string, details: { description: string | null; notes: string | null }) => void
-  patchJobTailoredResume: (jobId: string, resumeId: string) => void
-  patchJobCoverLetter: (jobId: string, coverLetterId: string) => void
+  patchJobTailoredResume: (jobId: string, resumeId: string | null) => void
+  patchJobCoverLetter: (jobId: string, coverLetterId: string | null) => void
+  deleteTailoredResumeForJob: (jobId: string, resumeId: string) => Promise<void>
+  deleteCoverLetterForJob: (jobId: string, coverLetterId: string) => Promise<void>
   deleteJobs: (ids: string[]) => Promise<void>
   addJob: (company: string, title: string) => Promise<{ error: string | null }>
   pendingFocusIdRef: React.MutableRefObject<string | null>
