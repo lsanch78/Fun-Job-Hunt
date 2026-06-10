@@ -194,7 +194,8 @@ export default function TailoringResultPanel({
           dots={quickWinsDots}
           onClick={onQuickWins}
           disabled={quickWinsPhase === 'thinking'}
-          labelStyle={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px'}}
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          labelStyle={{ fontFamily: CV_FONT.family, fontSize: 13, fontVariant: 'small-caps', letterSpacing: '0.03em', padding: '7px 20px', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}
         />
         <button
           onClick={() => onPrint(rendererRef.current?.getPaperElement() ?? null)}
