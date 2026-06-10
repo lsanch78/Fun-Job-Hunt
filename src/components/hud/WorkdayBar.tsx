@@ -99,7 +99,7 @@ function ActivityStatus({ isActive }: { isActive: boolean }) {
   )
 }
 
-function AiCredits() {
+export function AiCredits() {
   const { isSubscribed, loading: subLoading } = useSubscription()
   const { aiProvider, usage } = useAI()
 
