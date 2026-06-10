@@ -132,12 +132,22 @@ export default function QuickCast() {
   // Link slots
   const [links,        setLinks]        = useState<QuickCastLink[]>([])
   const { userId } = useAuth()
+  const [open,         setOpen]         = useState<boolean>(() => lsGet<boolean>(SK.quickcastOpen, false))
   const [addFormOpen,  setAddFormOpen]  = useState(false)
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [draftLabel,   setDraftLabel]   = useState('')
   const [draftUrl,     setDraftUrl]     = useState('')
   const [draftIcon,    setDraftIcon]    = useState(ICON_OPTIONS[0].key)
   const [copiedId,     setCopiedId]     = useState<string | null>(null)
+
+  function toggleOpen() {
+    setOpen((o) => {
+      const next = !o
+      lsSet(SK.quickcastOpen, next)
+      if (!next) { setAddFormOpen(false); setEditingId(null) }
+      return next
+    })
+  }
 
 
   const containerRef  = useRef<HTMLDivElement>(null)
@@ -290,13 +300,23 @@ export default function QuickCast() {
       <div
         ref={containerRef}
         data-tutorial="quickcast"
-        className="relative bg-bg border-t border-border px-6 pt-2 pb-3 hidden sm:flex sm:flex-col items-center gap-2 shrink-0"
+        className="relative bg-bg border-t border-border hidden sm:block shrink-0"
       >
-        {/* Label */}
-        <span className="self-start text-[9px] text-dim font-pixel tracking-widest select-none">
-          QUICK CAST
-        </span>
+        <button
+          onClick={toggleOpen}
+          className="w-full flex items-center gap-2 px-4 text-muted hover:text-primary transition-none group"
+          style={open ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' } : { height: 48 }}
+          title={open ? 'Close quick cast' : 'Open quick cast'}
+        >
+          <Zap width={12} height={12} />
+          <span className="font-pixel text-[10px] select-none">QUICK CAST</span>
+          <span className="ml-auto font-pixel text-[10px] select-none group-hover:text-primary">
+            {open ? '▼' : '▲'}
+          </span>
+        </button>
 
+      {open && (
+      <div className="px-6 pb-3 flex flex-col items-center gap-2">
         {/* Main hotbar row */}
         <div className="flex items-end gap-6 w-full justify-center">
 
@@ -433,6 +453,8 @@ export default function QuickCast() {
           </div>
 
         </div>
+      </div>
+      )}
       </div>
     </>
   )
