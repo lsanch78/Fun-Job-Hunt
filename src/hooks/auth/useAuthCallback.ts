@@ -7,7 +7,7 @@ export function useAuthCallback() {
 
   useEffect(() => {
     return onAuthStateChange((session) => {
-      if (session) navigate('/', { replace: true })
+      if (session) navigate('/cv', { replace: true })
     })
   }, [navigate])
 }

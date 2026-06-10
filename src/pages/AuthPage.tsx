@@ -1,5 +1,7 @@
+import { Navigate } from 'react-router-dom'
 import introMp3 from '@/assets/music/1-intro.mp3'
 import { useAuthFlow } from '@/hooks/auth/useAuthFlow'
+import { useAuth } from '@/contexts/AuthContext'
 import { playAuthBlip as playBlip } from '@/lib/sfx'
 
 declare global {
@@ -17,6 +19,9 @@ declare global {
 }
 
 export default function AuthPage() {
+  const { session } = useAuth()
+  if (session) return <Navigate to="/cv" replace />
+
   const {
     screen, setScreen,
     returningName,

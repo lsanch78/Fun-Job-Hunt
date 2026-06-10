@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getSession, signInWithIdToken, signInWithOtp, verifyOtp, signInWithOAuth } from '@/services/authService'
 import { startStatsPoll } from '@/services/globalStatsService'
 import type { GlobalStats } from '@/types'
@@ -19,8 +18,6 @@ async function generateNonce(): Promise<[string, string]> {
 }
 
 export function useAuthFlow(introMp3: string) {
-  const navigate = useNavigate()
-
   const [screen,        setScreen]        = useState<Screen>('title')
   const [returningName, setReturningName] = useState<string | null>(null)
   const [email,         setEmail]         = useState('')
@@ -99,7 +96,6 @@ export function useAuthFlow(introMp3: string) {
     const { error } = await signInWithIdToken(response.credential, nonceRef.current ?? undefined)
     setLoading(false)
     if (error) { setError(error); return }
-    navigate('/jobs')
   }
 
   function toggleSound() {
@@ -126,8 +122,7 @@ export function useAuthFlow(introMp3: string) {
     }
     playBlip()
     setTimeout(() => {
-      if (returningName) navigate('/jobs')
-      else setScreen('email')
+      if (!returningName) setScreen('email')
     }, 80)
   }
 
@@ -161,7 +156,6 @@ export function useAuthFlow(introMp3: string) {
     const { error } = await verifyOtp(email, otp)
     if (error) { setLoading(false); setError(error); return }
     setLoading(false)
-    navigate('/jobs')
   }
 
   async function handleOAuthRedirect() {
