@@ -1,5 +1,7 @@
 export const PRO_PRICE_WEEKLY = 8
-export const PRO_PRICE_MONTHLY = Math.round((PRO_PRICE_WEEKLY * 52 / 12) * 100) / 100
+const WEEKS_PER_YEAR = 52
+const MONTHS_PER_YEAR = 12
+export const PRO_PRICE_MONTHLY = Math.round((PRO_PRICE_WEEKLY * WEEKS_PER_YEAR / MONTHS_PER_YEAR) * 100) / 100
 
 export const PRO_UPGRADE_CTA       = `UPGRADE — $${PRO_PRICE_WEEKLY}/week`
 export const PRO_UPGRADE_CTA_SHORT = `UPGRADE — $${PRO_PRICE_WEEKLY}/wk`
