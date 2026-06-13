@@ -86,7 +86,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-[10px] text-secondary tracking-widest mb-8">
-            — The F Totally Stands For Fun —
+            Gamified Job Search Tracker
           </p>
 
           {/* tagline */}
