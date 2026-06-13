@@ -91,7 +91,7 @@ export default function LandingPage() {
 
           {/* tagline */}
           <p className="body-text text-primary max-w-md mx-auto mb-10 text-base leading-relaxed">
-            If the job hunt is a number's game, then we'll help you play it like one. Track your apps, level up your network, and turn the dread into a quest worth embarking on.
+            Every hero needs a quest. Let's find yours.
           </p>
 
           {/* CTAs */}
